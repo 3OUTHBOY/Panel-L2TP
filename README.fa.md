@@ -1,7 +1,7 @@
 
 <div align="center">
 
-# 🛡️ Panel-L2TP
+# 🛡️ 3OUTHBOY PANEL
 
 **پنل مدیریت سرور VPN با پروتکل L2TP/IPSec — با نصب تک‌خطی**
 
