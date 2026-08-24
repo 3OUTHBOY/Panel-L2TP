@@ -1750,7 +1750,6 @@ if [ "${ENABLE_UFW,,}" != "n" ]; then
   ufw allow 500/udp >/dev/null
   ufw allow 4500/udp >/dev/null
   ufw allow 1701/udp >/dev/null
-  ufw allow esp >/dev/null
   if [ -n "$ADMIN_IP" ]; then
     ufw allow from "$ADMIN_IP" to any port "$PANEL_PORT" proto tcp >/dev/null
   else
