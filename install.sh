@@ -1,3 +1,96 @@
+ os.replace(CHAP_TMP, CHAP_FILE)
+    for username in blocked:
+        kill_session(username)
+    rebuild_dns_rules()
+
+if __name__ == '__main__':
+    main()
+
+SYNCPY
+chmod 755 ${PANEL_DIR}/sync_users.py
+
+cat > ${PANEL_DIR}/iface_down.py <<'IFACEPY'
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Final traffic tally when a PPP interface goes down."""
+import os, sqlite3, sys
+DB_FILE = '/opt/l2tp-panel/users.db'
+IFACE_DIR = '/run/l2tp-ifaces'
+
+def iface_stats(iface):
+    total = 0
+    for kind in ('rx_bytes', 'tx_bytes'):
+        try:
+            with open('/sys/class/net/%s/statistics/%s' % (iface, kind)) as fh:
+                total += int(fh.read().strip())
+        except OSError:
+            return None
+    return total
+
+def main():
+    iface = sys.argv[1] if len(sys.argv) > 1 else ''
+    if not iface: return
+    path = os.path.join(IFACE_DIR, iface)
+    try:
+        with open(path) as fh:
+            lines = fh.read().split()
+        username = lines[0] if lines else ''
+        last = int(lines[1]) if len(lines) > 1 else 0
+    except Exception:
+        return
+    current = iface_stats(iface)
+    if current is None: current = last
+    delta = max(current - last, 0)
+    if username and delta > 0:
+        try:
+            conn = sqlite3.connect(DB_FILE, timeout=10)
+            conn.execute('UPDATE users SET used_bytes = used_bytes + ? WHERE username = ?',
+                         (delta, username))
+            conn.commit(); conn.close()
+        except Exception: pass
+    try: os.remove(path)
+    except OSError: pass
+
+if __name__ == '__main__':
+    main()
+
+IFACEPY
+chmod 755 ${PANEL_DIR}/iface_down.py
+
+cat > ${PANEL_DIR}/templates/base.html <<'TPL_BASE_HTML'
+<!doctype html>
+<html lang="{{ lang }}" dir="{{ dir }}" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+(function(){
+  var t=null;
+  try{t=localStorage.getItem('l2tp-theme');}catch(e){}
+  if(!t){t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark';}
+  document.documentElement.setAttribute('data-theme',t);
+})();
+</script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.0.0/Vazirmatn-font-face.css" crossorigin="anonymous">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%2064%2064%27%3E%3Cdefs%3E%3ClinearGradient%20id%3D%27g%27%20x1%3D%2710%27%20y1%3D%276%27%20x2%3D%2754%27%20y2%3D%2758%27%20gradientUnits%3D%27userSpaceOnUse%27%3E%3Cstop%20stop-color%3D%27%2300e5ff%27/%3E%3Cstop%20offset%3D%271%27%20stop-color%3D%27%23b026ff%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath%20d%3D%27M32%204%20L55.5%2012.5%20V28%20C55.5%2042.5%2046%2052.5%2032%2059.5%20C18%2052.5%208.5%2042.5%208.5%2028%20V12.5%20Z%27%20fill%3D%27url%28%23g%29%27%20fill-opacity%3D%270.15%27/%3E%3Cpath%20d%3D%27M32%204%20L55.5%2012.5%20V28%20C55.5%2042.5%2046%2052.5%2032%2059.5%20C18%2052.5%208.5%2042.5%208.5%2028%20V12.5%20Z%27%20stroke%3D%27url%28%23g%29%27%20stroke-width%3D%273.4%27%20stroke-linejoin%3D%27round%27%20fill%3D%27none%27/%3E%3Cpath%20d%3D%27M22%2046.5%20V29%20C22%2021.8%2026.4%2016%2032%2016%20C37.6%2016%2042%2021.8%2042%2029%20V46.5%27%20stroke%3D%27url%28%23g%29%27%20stroke-width%3D%272.6%27%20stroke-linecap%3D%27round%27%20fill%3D%27none%27/%3E%3Cpath%20d%3D%27M28%2046.5%20V31.5%20C28%2027%2029.7%2023.5%2032%2023.5%20C34.3%2023.5%2036%2027%2036%2031.5%20V46.5%27%20stroke%3D%27url%28%23g%29%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20fill%3D%27none%27%20opacity%3D%270.6%27/%3E%3Ccircle%20cx%3D%2732%27%20cy%3D%2736.5%27%20r%3D%273%27%20fill%3D%27url%28%23g%29%27/%3E%3C/svg%3E">
+<title>{% block title %}{{ t.brand }}{% endblock %}</title>
+<style>
+:root{
+  --bg-deep:#020203;--panel-bg:rgba(8,8,12,.7);--border-neon:rgba(0,229,255,.15);
+  --neon-cyan:#00e5ff;--neon-purple:#b026ff;--btn-tx:#020203;
+  --bg:#020203;--card:rgba(8,8,12,.7);--card2:rgba(255,255,255,.03);--card3:rgba(255,255,255,.06);
+  --bd:rgba(0,229,255,.12);--bd2:rgba(0,229,255,.28);
+  --tx:#f0f0f0;--mu:#7a7a8c;
+  --acc:#00e5ff;--acc2:#b026ff;--grn:#00ff9d;--red:#ff4d6d;--org:#ffb020;
+  --sh:0 10px 30px rgba(0,0,0,.5);--sh2:0 6px 18px rgba(0,0,0,.4);
+  --input:rgba(0,0,0,.55);
+}
+[data-theme=light]{
+  --bg-deep:#eef2f9;--panel-bg:#ffffff;--border-neon:#dbe6f5;
+  --neon-cyan:#0b98ec;--neon-purple:#8b5cf6;--btn-tx:#ffffff;
+  --bg:#eef2f9;--card:#ffffff;--card2:#f5f8fd;--card3:#ecf1fa;
+  --bd:#e0e8f4;--bd2:#c5d2e8;--tx:#182238;--mu:#5d6c8a;
+  --acc:#2563eb;--acc2:#8b5cf6;--grn:#16a34a;--red:#dc2626;--org:#d97706;
   --sh:0 20px 40px -15px rgba(133,189,215,.7);--sh2:0 10px 24px -10px rgba(133,189,215,.7);
   --input:#f5f8fd;
 }
@@ -14,7 +107,8 @@ body{font-family:Vazirmatn,'Segoe UI',Tahoma,Arial,sans-serif;color:var(--tx);mi
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--neon-cyan);border-radius:10px}
 [data-theme=light] ::-webkit-scrollbar-thumb{background:#a3c3e0}
-html[dir=ltr] body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif}html[dir=ltr] .gheading,html[dir=ltr] .login-heading{letter-spacing:3px}
+html[dir=ltr] body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif}
+html[dir=ltr] .gheading,html[dir=ltr] .login-heading{letter-spacing:3px}
 .container{max-width:1180px;margin:0 auto;padding:0 16px}
 header{background:var(--panel-bg);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
   border-bottom:1px solid var(--border-neon);padding:15px 0;margin-bottom:24px;
@@ -155,6 +249,7 @@ tr.expired{opacity:.45}
   .cursor-orb.hot::after{width:11px;height:11px}
   .cursor-orb.click{opacity:.55}
 }
+
 /* ===== logo-update: L2TP tunnel shield ===== */
 .lg-a{stop-color:var(--neon-cyan)}
 .lg-b{stop-color:var(--neon-purple)}
@@ -168,8 +263,10 @@ tr.expired{opacity:.45}
 .login-logo{width:66px;height:66px;border-radius:19px;display:grid;place-items:center;margin:0 auto 12px;
   background:var(--card3);border:1px solid var(--bd2);box-shadow:0 0 20px rgba(0,229,255,.22)}
 .login-logo .logo-svg{width:44px;height:44px}
-.restart-logo{width:66px;height:66px;border-radius:19px;display:grid;place-items:center;margin:0 auto 12px;  background:var(--card3);border:1px solid var(--bd2);box-shadow:0 0 20px rgba(0,229,255,.22)}
+.restart-logo{width:66px;height:66px;border-radius:19px;display:grid;place-items:center;margin:0 auto 12px;
+  background:var(--card3);border:1px solid var(--bd2);box-shadow:0 0 20px rgba(0,229,255,.22)}
 .restart-logo .logo-svg{width:44px;height:44px}
+
 </style>
 </head>
 <body>
@@ -211,14 +308,17 @@ function genPass(){var c='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz2345678
   requestAnimationFrame(loop);
   var sel='button,a,input,select,textarea,label,.btn,.icon-btn,.card,.ctrl-btn,td,th';
   document.addEventListener('pointerover',function(e){if(e.target.closest(sel))o.classList.add('hot');});
-  document.addEventListener('pointerout',function(e){if(e.target.closest(sel))o.classList.remove('hot');});  document.addEventListener('pointerdown',function(){o.classList.add('click');});
+  document.addEventListener('pointerout',function(e){if(e.target.closest(sel))o.classList.remove('hot');});
+  document.addEventListener('pointerdown',function(){o.classList.add('click');});
   document.addEventListener('pointerup',function(){o.classList.remove('click');});
 })();
 </script>
 {% block scripts %}{% endblock %}
 </body>
 </html>
+
 TPL_BASE_HTML
+
 cat > ${PANEL_DIR}/templates/login.html <<'TPL_LOGIN_HTML'
 {% extends 'base.html' %}
 {% block title %}{{ t.login_title }}{% endblock %}
@@ -277,9 +377,7 @@ cat > ${PANEL_DIR}/templates/login.html <<'TPL_LOGIN_HTML'
 <div class="login-wrap">
   <form method="post" class="gcard">
     <div class="gform">
-      <div class="login-logo"><svg class="logo-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"
-role="img" aria-label="L2TP"><defs><linearGradient id="lgl" x1="10" y1="6" x2="54" y2="58" gradientUnits="userSpaceOnUse"><stop class="lg-a" offset="0"/><stop class="lg-b" offset="1"/></linearGradient></defs><path
-d="M32 4 L55.5 12.5 V28 C55.5 42.5 46 52.5 32 59.5 C18 52.5 8.5 42.5 8.5 28 V12.5 Z" stroke="url(#lgl)" stroke-width="3.4" stroke-linejoin="round" fill="url(#lgl)" fill-opacity="0.08"/><path d="M22 46.5 V29 C22 21.8 26.4 16 32 16 C37.6 16 42 21.8 42 29 V46.5" stroke="url(#lgl)" stroke-width="2.6" stroke-linecap="round"/><path d="M28 46.5 V31.5 C28 27 29.7 23.5 32 23.5 C34.3 23.5 36 27 36 31.5 V46.5" stroke="url(#lgl)" stroke-width="2" stroke-linecap="round" opacity="0.6"/><circle cx="32" cy="36.5" r="3" fill="url(#lgl)"/></svg></div>
+      <div class="login-logo"><svg class="logo-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="L2TP"><defs><linearGradient id="lgl" x1="10" y1="6" x2="54" y2="58" gradientUnits="userSpaceOnUse"><stop class="lg-a" offset="0"/><stop class="lg-b" offset="1"/></linearGradient></defs><path d="M32 4 L55.5 12.5 V28 C55.5 42.5 46 52.5 32 59.5 C18 52.5 8.5 42.5 8.5 28 V12.5 Z" stroke="url(#lgl)" stroke-width="3.4" stroke-linejoin="round" fill="url(#lgl)" fill-opacity="0.08"/><path d="M22 46.5 V29 C22 21.8 26.4 16 32 16 C37.6 16 42 21.8 42 29 V46.5" stroke="url(#lgl)" stroke-width="2.6" stroke-linecap="round"/><path d="M28 46.5 V31.5 C28 27 29.7 23.5 32 23.5 C34.3 23.5 36 27 36 31.5 V46.5" stroke="url(#lgl)" stroke-width="2" stroke-linecap="round" opacity="0.6"/><circle cx="32" cy="36.5" r="3" fill="url(#lgl)"/></svg></div>
       <div class="gheading">{{ t.brand }}</div>
       <div class="gsub">L2TP / IPSec PSK</div>
       {% if error %}<div class="gerr">{{ error }}</div>{% endif %}
@@ -298,7 +396,9 @@ d="M32 4 L55.5 12.5 V28 C55.5 42.5 46 52.5 32 59.5 C18 52.5 8.5 42.5 8.5 28 V12.
   </form>
 </div>
 {% endblock %}
+
 TPL_LOGIN_HTML
+
 cat > ${PANEL_DIR}/templates/index.html <<'TPL_INDEX_HTML'
 {% extends 'base.html' %}
 {% block title %}{{ t.header_title }}{% endblock %}
@@ -336,14 +436,15 @@ cat > ${PANEL_DIR}/templates/index.html <<'TPL_INDEX_HTML'
     </div>
   </div>
 </header>
+
 <main class="container">
   {% with msgs = get_flashed_messages() %}
     {% for m in msgs %}<div class="alert ok">{{ m }}</div>{% endfor %}
   {% endwith %}
+
   <section class="cards">
     <div class="card stat">
-      <div class="stat-head"><span class="stat-icon">🌐</span><span class="stat-label">{{ t.server_address
-}}</span></div>
+      <div class="stat-head"><span class="stat-icon">🌐</span><span class="stat-label">{{ t.server_address }}</span></div>
       <div class="secret-row"><b class="pw">{{ server_ip }}</b>
         <button type="button" class="icon-btn copy-btn" data-copy="{{ server_ip }}" title="{{ t.copy_tip }}">📋</button></div>
     </div>
@@ -372,6 +473,7 @@ cat > ${PANEL_DIR}/templates/index.html <<'TPL_INDEX_HTML'
       </div>
     </div>
   </section>
+
   <section class="card">
     <h2>{{ t.add_user_title }}</h2>
     <form method="post" action="/add" class="add-form">
@@ -407,11 +509,12 @@ cat > ${PANEL_DIR}/templates/index.html <<'TPL_INDEX_HTML'
         <input type="datetime-local" name="expires_at">
       </div>
       <div class="full">
-        <button class="btn primary">＋  {{ t.add_btn }}</button>
+        <button class="btn primary">＋ {{ t.add_btn }}</button>
         <span class="muted">{{ t.exact_note }}</span>
       </div>
     </form>
   </section>
+
   <section class="card">
     <h2>{{ t.users_title }}</h2>
     <div class="table-wrap">
@@ -419,8 +522,7 @@ cat > ${PANEL_DIR}/templates/index.html <<'TPL_INDEX_HTML'
         <thead>
           <tr>
             <th>#</th><th>{{ t.th_username }}</th><th>{{ t.th_password }}</th><th>{{ t.th_expiry }}</th>
-            <th>{{ t.th_remaining }}</th><th>{{ t.th_traffic }}</th><th>{{ t.th_dns }}</th><th>{{ t.th_key
-}}</th>
+            <th>{{ t.th_remaining }}</th><th>{{ t.th_traffic }}</th><th>{{ t.th_dns }}</th><th>{{ t.th_key }}</th>
             <th>{{ t.th_status }}</th><th>{{ t.th_actions }}</th>
           </tr>
         </thead>
@@ -491,6 +593,7 @@ cat > ${PANEL_DIR}/templates/index.html <<'TPL_INDEX_HTML'
     </div>
   </section>
 </main>
+
 <div class="modal" id="editModal">
   <form method="post" id="editForm" class="modal-card">
     <h3>✏️ {{ t.edit_title }}</h3>
@@ -513,6 +616,7 @@ cat > ${PANEL_DIR}/templates/index.html <<'TPL_INDEX_HTML'
   </form>
 </div>
 {% endblock %}
+
 {% block scripts %}
 <script>
 function openEdit(id, exp, dns1, dns2, key){
@@ -530,7 +634,9 @@ document.getElementById('editModal').addEventListener('click', function(e){ if(e
 document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeEdit(); });
 </script>
 {% endblock %}
+
 TPL_INDEX_HTML
+
 cat > ${PANEL_DIR}/templates/user.html <<'TPL_USER_HTML'
 {% extends 'base.html' %}
 {% block title %}{{ t.status_title }}{% endblock %}
@@ -538,6 +644,7 @@ cat > ${PANEL_DIR}/templates/user.html <<'TPL_USER_HTML'
 <style>
 .sub-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px}
 .sub-card{width:100%;max-width:480px;animation:subIn .5s ease}
+
 /* ---- status banner (logo + status text) ---- */
 .status-banner{display:flex;align-items:center;gap:16px;padding:16px 20px;border-radius:18px;
   margin-bottom:18px;border:1px solid}
@@ -556,6 +663,7 @@ cat > ${PANEL_DIR}/templates/user.html <<'TPL_USER_HTML'
 .sb-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
 .sb-title{font-weight:800;font-size:1.06rem}
 .sb-sub{font-size:.86rem;color:var(--mu)}
+
 /* ---- gauge zone ---- */
 .gauge-zone{display:flex;align-items:center;justify-content:space-between;gap:16px;
   padding:8px 24px 4px}
@@ -573,6 +681,7 @@ cat > ${PANEL_DIR}/templates/user.html <<'TPL_USER_HTML'
   background:linear-gradient(90deg,var(--neon-cyan),var(--neon-purple));
   -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 .gauge-center span{font-size:.68rem;color:var(--mu);margin-top:3px}
+
 .gauge-side{flex:1;min-width:0;display:flex;flex-direction:column;gap:12px}
 .mini-stat{background:var(--card3);border:1px solid var(--bd);border-radius:14px;
   padding:12px 14px;overflow:hidden}
@@ -580,6 +689,7 @@ cat > ${PANEL_DIR}/templates/user.html <<'TPL_USER_HTML'
   display:flex;align-items:center;gap:6px}
 .mini-stat .ms-value{font-size:1.02rem;font-weight:700;word-break:break-word}
 .mini-stat .ms-value.pw{font-weight:400}
+
 /* ---- countdown (compact single row) ---- */
 .countdown{display:flex;flex-wrap:nowrap;gap:4px;margin-top:2px;align-items:stretch}
 .cd-box{flex:1 1 0;min-width:0;background:var(--bg-deep);
@@ -588,11 +698,13 @@ cat > ${PANEL_DIR}/templates/user.html <<'TPL_USER_HTML'
 .cd-box b{display:block;font-size:.84rem;font-weight:800;font-variant-numeric:tabular-nums;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.2}
 .cd-box span{display:block;font-size:.52rem;color:var(--mu);line-height:1.4;margin-top:2px}
+
 /* ---- divider ---- */
 .sub-divider{display:flex;align-items:center;gap:12px;padding:16px 24px 6px}
 .sub-divider::before,.sub-divider::after{content:'';flex:1;height:1px;
   background:linear-gradient(90deg,transparent,var(--bd2),transparent)}
 .sub-divider span{font-size:.72rem;color:var(--mu);letter-spacing:1.5px;font-weight:700}
+
 /* ---- info rows ---- */
 .sub-info{padding:4px 24px 10px}
 .info-row{display:flex;justify-content:space-between;align-items:center;gap:12px;
@@ -600,14 +712,18 @@ cat > ${PANEL_DIR}/templates/user.html <<'TPL_USER_HTML'
 .info-row:last-child{border-bottom:none}
 .info-row>span{color:var(--mu);font-size:.82rem;font-weight:600;flex:none}
 .info-row>div,.info-row>b{word-break:break-all;text-align:end;font-size:.9rem;min-width:0}
+
 .sub-footer{padding:12px 24px 20px;text-align:center}
 .sub-footer .muted{font-size:.72rem}
+
 @keyframes subIn{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
+
 @media(max-width:430px){
   .gauge-zone{flex-direction:column}
   .gauge-side{width:100%}
 }
 </style>
+
 <!-- shared gradient defs -->
 <svg width="0" height="0" style="position:absolute">
   <defs>
@@ -625,10 +741,13 @@ cat > ${PANEL_DIR}/templates/user.html <<'TPL_USER_HTML'
     </linearGradient>
   </defs>
 </svg>
+
 <div class="sub-wrap">
   <div class="card sub-card">
+
     {% set pct = u.traffic_pct %}
     {% set CIRC = 314 %}
+
     <div class="status-banner {{ 'expired' if u.expired else ('quota' if u.quota_exceeded else 'active') }}">
       <div class="sub-logo">
         <svg class="logo-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="L2TP"><path d="M32 4 L55.5 12.5 V28 C55.5 42.5 46 52.5 32 59.5 C18 52.5 8.5 42.5 8.5 28 V12.5 Z" stroke="url(#lgu)" stroke-width="3.4" stroke-linejoin="round" fill="url(#lgu)" fill-opacity="0.08"/><path d="M22 46.5 V29 C22 21.8 26.4 16 32 16 C37.6 16 42 21.8 42 29 V46.5" stroke="url(#lgu)" stroke-width="2.6" stroke-linecap="round"/><path d="M28 46.5 V31.5 C28 27 29.7 23.5 32 23.5 C34.3 23.5 36 27 36 31.5 V46.5" stroke="url(#lgu)" stroke-width="2" stroke-linecap="round" opacity="0.6"/><circle cx="32" cy="36.5" r="3" fill="url(#lgu)"/></svg>
@@ -638,6 +757,7 @@ cat > ${PANEL_DIR}/templates/user.html <<'TPL_USER_HTML'
         <span class="sb-sub">{{ u.username }} · L2TP/IPSec</span>
       </div>
     </div>
+
     <div class="gauge-zone">
       <div class="gauge">
         <svg width="150" height="150" viewBox="0 0 150 150">
@@ -656,6 +776,7 @@ cat > ${PANEL_DIR}/templates/user.html <<'TPL_USER_HTML'
           <span>{{ u.traffic }}</span>
         </div>
       </div>
+
       <div class="gauge-side">
         <div class="mini-stat">
           <div class="ms-label">⏱ {{ t.st_remaining }}</div>
@@ -676,12 +797,13 @@ cat > ${PANEL_DIR}/templates/user.html <<'TPL_USER_HTML'
         </div>
       </div>
     </div>
+
     <div class="sub-divider"><span>{{ t.st_type }}</span></div>
+
     <div class="sub-info">
       <div class="info-row"><span>{{ t.st_server }}</span>
         <div class="secret-row"><b class="pw">{{ server_ip }}</b>
-          <button type="button" class="icon-btn copy-btn" data-copy="{{ server_ip }}" title="{{ t.copy_tip
-}}">📋</button></div>
+          <button type="button" class="icon-btn copy-btn" data-copy="{{ server_ip }}" title="{{ t.copy_tip }}">📋</button></div>
       </div>
       <div class="info-row"><span>{{ t.st_psk }}</span>
         <div class="secret-row">
@@ -705,12 +827,14 @@ cat > ${PANEL_DIR}/templates/user.html <<'TPL_USER_HTML'
         <b class="pw">{% if u.dns1 or u.dns2 %}{{ u.dns1 or '—' }} / {{ u.dns2 or '—' }}{% else %}{{ t.st_dns_default }}{% endif %}</b>
       </div>
     </div>
+
     <div class="sub-footer">
       <span class="muted">{{ t.brand }} · v{{ panel_version }}</span>
     </div>
   </div>
 </div>
 {% endblock %}
+
 {% block scripts %}
 <script>
 (function(){
@@ -735,7 +859,9 @@ cat > ${PANEL_DIR}/templates/user.html <<'TPL_USER_HTML'
 })();
 </script>
 {% endblock %}
+
 TPL_USER_HTML
+
 cat > ${PANEL_DIR}/templates/restarting.html <<'TPL_RESTARTING_HTML'
 {% extends 'base.html' %}
 {% block title %}{{ t.panel_restarting }}{% endblock %}
@@ -743,15 +869,15 @@ cat > ${PANEL_DIR}/templates/restarting.html <<'TPL_RESTARTING_HTML'
 <meta http-equiv="refresh" content="6;url=/">
 <div class="login-wrap">
   <div class="card" style="max-width:385px;text-align:center">
-    <div class="restart-logo"><svg class="logo-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"
-role="img" aria-label="L2TP"><defs><linearGradient id="lgr" x1="10" y1="6" x2="54" y2="58" gradientUnits="userSpaceOnUse"><stop class="lg-a" offset="0"/><stop class="lg-b" offset="1"/></linearGradient></defs><path
-d="M32 4 L55.5 12.5 V28 C55.5 42.5 46 52.5 32 59.5 C18 52.5 8.5 42.5 8.5 28 V12.5 Z" stroke="url(#lgr)" stroke-width="3.4" stroke-linejoin="round" fill="url(#lgr)" fill-opacity="0.08"/><path d="M22 46.5 V29 C22 21.8 26.4 16 32 16 C37.6 16 42 21.8 42 29 V46.5" stroke="url(#lgr)" stroke-width="2.6" stroke-linecap="round"/><path d="M28 46.5 V31.5 C28 27 29.7 23.5 32 23.5 C34.3 23.5 36 27 36 31.5 V46.5" stroke="url(#lgr)" stroke-width="2" stroke-linecap="round" opacity="0.6"/><circle cx="32" cy="36.5" r="3" fill="url(#lgr)"/></svg></div>
+    <div class="restart-logo"><svg class="logo-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="L2TP"><defs><linearGradient id="lgr" x1="10" y1="6" x2="54" y2="58" gradientUnits="userSpaceOnUse"><stop class="lg-a" offset="0"/><stop class="lg-b" offset="1"/></linearGradient></defs><path d="M32 4 L55.5 12.5 V28 C55.5 42.5 46 52.5 32 59.5 C18 52.5 8.5 42.5 8.5 28 V12.5 Z" stroke="url(#lgr)" stroke-width="3.4" stroke-linejoin="round" fill="url(#lgr)" fill-opacity="0.08"/><path d="M22 46.5 V29 C22 21.8 26.4 16 32 16 C37.6 16 42 21.8 42 29 V46.5" stroke="url(#lgr)" stroke-width="2.6" stroke-linecap="round"/><path d="M28 46.5 V31.5 C28 27 29.7 23.5 32 23.5 C34.3 23.5 36 27 36 31.5 V46.5" stroke="url(#lgr)" stroke-width="2" stroke-linecap="round" opacity="0.6"/><circle cx="32" cy="36.5" r="3" fill="url(#lgr)"/></svg></div>
     <h1 style="color:var(--tx)">{{ t.panel_restarting }}</h1>
     <p class="muted" style="margin-top:8px">{{ t.restarting_msg }}</p>
   </div>
 </div>
 {% endblock %}
+
 TPL_RESTARTING_HTML
+
 cat > ${PANEL_DIR}/templates/updating.html <<'TPL_UPDATING_HTML'
 {% extends 'base.html' %}
 {% block title %}{{ t.updating_title }}{% endblock %}
@@ -762,7 +888,8 @@ cat > ${PANEL_DIR}/templates/updating.html <<'TPL_UPDATING_HTML'
   background:var(--card3);border:1px solid var(--bd2);box-shadow:0 0 22px rgba(0,229,255,.22);
   animation:updspin 2.2s ease-in-out infinite}
 @keyframes updspin{0%,100%{transform:rotate(0)}50%{transform:rotate(180deg)}}
-.upd-bar{height:6px;background:rgba(255,255,255,.07);border-radius:99px;overflow:hidden;margin:18px 0 14px}[data-theme=light] .upd-bar{background:#e2e8f4}
+.upd-bar{height:6px;background:rgba(255,255,255,.07);border-radius:99px;overflow:hidden;margin:18px 0 14px}
+[data-theme=light] .upd-bar{background:#e2e8f4}
 .upd-fill{height:100%;width:40%;border-radius:99px;
   background:linear-gradient(90deg,var(--neon-cyan),var(--neon-purple));
   box-shadow:0 0 12px rgba(0,229,255,.5);animation:updmv 1.6s ease-in-out infinite}
@@ -786,38 +913,48 @@ cat > ${PANEL_DIR}/templates/updating.html <<'TPL_UPDATING_HTML'
   </div>
 </div>
 {% endblock %}
+
 TPL_UPDATING_HTML
+
 cat > /etc/systemd/system/l2tp-panel.service <<'PANELSVC'
 [Unit]
 Description=3OUTHBOY PANEL Web UI
 After=network.target
+
 [Service]
 WorkingDirectory=/opt/l2tp-panel
 ExecStart=/usr/bin/gunicorn --workers 1 --threads 4 --bind 0.0.0.0:PANELPORT --timeout 60 panel:app
 Restart=always
 RestartSec=3
+
 [Install]
 WantedBy=multi-user.target
 PANELSVC
 sed -i "s/PANELPORT/${PANEL_PORT}/" /etc/systemd/system/l2tp-panel.service
+
 cat > /etc/systemd/system/l2tp-sync.service <<'SYNCSVC'
 [Unit]
 Description=3OUTHBOY PANEL - user sync
+
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/python3 /opt/l2tp-panel/sync_users.py
 SYNCSVC
+
 cat > /etc/systemd/system/l2tp-sync.timer <<'SYNCTMR'
 [Unit]
 Description=Run L2TP sync every 30 seconds
+
 [Timer]
 OnBootSec=30
 OnUnitActiveSec=30
 AccuracySec=5
 Unit=l2tp-sync.service
+
 [Install]
 WantedBy=timers.target
 SYNCTMR
+
 if [ "${ENABLE_UFW,,}" != "n" ]; then
   info "Configuring UFW..."
   SSH_PORT="22"
@@ -839,6 +976,7 @@ if [ "${ENABLE_UFW,,}" != "n" ]; then
   ufw --force enable >/dev/null
   ok "Firewall enabled"
 fi
+
 info "Starting services..."
 systemctl daemon-reload
 systemctl enable --now strongswan-starter >/dev/null 2>&1 || true
@@ -851,6 +989,7 @@ systemctl enable --now l2tp-panel >/dev/null 2>&1 || true
 systemctl enable --now l2tp-sync.timer >/dev/null 2>&1 || true
 python3 "${PANEL_DIR}/sync_users.py"
 ok "All services started."
+
 echo
 echo -e "${GREEN}=====================================================${NC}"
 echo -e "${GREEN}      3OUTHBOY PANEL — Installation complete!        ${NC}"
