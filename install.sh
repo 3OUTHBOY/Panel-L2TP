@@ -1,569 +1,3 @@
-#!/bin/bash
-# =====================================================================
-#   3OUTHBOY L2TP Panel — L2TP/IPSec VPN + Web Management Panel
-#   Ubuntu 20.04 / 22.04 / 24.04
-#   Interactive:  sudo bash install.sh
-#   Unattended:   sudo bash install.sh --user admin --pass X --port 8080 --psk Y
-# =====================================================================
-set -euo pipefail
-
-GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
-info(){ echo -e "${CYAN}[*]${NC} $1"; }
-ok(){   echo -e "${GREEN}[OK]${NC} $1"; }
-warn(){ echo -e "${YELLOW}[!]${NC} $1"; }
-die(){  echo -e "${RED}[X]${NC} $1"; exit 1; }
-
-[ "$EUID" -eq 0 ] || die "This script must be run with sudo."
-
-PANEL_DIR="/opt/l2tp-panel"
-POOL_NET="192.168.43.0/24"
-POOL_START="192.168.43.10"; POOL_END="192.168.43.250"; L2TP_LOCAL_IP="192.168.43.1"
-XAUTH_NET="192.168.44.0/24"
-
-rand_str(){
-  local len=${1:-20} out=""
-  while [ "${#out}" -lt "$len" ]; do
-    out+="$(head -c 64 /dev/urandom | LC_ALL=C tr -dc 'A-Za-z0-9')"
-  done
-  printf '%s' "${out:0:$len}"
-}
-sanitize(){ printf '%s' "$1" | LC_ALL=C tr -d '\042\047\134\052\072\073\040\011\012\043'; }
-
-# ------------------- CLI args (unattended installs) ------------------
-ADMIN_USER="admin"; ADMIN_PASS="$(rand_str 12)"; PANEL_PORT="8080"
-PSK="$(rand_str 20)"; ADMIN_IP=""; SET_TZ="y"; ENABLE_UFW="y"
-while [ $# -gt 0 ]; do
-  case "$1" in
-    --user)   ADMIN_USER="$2"; shift 2 ;;
-    --pass)   ADMIN_PASS="$2"; shift 2 ;;
-    --port)   PANEL_PORT="$2"; shift 2 ;;
-    --psk)    PSK="$2"; shift 2 ;;
-    --admin-ip) ADMIN_IP="$2"; shift 2 ;;
-    --tz)     SET_TZ="$2"; shift 2 ;;
-    --no-ufw) ENABLE_UFW="n"; shift ;;
-    *) shift ;;
-  esac
-done
-
-# ------------------- Interactive setup (incl. PORT) ------------------
-if [ -t 0 ]; then
-  echo -e "${CYAN}============ 3OUTHBOY L2TP Panel Installer ============${NC}"
-  read -rp "Panel admin username [${ADMIN_USER}]: " v; ADMIN_USER="${v:-$ADMIN_USER}"
-  read -rp "Panel admin password [${ADMIN_PASS}]: " v; ADMIN_PASS="${v:-$ADMIN_PASS}"
-  read -rp "Panel port (your choice) [${PANEL_PORT}]: " v; PANEL_PORT="${v:-$PANEL_PORT}"
-  read -rp "IPSec pre-shared key (PSK) [${PSK}]: " v; PSK="${v:-$PSK}"
-  read -rp "Admin IP allowed to open panel (empty = no restriction): " v; ADMIN_IP="${v:-$ADMIN_IP}"
-  read -rp "Set server timezone to Asia/Tehran? [Y/n]: " v; SET_TZ="${v:-y}"
-  read -rp "Enable UFW firewall? [Y/n]: " v; ENABLE_UFW="${v:-y}"
-fi
-
-ADMIN_USER="$(sanitize "$ADMIN_USER" | tr -cd 'A-Za-z0-9_.-')"
-ADMIN_PASS="$(sanitize "$ADMIN_PASS")"; PSK="$(sanitize "$PSK")"
-ADMIN_USER="${ADMIN_USER:-admin}"; ADMIN_PASS="${ADMIN_PASS:-$(rand_str 12)}"; PSK="${PSK:-$(rand_str 20)}"
-[[ "$PANEL_PORT" =~ ^[1-9][0-9]{1,4}$ ]] || PANEL_PORT="8080"
-if [ -n "$ADMIN_IP" ] && ! [[ "$ADMIN_IP" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}(/[0-9]{1,2})?$ ]]; then
-  warn "Invalid admin IP; panel will not be restricted."; ADMIN_IP=""
-fi
-
-# ----------------------------- Packages ------------------------------
-info "Installing packages (this may take a few minutes)..."
-export DEBIAN_FRONTEND=noninteractive
-systemctl disable --now strongswan-starter strongswan-swanctl >/dev/null 2>&1 || true
-apt-get remove -y strongswan-starter strongswan-swanctl libreswan >/dev/null 2>&1 || true
-apt-get update -y -qq
-apt-get install -y -qq xl2tpd strongswan strongswan-starter libcharon-extra-plugins \
-  libstrongswan-extra-plugins ppp python3 python3-flask gunicorn ufw iptables curl >/dev/null
-ok "Packages installed."
-
-[ "${SET_TZ,,}" != "n" ] && timedatectl set-timezone Asia/Tehran >/dev/null 2>&1 && ok "Timezone: Asia/Tehran" || true
-
-DEF_IF="$(ip -4 route show default 2>/dev/null | awk '{print $5; exit}')"
-[ -n "$DEF_IF" ] || die "Could not find the default network interface."
-SERVER_IP="$(ip -4 addr show dev "$DEF_IF" | grep -oP 'inet\s+\K[\d.]+' | head -1 || true)"
-[ -n "$SERVER_IP" ] || SERVER_IP="$(hostname -I | awk '{print $1}')"
-
-# --------------------- Public IPv4 detection (forced) ----------------
-info "Detecting public IPv4 address..."
-PUB_IP="$(curl -4 -s --max-time 6 https://api.ipify.org || true)"
-[ -n "$PUB_IP" ] || PUB_IP="$(curl -4 -s --max-time 6 http://ipv4.icanhazip.com || true)"
-[ -n "$PUB_IP" ] || PUB_IP="$(curl -4 -s --max-time 6 http://checkip.amazonaws.com || true)"
-if [[ "$PUB_IP" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
-  ok "Public IPv4: ${PUB_IP}"
-else
-  PUB_IP="$SERVER_IP"; warn "Could not detect public IPv4; using ${PUB_IP}."
-fi
-grep -q '^precedence ::ffff:0:0/96  100' /etc/gai.conf 2>/dev/null || \
-  echo 'precedence ::ffff:0:0/96  100' >> /etc/gai.conf
-
-# ----------------------------- Backup --------------------------------
-TS="$(date +%Y%m%d%H%M%S)"
-for f in /etc/ipsec.conf /etc/ipsec.secrets /etc/xl2tpd/xl2tpd.conf \
-         /etc/ppp/options.xl2tpd /etc/ppp/chap-secrets; do
-  [ -f "$f" ] && cp -a "$f" "${f}.bak-${TS}"
-done
-
-# ----------------------------- IPSec (strongSwan) --------------------
-info "Configuring IPSec (strongSwan)..."
-LEFTID=""; [[ "$PUB_IP" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] && LEFTID="    leftid=${PUB_IP}"
-
-cat > /etc/ipsec.conf <<IPSECEOF
-# L2TP/IPSec PSK + XAuth PSK - 3OUTHBOY L2TP Panel (strongSwan)
-config setup
-    uniqueids=no
-
-conn shared
-    keyexchange=ikev1
-    left=%defaultroute
- ${LEFTID}
-    right=%any
-    forceencaps=yes
-    authby=psk
-    pfs=no
-    rekey=no
-    dpddelay=30
-    dpdaction=clear
-    ikelifetime=24h
-    lifetime=24h
-    ike=aes256-sha2_256-modp2048,aes128-sha2_256-modp2048,aes256-sha1-modp2048,aes128-sha1-modp2048,aes256-sha2_256-curve25519,aes128-sha2_256-curve25519,aes256-sha1-curve25519,aes128-sha1-curve25519,aes256-sha2_256-ecp256,aes128-sha2_256-ecp256,aes256-sha2_256-modp1024,aes128-sha2_256-modp1024,aes256-sha1-modp1024,aes128-sha1-modp1024
-    esp=aes256-sha2_256,aes128-sha2_256,aes256-sha2_512,aes256-sha1,aes128-sha1,aes128gcm16,aes256gcm16
-
-conn l2tp-psk
-    also=shared
-    auto=add
-    leftprotoport=17/1701
-    rightprotoport=17/%any
-    type=transport
-
-conn xauth-psk
-    also=shared
-    auto=add
-    leftsubnet=0.0.0.0/0
-    rightaddresspool=192.168.44.10-192.168.44.250
-    modecfgdns="8.8.8.8 8.8.4.4"
-    xauth=server
-    modeconfig=push
-    cisco_unity=yes
-IPSECEOF
-
-printf '%%any %%any : PSK "%s"\n' "$PSK" > /etc/ipsec.secrets
-chmod 600 /etc/ipsec.secrets
-touch /etc/ipsec.d/passwd && chmod 600 /etc/ipsec.d/passwd
-
-# ----------------------------- xl2tpd + PPP --------------------------
-info "Configuring xl2tpd and PPP..."
-cat > /etc/xl2tpd/xl2tpd.conf <<XL2TPDEOF
-[global]
-port = 1701
-
-[lns default]
-ip range = ${POOL_START}-${POOL_END}
-local ip = ${L2TP_LOCAL_IP}
-require chap = yes
-refuse pap = yes
-require authentication = yes
-name = l2tpd
-pppoptfile = /etc/ppp/options.xl2tpd
-length bit = yes
-XL2TPDEOF
-
-cat > /etc/ppp/options.xl2tpd <<'PPPOPT'
-name l2tpd
-ipcp-accept-local
-ipcp-accept-remote
-ms-dns 8.8.8.8
-ms-dns 1.1.1.1
-noccp
-auth
-crtscts
-idle 1800
-mtu 1410
-mru 1410
-lock
-connect-delay 5000
-lcp-echo-interval 30
-lcp-echo-failure 5
-PPPOPT
-
-# ---- PPP hooks: online status + traffic counter + per-user DNS ----
-cat > /etc/ppp/ip-up.d/90l2tp-panel <<'IPUPEOF'
-#!/bin/sh
-SDIR=/run/l2tp-sessions
-PDIR=/run/l2tp-peerip
-IDIR=/run/l2tp-ifaces
-DMAP=/etc/ppp/dns-map
-[ -n "$PEERNAME" ] || exit 0
-mkdir -p "$SDIR" "$PDIR" "$IDIR" 2>/dev/null || exit 0
-P=$PPID; N=0
-while [ -n "$P" ] && [ "$P" != "1" ] && [ "$P" != "0" ] && [ "$N" -lt 6 ]; do
-    C=$(ps -o comm= -p "$P" 2>/dev/null)
-    case "$C" in
-        pppd*) echo "$P" > "$SDIR/$PEERNAME"; break ;;
-    esac
-    P=$(ps -o ppid= -p "$P" 2>/dev/null | tr -d ' '); N=$((N+1))
-done
-[ -n "$5" ] && echo "$5" > "$PDIR/$PEERNAME"
-[ -n "$1" ] && printf '%s 0\n' "$PEERNAME" > "$IDIR/$1"
-if [ -s "$DMAP/$PEERNAME" ] && [ -n "$5" ]; then
-    DNS1=$(awk '{print $1}' "$DMAP/$PEERNAME" 2>/dev/null)
-    if [ -n "$DNS1" ]; then
-        for PROTO in udp tcp; do
-            /sbin/iptables -t nat -C L2TP_DNS -s "$5" -p $PROTO --dport 53 -j DNAT --to-destination "$DNS1" 2>/dev/null || \
-            /sbin/iptables -t nat -A L2TP_DNS -s "$5" -p $PROTO --dport 53 -j DNAT --to-destination "$DNS1" 2>/dev/null
-        done
-    fi
-fi
-exit 0
-IPUPEOF
-chmod 755 /etc/ppp/ip-up.d/90l2tp-panel
-
-cat > /etc/ppp/ip-down.d/90l2tp-panel <<'IPDOWNEOF'
-#!/bin/sh
-SDIR=/run/l2tp-sessions
-PDIR=/run/l2tp-peerip
-IDIR=/run/l2tp-ifaces
-DMAP=/etc/ppp/dns-map
-if [ -n "$PEERNAME" ]; then
-    if [ -s "$DMAP/$PEERNAME" ] && [ -n "$5" ]; then
-        DNS1=$(awk '{print $1}' "$DMAP/$PEERNAME" 2>/dev/null)
-        if [ -n "$DNS1" ]; then
-            for PROTO in udp tcp; do
-                /sbin/iptables -t nat -D L2TP_DNS -s "$5" -p $PROTO --dport 53 -j DNAT --to-destination "$DNS1" 2>/dev/null
-            done
-        fi
-    fi
-    rm -f "$SDIR/$PEERNAME" "$PDIR/$PEERNAME" 2>/dev/null
-fi
-/usr/bin/python3 /opt/l2tp-panel/iface_down.py "$1" >/dev/null 2>&1
-rm -f "$IDIR/$1" 2>/dev/null
-exit 0
-IPDOWNEOF
-chmod 755 /etc/ppp/ip-down.d/90l2tp-panel
-
-mkdir -p /run/l2tp-sessions /run/l2tp-ifaces /run/l2tp-peerip /etc/ppp/dns-map
-chmod 700 /run/l2tp-sessions /run/l2tp-ifaces /run/l2tp-peerip /etc/ppp/dns-map
-
-# ----------------------------- Network -------------------------------
-info "Enabling IP forwarding and NAT..."
-sed -i '/^#\?net.ipv4.ip_forward/d' /etc/sysctl.conf
-echo "net.ipv4.ip_forward = 1" >> /etc/sysctl.conf
-sysctl -w net.ipv4.ip_forward=1 >/dev/null
-
-cat > /usr/local/sbin/l2tp-nat.sh <<NATEOF
-#!/bin/sh
-IF="${DEF_IF}"
-add(){ /sbin/iptables -t nat -C POSTROUTING -s "\$1" -o "\$IF" -j MASQUERADE 2>/dev/null || /sbin/iptables -t nat -A POSTROUTING -s "\$1" -o "\$IF" -j MASQUERADE; }
-del(){ /sbin/iptables -t nat -D POSTROUTING -s "\$1" -o "\$IF" -j MASQUERADE 2>/dev/null || true; }
-chain(){
-  /sbin/iptables -t nat -N L2TP_DNS 2>/dev/null || true
-  /sbin/iptables -t nat -C PREROUTING -j L2TP_DNS 2>/dev/null || /sbin/iptables -t nat -A PREROUTING -j L2TP_DNS
-}
-mss(){ /sbin/iptables -t mangle -C FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || /sbin/iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu; }
-case "\$1" in
-  start) add ${POOL_NET}; add ${XAUTH_NET}; chain; mss ;;
-  stop)  del ${POOL_NET}; del ${XAUTH_NET}; /sbin/iptables -t nat -F L2TP_DNS 2>/dev/null || true ;;
-esac
-NATEOF
-chmod 755 /usr/local/sbin/l2tp-nat.sh
-
-cat > /etc/systemd/system/l2tp-nat.service <<'SVCEOF'
-[Unit]
-Description=3OUTHBOY L2TP Panel - NAT for VPN clients
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=/usr/local/sbin/l2tp-nat.sh start
-ExecStop=/usr/local/sbin/l2tp-nat.sh stop
-
-[Install]
-WantedBy=multi-user.target
-SVCEOF
-
-# ----------------------------- Panel files ---------------------------
-info "Installing panel..."
-mkdir -p "${PANEL_DIR}/templates"
-
-cat > "${PANEL_DIR}/config.json" <<CONFEOF
-{
-  "admin_user": "${ADMIN_USER}",
-  "admin_pass": "${ADMIN_PASS}",
-  "psk": "${PSK}",
-  "server_ip": "${PUB_IP}",
-  "secret_key": "$(rand_str 32)"
-}
-CONFEOF
-chmod 600 "${PANEL_DIR}/config.json"
-
-cat > "${PANEL_DIR}/iface_down.py" <<'IFDPY'
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""Final traffic tally when a PPP interface goes down."""
-import os, sqlite3, sys
-DB_FILE = '/opt/l2tp-panel/users.db'
-IFACE_DIR = '/run/l2tp-ifaces'
-
-def iface_stats(iface):
-    total = 0
-    for kind in ('rx_bytes', 'tx_bytes'):
-        try:
-            with open('/sys/class/net/%s/statistics/%s' % (iface, kind)) as fh:
-                total += int(fh.read().strip())
-        except OSError:
-            return None
-    return total
-
-def main():
-    iface = sys.argv[1] if len(sys.argv) > 1 else ''
-    if not iface: return
-    path = os.path.join(IFACE_DIR, iface)
-    try:
-        with open(path) as fh:
-            lines = fh.read().split()
-        username = lines[0] if lines else ''
-        last = int(lines[1]) if len(lines) > 1 else 0
-    except Exception:
-        return
-    current = iface_stats(iface)
-    if current is None: current = last
-    delta = max(current - last, 0)
-    if username and delta > 0:
-        try:
-            conn = sqlite3.connect(DB_FILE, timeout=10)
-            conn.execute('UPDATE users SET used_bytes = used_bytes + ? WHERE username = ?',
-                         (delta, username))
-            conn.commit(); conn.close()
-        except Exception: pass
-    try: os.remove(path)
-    except OSError: pass
-
-if __name__ == '__main__':
-    main()
-IFDPY
-chmod 755 "${PANEL_DIR}/iface_down.py"
-
-cat > "${PANEL_DIR}/sync_users.py" <<'SYNCPY'
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""Sync users to chap-secrets, per-user DNS, traffic tracking, expiry."""
-import os, secrets, signal, sqlite3, string, subprocess
-from datetime import datetime
-
-BASE = os.path.dirname(os.path.abspath(__file__))
-DB_FILE = os.path.join(BASE, 'users.db')
-CHAP_FILE = '/etc/ppp/chap-secrets'
-CHAP_TMP = CHAP_FILE + '.tmp'
-SESS_DIR = '/run/l2tp-sessions'
-IFACE_DIR = '/run/l2tp-ifaces'
-PEERIP_DIR = '/run/l2tp-peerip'
-DNS_MAP_DIR = '/etc/ppp/dns-map'
-DNS_CHAIN = 'L2TP_DNS'
-DT_FMT = '%Y-%m-%d %H:%M:%S'
-
-def ipt(args):
-    try:
-        return subprocess.run(['/sbin/iptables'] + args,
-                              capture_output=True, timeout=10).returncode == 0
-    except Exception:
-        return False
-
-def gen_key(length=20):
-    alpha = string.ascii_letters + string.digits
-    return ''.join(secrets.choice(alpha) for _ in range(length))
-
-def kill_session(username):
-    path = os.path.join(SESS_DIR, username)
-    try:
-        pid = int(open(path).read().strip())
-        with open('/proc/%d/comm' % pid) as fh:
-            if fh.read().strip().startswith('pppd'):
-                os.kill(pid, signal.SIGTERM)
-    except Exception: pass
-    try: os.remove(path)
-    except OSError: pass
-
-def iface_stats(iface):
-    total = 0
-    for kind in ('rx_bytes', 'tx_bytes'):
-        try:
-            with open('/sys/class/net/%s/statistics/%s' % (iface, kind)) as fh:
-                total += int(fh.read().strip())
-        except OSError:
-            return None
-    return total
-
-def ensure_db(conn):
-    conn.execute('''CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        expires_at TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        traffic_limit_mb INTEGER NOT NULL DEFAULT 0,
-        used_bytes INTEGER NOT NULL DEFAULT 0,
-        dns1 TEXT NOT NULL DEFAULT '',
-        dns2 TEXT NOT NULL DEFAULT '',
-        dns_key TEXT NOT NULL DEFAULT '')''')
-    cols = [r[1] for r in conn.execute('PRAGMA table_info(users)')]
-    for col, ddl in (('traffic_limit_mb', 'INTEGER NOT NULL DEFAULT 0'),
-                     ('used_bytes', 'INTEGER NOT NULL DEFAULT 0'),
-                     ('dns1', "TEXT NOT NULL DEFAULT ''"),
-                     ('dns2', "TEXT NOT NULL DEFAULT ''"),
-                     ('dns_key', "TEXT NOT NULL DEFAULT ''")):
-        if col not in cols:
-            conn.execute('ALTER TABLE users ADD COLUMN %s %s' % (col, ddl))
-    for (uid,) in conn.execute("SELECT id FROM users WHERE dns_key = ''").fetchall():
-        conn.execute('UPDATE users SET dns_key = ? WHERE id = ?', (gen_key(20), uid))
-    conn.commit()
-
-def tally_traffic(conn):
-    if not os.path.isdir(IFACE_DIR): return
-    deltas = {}
-    for fname in os.listdir(IFACE_DIR):
-        if fname.endswith('.tmp'): continue
-        path = os.path.join(IFACE_DIR, fname)
-        if not os.path.isfile(path): continue
-        try:
-            with open(path) as fh:
-                lines = fh.read().split()
-            username = lines[0] if lines else ''
-            last = int(lines[1]) if len(lines) > 1 else 0
-        except Exception: continue
-        if not username: continue
-        current = iface_stats(fname)
-        if current is None:
-            try: os.remove(path)
-            except OSError: pass
-            continue
-        if current > last:
-            deltas[username] = deltas.get(username, 0) + (current - last)
-        try:
-            with open(path + '.tmp', 'w') as fh:
-                fh.write('%s %d\n' % (username, current))
-            os.replace(path + '.tmp', path)
-        except OSError: pass
-    for username, delta in deltas.items():
-        conn.execute('UPDATE users SET used_bytes = used_bytes + ? WHERE username = ?',
-                     (delta, username))
-    conn.commit()
-
-def write_dns_maps(dns_targets):
-    os.makedirs(DNS_MAP_DIR, exist_ok=True)
-    valid = set()
-    for username, target in dns_targets.items():
-        path = os.path.join(DNS_MAP_DIR, username)
-        tmp = path + '.tmp'
-        with open(tmp, 'w') as fh:
-            fh.write(target + '\n')
-        os.chmod(tmp, 0o600)
-        os.replace(tmp, path)
-        valid.add(username)
-    for fname in os.listdir(DNS_MAP_DIR):
-        if fname not in valid:
-            try: os.remove(os.path.join(DNS_MAP_DIR, fname))
-            except OSError: pass
-
-def rebuild_dns_rules():
-    ipt(['-t', 'nat', '-N', DNS_CHAIN])
-    if not ipt(['-t', 'nat', '-C', 'PREROUTING', '-j', DNS_CHAIN]):
-        ipt(['-t', 'nat', '-A', 'PREROUTING', '-j', DNS_CHAIN])
-    ipt(['-t', 'nat', '-F', DNS_CHAIN])
-    if not os.path.isdir(PEERIP_DIR): return
-    for username in os.listdir(PEERIP_DIR):
-        try:
-            dns1 = open(os.path.join(DNS_MAP_DIR, username)).read().split()[0].strip()
-            peerip = open(os.path.join(PEERIP_DIR, username)).read().strip()
-        except Exception: continue
-        if dns1 and peerip:
-            for proto in ('udp', 'tcp'):
-                ipt(['-t', 'nat', '-A', DNS_CHAIN, '-s', peerip, '-p', proto,
-                     '--dport', '53', '-j', 'DNAT', '--to-destination', dns1])
-
-def main():
-    now = datetime.now().strftime(DT_FMT)
-    conn = sqlite3.connect(DB_FILE, timeout=10)
-    try:
-        ensure_db(conn)
-        tally_traffic(conn)
-        rows = conn.execute('SELECT username, password, expires_at, traffic_limit_mb, '
-                            'used_bytes, dns1, dns2 FROM users').fetchall()
-    finally:
-        conn.close()
-    active, blocked, dns_targets = [], [], {}
-    for username, password, expires_at, limit_mb, used, dns1, dns2 in rows:
-        time_ok = expires_at > now
-        quota_ok = (limit_mb <= 0) or (used < limit_mb * 1024 * 1024)
-        if time_ok and quota_ok:
-            active.append((username, password))
-            target = (dns1 or '').strip() or (dns2 or '').strip()
-            if target: dns_targets[username] = target
-        else:
-            blocked.append(username)
-    write_dns_maps(dns_targets)
-    with open(CHAP_TMP, 'w') as fh:
-        fh.write('# Managed by L2TP Panel - do not edit manually\n')
-        for username, password in active:
-            fh.write('"%s" l2tpd "%s" *\n' % (username, password))
-    os.chmod(CHAP_TMP, 0o600)
-    os.replace(CHAP_TMP, CHAP_FILE)
-    for username in blocked:
-        kill_session(username)
-    rebuild_dns_rules()
-
-if __name__ == '__main__':
-    main()
-SYNCPY
-chmod 755 "${PANEL_DIR}/sync_users.py"
-
-cat > "${PANEL_DIR}/panel.py" <<'PANELPY'
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""3OUTHBOY L2TP Panel (fa/en)."""
-import json, os, re, secrets, socket, sqlite3, string, subprocess, threading, time
-from datetime import datetime, timedelta
-from functools import wraps
-from urllib.parse import urlparse
-from flask import Flask, abort, flash, redirect, render_template, request, session, url_for
-
-BASE = os.path.dirname(os.path.abspath(__file__))
-DB_FILE = os.path.join(BASE, 'users.db')
-SESS_DIR = '/run/l2tp-sessions'
-DT_FMT = '%Y-%m-%d %H:%M:%S'
-USERNAME_RE = re.compile(r'^[A-Za-z0-9_.-]{3,32}$')
-KEY_RE = re.compile(r'^[A-Za-z0-9]{8,32}$')
-IPV4_RE = re.compile(r'^(\d{1,3}\.){3}\d{1,3}$')
-BAD_PW_CHARS = set(' \t\n\r"\'\\*:;#')
-DEFAULT_LANG = 'fa'
-
-with open(os.path.join(BASE, 'config.json'), encoding='utf-8') as fh:
-    CFG = json.load(fh)
-
-TRANSLATIONS = {
- 'fa': {
-  'brand':'پنل 3OUTHBOY','header_title':'پنل 3OUTHBOY','login_title':'پنل 3OUTHBOY',
-  'username':'نام کاربری','password':'رمز عبور','login_btn':'ورود',
-  'err_credentials':'نام کاربری یا رمز عبور اشتباه است.',
-  'err_locked':'تلاش‌های ناموفق زیاد بوده؛ ۵ دقیقه بعد دوباره امتحان کنید.',
-  'server_address':'آدرس سرور','psk_label':'کلید مشترک (PSK)','active_users':'کاربران فعال',
-  'online_sessions':'نشست‌های متصل','services_status':'وضعیت سرویس‌ها','of_word':'از',
-  'add_user_title':'افزودن کاربر جدید','password_auto':'رمز عبور (خالی = خودکار)',
-  'auto_placeholder':'خودکار','days_label':'مدت اعتبار (روز)',
-  'exact_expiry':'تاریخ و ساعت دقیق انقضا (اختیاری)','add_btn':'افزودن کاربر',
-  'exact_note':'اگر تاریخ دقیق را انتخاب کنید فیلد «روز» نادیده گرفته می‌شود.',
-  'traffic_label':'محدودیت حجم (GB)','traffic_ph':'نامحدود',
-  'dns1_label':'DNS اول (خالی = پیش‌فرض)','dns2_label':'DNS دوم (خالی = پیش‌فرض)',
-  'users_title':'کاربران','th_username':'نام کاربری','th_password':'رمز عبور','th_expiry':'انقضا',
-  'th_remaining':'باقی‌مانده','th_traffic':'حجم مصرفی','th_dns':'DNS اختصاصی','th_key':'کد کاربر',
-  'default_dns':'پیش‌فرض','th_status':'وضعیت','th_actions':'عملیات','badge_active':'فعال',
-  'badge_soon':'در حال اتمام','badge_expired':'منقضی','badge_quota':'حجم تمام شد',
-  'renew_btn':'تمدید','online_tip':'آنلاین','no_users':'هنوز کاربری اضافه نشده است.',
-  'delete_confirm':'این کاربر حذف شود؟','edit_title':'ویرایش کاربر',
-  'new_password':'رمز عبور جدید (خالی = بدون تغییر)',
-  'new_expiry':'تاریخ و ساعت انقضای جدید (خالی = بدون تغییر)',
-  'new_traffic':'محدودیت حجم جدید به GB (خالی = بدون تغییر، ۰ = نامحدود)',
-  'new_dns1':'DNS اول (خالی = حذف DNS اختصاصی)','new_dns2':'DNS دوم (خالی = حذف DNS اختصاصی)',
-  'new_key':'کد کاربر (خالی = بدون تغییر)','cancel':'انصراف','save':'ذخیره',
   'sync_btn':'🔄 همگام‌سازی','restart_vpn_btn':'🚀 ریستارت VPN','restart_panel_btn':'♻️ ریستارت پنل',
   'restart_vpn_confirm':'سرویس‌های VPN ریستارت شوند؟ کاربران متصل موقتاً قطع می‌شوند.',
   'restart_panel_confirm':'پنل ریستارت شود؟ چند ثانیه طول می‌کشد.',
@@ -571,6 +5,10 @@ TRANSLATIONS = {
   'vpn_restart_failed':'بعضی سرویس‌ها ریستارت نشدند! با journalctl بررسی کنید.',
   'panel_restarting':'پنل در حال ریستارت است...',
   'restarting_msg':'چند ثانیه صبر کنید؛ صفحه به صورت خودکار بارگذاری می‌شود.',
+  'update_btn':'🔄 آپدیت پنل','updating_title':'در حال آپدیت پنل...',
+  'updating_msg':'نسخه جدید از گیت‌هاب در حال دانلود و نصب است. چند دقیقه صبر کنید؛ صفحه خودکار بازمی‌گردد و باید دوباره وارد شوید.',
+  'update_confirm':'پنل از گیت‌هاب آپدیت شود؟ چند دقیقه طول می‌کشد و بعدش باید دوباره لاگین کنید.',
+  'update_failed':'آپدیت ناموفق بود! اتصال سرور به گیت‌هاب را بررسی کنید.',
   'logout_btn':'خروج','copy_tip':'کپی','show_tip':'نمایش',
   'reset_traffic_tip':'صفر کردن حجم مصرفی','regen_key_tip':'تولید کد جدید',
   'status_link_tip':'صفحه وضعیت کاربر','theme_tip':'حالت روشن / تاریک',
@@ -625,6 +63,10 @@ TRANSLATIONS = {
   'vpn_restart_failed':'Some services failed to restart! Check journalctl.',
   'panel_restarting':'Panel is restarting...',
   'restarting_msg':'Please wait; this page will reload automatically.',
+  'update_btn':'🔄 Update Panel','updating_title':'Updating panel...',
+  'updating_msg':'Downloading and installing the new version from GitHub. This takes a few minutes; the page will return automatically and you will need to log in again.',
+  'update_confirm':'Update the panel from GitHub? Takes a few minutes and you will need to log in again.',
+  'update_failed':'Update failed! Check server connectivity to GitHub.',
   'logout_btn':'Logout','copy_tip':'Copy','show_tip':'Show',
   'reset_traffic_tip':'Reset traffic counter','regen_key_tip':'Regenerate key',
   'status_link_tip':'User status page','theme_tip':'Toggle light / dark mode',
@@ -704,7 +146,8 @@ def gen_key(length=20):
 def inject_i18n():
     lang = get_lang()
     return {'t': TRANSLATIONS.get(lang, TRANSLATIONS[DEFAULT_LANG]),
-            'lang': lang, 'dir': 'rtl' if lang == 'fa' else 'ltr'}
+            'lang': lang, 'dir': 'rtl' if lang == 'fa' else 'ltr',
+            'panel_version': PANEL_VERSION}
 
 def get_db():
     conn = sqlite3.connect(DB_FILE, timeout=10)
@@ -1058,17 +501,270 @@ def restart_panel():
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return render_template('restarting.html')
 
+@app.route('/update', methods=['POST'])
+@login_required
+def panel_update():
+    # 1) download latest installer from GitHub
+    try:
+        req = urllib.request.Request(UPDATE_URL, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=30) as r:
+            data = r.read()
+        fd, tmp_path = tempfile.mkstemp(suffix='.sh')
+        with os.fdopen(fd, 'wb') as f:
+            f.write(data)
+        os.chmod(tmp_path, 0o600)
+    except Exception:
+        flash(T('update_failed'))
+        return redirect(url_for('index'))
+    # 2) read current panel port from systemd service
+    port = '8080'
+    try:
+        with open('/etc/systemd/system/l2tp-panel.service') as fh:
+            m = re.search(r'--bind\s+\S+?:(\d+)', fh.read())
+        if m: port = m.group(1)
+    except OSError:
+        pass
+    # 3) run installer unattended in background (shlex = safe quoting)
+    cmd = ('sleep 2; bash {f} --user {u} --pass {p} --psk {k} --port {o} '
+           '--tz n --no-ufw >> {log} 2>&1; rm -f {f}').format(
+        f=shlex.quote(tmp_path), u=shlex.quote(CFG['admin_user']),
+        p=shlex.quote(CFG['admin_pass']), k=shlex.quote(CFG['psk']),
+        o=shlex.quote(port), log=shlex.quote(UPDATE_LOG))
+    subprocess.Popen(['/bin/sh', '-c', cmd], start_new_session=True,
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return render_template('updating.html')
+
 init_db()
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5000)
-PANELPY
+
+ZQ9PANEL
 chmod 755 "${PANEL_DIR}/panel.py"
 
-# ----------------------------- Templates -----------------------------
-info "Writing templates..."
+cat > "${PANEL_DIR}/sync_users.py" <<'ZQ9SYNC'
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Sync users to chap-secrets, per-user DNS, traffic tracking, expiry."""
+import os, secrets, signal, sqlite3, string, subprocess
+from datetime import datetime
 
-cat > "${PANEL_DIR}/templates/base.html" <<'BASEEOF'
+BASE = os.path.dirname(os.path.abspath(__file__))
+DB_FILE = os.path.join(BASE, 'users.db')
+CHAP_FILE = '/etc/ppp/chap-secrets'
+CHAP_TMP = CHAP_FILE + '.tmp'
+SESS_DIR = '/run/l2tp-sessions'
+IFACE_DIR = '/run/l2tp-ifaces'
+PEERIP_DIR = '/run/l2tp-peerip'
+DNS_MAP_DIR = '/etc/ppp/dns-map'
+DNS_CHAIN = 'L2TP_DNS'
+DT_FMT = '%Y-%m-%d %H:%M:%S'
+
+def ipt(args):
+    try:
+        return subprocess.run(['/sbin/iptables'] + args,
+                              capture_output=True, timeout=10).returncode == 0
+    except Exception:
+        return False
+
+def gen_key(length=20):
+    alpha = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(alpha) for _ in range(length))
+
+def kill_session(username):
+    path = os.path.join(SESS_DIR, username)
+    try:
+        pid = int(open(path).read().strip())
+        with open('/proc/%d/comm' % pid) as fh:
+            if fh.read().strip().startswith('pppd'):
+                os.kill(pid, signal.SIGTERM)
+    except Exception: pass
+    try: os.remove(path)
+    except OSError: pass
+
+def iface_stats(iface):
+    total = 0
+    for kind in ('rx_bytes', 'tx_bytes'):
+        try:
+            with open('/sys/class/net/%s/statistics/%s' % (iface, kind)) as fh:
+                total += int(fh.read().strip())
+        except OSError:
+            return None
+    return total
+
+def ensure_db(conn):
+    conn.execute('''CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        traffic_limit_mb INTEGER NOT NULL DEFAULT 0,
+        used_bytes INTEGER NOT NULL DEFAULT 0,
+        dns1 TEXT NOT NULL DEFAULT '',
+        dns2 TEXT NOT NULL DEFAULT '',
+        dns_key TEXT NOT NULL DEFAULT '')''')
+    cols = [r[1] for r in conn.execute('PRAGMA table_info(users)')]
+    for col, ddl in (('traffic_limit_mb', 'INTEGER NOT NULL DEFAULT 0'),
+                     ('used_bytes', 'INTEGER NOT NULL DEFAULT 0'),
+                     ('dns1', "TEXT NOT NULL DEFAULT ''"),
+                     ('dns2', "TEXT NOT NULL DEFAULT ''"),
+                     ('dns_key', "TEXT NOT NULL DEFAULT ''")):
+        if col not in cols:
+            conn.execute('ALTER TABLE users ADD COLUMN %s %s' % (col, ddl))
+    for (uid,) in conn.execute("SELECT id FROM users WHERE dns_key = ''").fetchall():
+        conn.execute('UPDATE users SET dns_key = ? WHERE id = ?', (gen_key(20), uid))
+    conn.commit()
+
+def tally_traffic(conn):
+    if not os.path.isdir(IFACE_DIR): return
+    deltas = {}
+    for fname in os.listdir(IFACE_DIR):
+        if fname.endswith('.tmp'): continue
+        path = os.path.join(IFACE_DIR, fname)
+        if not os.path.isfile(path): continue
+        try:
+            with open(path) as fh:
+                lines = fh.read().split()
+            username = lines[0] if lines else ''
+            last = int(lines[1]) if len(lines) > 1 else 0
+        except Exception: continue
+        if not username: continue
+        current = iface_stats(fname)
+        if current is None:
+            try: os.remove(path)
+            except OSError: pass
+            continue
+        if current > last:
+            deltas[username] = deltas.get(username, 0) + (current - last)
+        try:
+            with open(path + '.tmp', 'w') as fh:
+                fh.write('%s %d\n' % (username, current))
+            os.replace(path + '.tmp', path)
+        except OSError: pass
+    for username, delta in deltas.items():
+        conn.execute('UPDATE users SET used_bytes = used_bytes + ? WHERE username = ?',
+                     (delta, username))
+    conn.commit()
+
+def write_dns_maps(dns_targets):
+    os.makedirs(DNS_MAP_DIR, exist_ok=True)
+    valid = set()
+    for username, target in dns_targets.items():
+        path = os.path.join(DNS_MAP_DIR, username)
+        tmp = path + '.tmp'
+        with open(tmp, 'w') as fh:
+            fh.write(target + '\n')
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, path)
+        valid.add(username)
+    for fname in os.listdir(DNS_MAP_DIR):
+        if fname not in valid:
+            try: os.remove(os.path.join(DNS_MAP_DIR, fname))
+            except OSError: pass
+
+def rebuild_dns_rules():
+    ipt(['-t', 'nat', '-N', DNS_CHAIN])
+    if not ipt(['-t', 'nat', '-C', 'PREROUTING', '-j', DNS_CHAIN]):
+        ipt(['-t', 'nat', '-A', 'PREROUTING', '-j', DNS_CHAIN])
+    ipt(['-t', 'nat', '-F', DNS_CHAIN])
+    if not os.path.isdir(PEERIP_DIR): return
+    for username in os.listdir(PEERIP_DIR):
+        try:
+            dns1 = open(os.path.join(DNS_MAP_DIR, username)).read().split()[0].strip()
+            peerip = open(os.path.join(PEERIP_DIR, username)).read().strip()
+        except Exception: continue
+        if dns1 and peerip:
+            for proto in ('udp', 'tcp'):
+                ipt(['-t', 'nat', '-A', DNS_CHAIN, '-s', peerip, '-p', proto,
+                     '--dport', '53', '-j', 'DNAT', '--to-destination', dns1])
+
+def main():
+    now = datetime.now().strftime(DT_FMT)
+    conn = sqlite3.connect(DB_FILE, timeout=10)
+    try:
+        ensure_db(conn)
+        tally_traffic(conn)
+        rows = conn.execute('SELECT username, password, expires_at, traffic_limit_mb, '
+                            'used_bytes, dns1, dns2 FROM users').fetchall()
+    finally:
+        conn.close()
+    active, blocked, dns_targets = [], [], {}
+    for username, password, expires_at, limit_mb, used, dns1, dns2 in rows:
+        time_ok = expires_at > now
+        quota_ok = (limit_mb <= 0) or (used < limit_mb * 1024 * 1024)
+        if time_ok and quota_ok:
+            active.append((username, password))
+            target = (dns1 or '').strip() or (dns2 or '').strip()
+            if target: dns_targets[username] = target
+        else:
+            blocked.append(username)
+    write_dns_maps(dns_targets)
+    with open(CHAP_TMP, 'w') as fh:
+        fh.write('# Managed by L2TP Panel - do not edit manually\n')
+        for username, password in active:
+            fh.write('"%s" l2tpd "%s" *\n' % (username, password))
+    os.chmod(CHAP_TMP, 0o600)
+    os.replace(CHAP_TMP, CHAP_FILE)
+    for username in blocked:
+        kill_session(username)
+    rebuild_dns_rules()
+
+if __name__ == '__main__':
+    main()
+
+ZQ9SYNC
+chmod 755 "${PANEL_DIR}/sync_users.py"
+
+cat > "${PANEL_DIR}/iface_down.py" <<'ZQ9IFDOWN'
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Final traffic tally when a PPP interface goes down."""
+import os, sqlite3, sys
+DB_FILE = '/opt/l2tp-panel/users.db'
+IFACE_DIR = '/run/l2tp-ifaces'
+
+def iface_stats(iface):
+    total = 0
+    for kind in ('rx_bytes', 'tx_bytes'):
+        try:
+            with open('/sys/class/net/%s/statistics/%s' % (iface, kind)) as fh:
+                total += int(fh.read().strip())
+        except OSError:
+            return None
+    return total
+
+def main():
+    iface = sys.argv[1] if len(sys.argv) > 1 else ''
+    if not iface: return
+    path = os.path.join(IFACE_DIR, iface)
+    try:
+        with open(path) as fh:
+            lines = fh.read().split()
+        username = lines[0] if lines else ''
+        last = int(lines[1]) if len(lines) > 1 else 0
+    except Exception:
+        return
+    current = iface_stats(iface)
+    if current is None: current = last
+    delta = max(current - last, 0)
+    if username and delta > 0:
+        try:
+            conn = sqlite3.connect(DB_FILE, timeout=10)
+            conn.execute('UPDATE users SET used_bytes = used_bytes + ? WHERE username = ?',
+                         (delta, username))
+            conn.commit(); conn.close()
+        except Exception: pass
+    try: os.remove(path)
+    except OSError: pass
+
+if __name__ == '__main__':
+    main()
+
+ZQ9IFDOWN
+chmod 755 "${PANEL_DIR}/iface_down.py"
+
+cat > "${PANEL_DIR}/templates/base.html" <<'ZQ9BASE'
 <!doctype html>
 <html lang="{{ lang }}" dir="{{ dir }}" data-theme="dark">
 <head>
@@ -1083,6 +779,7 @@ cat > "${PANEL_DIR}/templates/base.html" <<'BASEEOF'
 })();
 </script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.0.0/Vazirmatn-font-face.css" crossorigin="anonymous">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%2064%2064%27%3E%3Cdefs%3E%3ClinearGradient%20id%3D%27g%27%20x1%3D%2710%27%20y1%3D%276%27%20x2%3D%2754%27%20y2%3D%2758%27%20gradientUnits%3D%27userSpaceOnUse%27%3E%3Cstop%20stop-color%3D%27%2300e5ff%27/%3E%3Cstop%20offset%3D%271%27%20stop-color%3D%27%23b026ff%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath%20d%3D%27M32%204%20L55.5%2012.5%20V28%20C55.5%2042.5%2046%2052.5%2032%2059.5%20C18%2052.5%208.5%2042.5%208.5%2028%20V12.5%20Z%27%20fill%3D%27url%28%23g%29%27%20fill-opacity%3D%270.15%27/%3E%3Cpath%20d%3D%27M32%204%20L55.5%2012.5%20V28%20C55.5%2042.5%2046%2052.5%2032%2059.5%20C18%2052.5%208.5%2042.5%208.5%2028%20V12.5%20Z%27%20stroke%3D%27url%28%23g%29%27%20stroke-width%3D%273.4%27%20stroke-linejoin%3D%27round%27%20fill%3D%27none%27/%3E%3Cpath%20d%3D%27M22%2046.5%20V29%20C22%2021.8%2026.4%2016%2032%2016%20C37.6%2016%2042%2021.8%2042%2029%20V46.5%27%20stroke%3D%27url%28%23g%29%27%20stroke-width%3D%272.6%27%20stroke-linecap%3D%27round%27%20fill%3D%27none%27/%3E%3Cpath%20d%3D%27M28%2046.5%20V31.5%20C28%2027%2029.7%2023.5%2032%2023.5%20C34.3%2023.5%2036%2027%2036%2031.5%20V46.5%27%20stroke%3D%27url%28%23g%29%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20fill%3D%27none%27%20opacity%3D%270.6%27/%3E%3Ccircle%20cx%3D%2732%27%20cy%3D%2736.5%27%20r%3D%273%27%20fill%3D%27url%28%23g%29%27/%3E%3C/svg%3E">
 <title>{% block title %}{{ t.brand }}{% endblock %}</title>
 <style>
 :root{
@@ -1259,6 +956,24 @@ tr.expired{opacity:.45}
   .cursor-orb.hot::after{width:11px;height:11px}
   .cursor-orb.click{opacity:.55}
 }
+
+/* ===== logo-update: L2TP tunnel shield ===== */
+.lg-a{stop-color:var(--neon-cyan)}
+.lg-b{stop-color:var(--neon-purple)}
+.logo-svg{display:block;filter:drop-shadow(0 0 6px color-mix(in srgb,var(--neon-cyan) 45%,transparent))}
+[data-theme=light] .logo-svg{filter:drop-shadow(0 0 5px color-mix(in srgb,var(--acc) 30%,transparent))}
+.logo-svg circle{animation:lgpulse 2.6s ease-in-out infinite}
+@keyframes lgpulse{0%,100%{opacity:1}50%{opacity:.4}}
+.brand-badge{width:46px;height:46px;border-radius:14px;font-size:0;
+  background:var(--card3);border:1px solid var(--bd2);box-shadow:0 0 16px rgba(0,229,255,.18)}
+.brand-badge .logo-svg{width:31px;height:31px}
+.login-logo{width:66px;height:66px;border-radius:19px;display:grid;place-items:center;margin:0 auto 12px;
+  background:var(--card3);border:1px solid var(--bd2);box-shadow:0 0 20px rgba(0,229,255,.22)}
+.login-logo .logo-svg{width:44px;height:44px}
+.restart-logo{width:66px;height:66px;border-radius:19px;display:grid;place-items:center;margin:0 auto 12px;
+  background:var(--card3);border:1px solid var(--bd2);box-shadow:0 0 20px rgba(0,229,255,.22)}
+.restart-logo .logo-svg{width:44px;height:44px}
+
 </style>
 </head>
 <body>
@@ -1308,484 +1023,5 @@ function genPass(){var c='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz2345678
 {% block scripts %}{% endblock %}
 </body>
 </html>
-BASEEOF
 
-cat > "${PANEL_DIR}/templates/login.html" <<'LOGINEOF'
-{% extends 'base.html' %}
-{% block title %}{{ t.login_title }}{% endblock %}
-{% block body %}
-<style>
-.gcard{width:100%;max-width:400px;border-radius:22px;padding:2px;
-  background-image:linear-gradient(163deg,#00ff75 0%,#3700ff 100%);transition:all .3s}
-.gcard:hover{box-shadow:0 0 30px 1px rgba(0,255,117,.3)}
-.gform{background-color:#171717;border-radius:20px;transition:all .2s;
-  padding:12px 2em 1.4em;display:flex;flex-direction:column}
-.gcard:hover .gform{transform:scale(.98);border-radius:18px}
-.gheading{text-align:center;margin:1.2em 1em 1em;color:#fff;font-size:1.15em;font-weight:700}
-.gsub{text-align:center;color:#666;font-size:.72rem;margin:-0.8em 0 .4em}
-.gfield{display:flex;align-items:center;justify-content:center;gap:.6em;
-  border-radius:25px;padding:.7em 1em;border:none;outline:none;color:#fff;
-  background-color:#171717;box-shadow:inset 2px 5px 10px rgb(5,5,5);margin-top:12px;
-  transition:box-shadow .25s}
-.gfield:focus-within{box-shadow:inset 2px 5px 10px rgb(5,5,5),0 0 0 2px rgba(0,255,117,.4)}
-.gicon{height:1.3em;width:1.3em;fill:#9a9a9a;flex:none;transition:fill .25s}
-.gfield:focus-within .gicon{fill:#00ff75}
-.gfield input{background:none;border:none;outline:none;width:100%;color:#d3d3d3;
-  font-family:inherit;font-size:.9rem}
-.gfield input::placeholder{color:#6f6f6f}
-.gbtn-row{display:flex;justify-content:center;margin-top:1.8em}
-.gbtn{padding:.75em 2.5em;border-radius:6px;border:none;outline:none;cursor:pointer;
-  transition:.4s ease-in-out;background-color:#252525;color:#fff;width:100%;
-  font-family:inherit;font-weight:600;font-size:.9rem}
-.gbtn:hover{background-color:#000;color:#fff}
-.gerr{background:rgba(255,60,60,.12);color:#ff7b7b;border:1px solid rgba(255,60,60,.35);
-  padding:.7em 1em;border-radius:12px;margin:1em 0 .2em;font-size:.83rem;
-  font-weight:600;text-align:center}
-[data-theme=light] .gcard{background-image:none;padding:0;
-  background:linear-gradient(to right,#ffffff,#f8f9fd);
-  border:5px solid #ffffff;border-radius:40px;
-  box-shadow:rgba(133,189,215,.878) 0 30px 30px -20px}
-[data-theme=light] .gcard:hover{box-shadow:rgba(133,189,215,.878) 0 34px 34px -22px}
-[data-theme=light] .gform{background:transparent;border-radius:35px;
-  padding:25px 35px;transform:none !important}
-[data-theme=light] .gheading{color:rgb(70,130,180);font-weight:900;font-size:1.6rem}
-[data-theme=light] .gsub{color:#7a93ad}
-[data-theme=light] .gfield{background:#fff;border-inline:2px solid transparent;
-  box-shadow:#cff0ff 0 10px 10px -5px}
-[data-theme=light] .gfield:focus-within{border-inline:2px solid #12b1d1;
-  box-shadow:#cff0ff 0 10px 10px -5px}
-[data-theme=light] .gicon{fill:#8fa8bd}
-[data-theme=light] .gfield input{color:#182238}
-[data-theme=light] .gfield input::placeholder{color:#9aa8b8}
-[data-theme=light] .gbtn{background:linear-gradient(to right,#0b98ec,#0f58e8);
-  border-radius:20px;box-shadow:rgba(133,189,215,.878) 0 20px 10px -15px}
-[data-theme=light] .gbtn:hover{transform:scale(1.03);
-  background:linear-gradient(to right,#0b98ec,#0f58e8)}
-[data-theme=light] .gerr{background:#fef2f2;color:#b91c1c;border-color:#fecaca}
-[data-theme=light] .gfield input:-webkit-autofill{
-  -webkit-box-shadow:0 0 0 1000px #ffffff inset;-webkit-text-fill-color:#182238}
-</style>
-<div class="login-wrap">
-  <form method="post" class="gcard">
-    <div class="gform">
-      <div class="gheading">{{ t.brand }}</div>
-      <div class="gsub">L2TP / IPSec PSK</div>
-      {% if error %}<div class="gerr">{{ error }}</div>{% endif %}
-      <div class="gfield">
-        <svg class="gicon" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-        <input type="text" name="username" placeholder="{{ t.username }}" autofocus required autocomplete="username">
-      </div>
-      <div class="gfield">
-        <svg class="gicon" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg>
-        <input type="password" name="password" placeholder="{{ t.password }}" required autocomplete="current-password">
-      </div>
-      <div class="gbtn-row">
-        <button type="submit" class="gbtn">{{ t.login_btn }}</button>
-      </div>
-    </div>
-  </form>
-</div>
-{% endblock %}
-LOGINEOF
-
-cat > "${PANEL_DIR}/templates/index.html" <<'INDEXEOF'
-{% extends 'base.html' %}
-{% block title %}{{ t.header_title }}{% endblock %}
-{% block body %}
-<header>
-  <div class="container header-in">
-    <div class="brand">
-      <div class="brand-badge">🛡️</div>
-      <h1>{{ t.header_title }}</h1>
-    </div>
-    <div class="actions">
-      <form method="post" action="/sync" class="inline"><button class="btn small">{{ t.sync_btn }}</button></form>
-      <form method="post" action="/restart-vpn" class="inline" onsubmit="return confirm('{{ t.restart_vpn_confirm }}')">
-        <button class="btn small">{{ t.restart_vpn_btn }}</button>
-      </form>
-      <form method="post" action="/restart-panel" class="inline" onsubmit="return confirm('{{ t.restart_panel_confirm }}')">
-        <button class="btn small">{{ t.restart_panel_btn }}</button>
-      </form>
-      <a class="btn small" href="/logout">{{ t.logout_btn }}</a>
-    </div>
-  </div>
-</header>
-
-<main class="container">
-  {% with msgs = get_flashed_messages() %}
-    {% for m in msgs %}<div class="alert ok">{{ m }}</div>{% endfor %}
-  {% endwith %}
-
-  <section class="cards">
-    <div class="card stat">
-      <div class="stat-head"><span class="stat-icon">🌐</span><span class="stat-label">{{ t.server_address }}</span></div>
-      <div class="secret-row"><b class="pw">{{ server_ip }}</b>
-        <button type="button" class="icon-btn copy-btn" data-copy="{{ server_ip }}" title="{{ t.copy_tip }}">📋</button></div>
-    </div>
-    <div class="card stat">
-      <div class="stat-head"><span class="stat-icon">🔑</span><span class="stat-label">{{ t.psk_label }}</span></div>
-      <div class="secret-row">
-        <span class="pw" data-pw="{{ psk }}" data-shown="0">••••••••</span>
-        <button type="button" class="icon-btn reveal" title="{{ t.show_tip }}">👁</button>
-        <button type="button" class="icon-btn copy-btn" data-copy="{{ psk }}" title="{{ t.copy_tip }}">📋</button>
-      </div>
-    </div>
-    <div class="card stat">
-      <div class="stat-head"><span class="stat-icon">👤</span><span class="stat-label">{{ t.active_users }}</span></div>
-      <b>{{ active_count }} {{ t.of_word }} {{ total_count }}</b>
-    </div>
-    <div class="card stat">
-      <div class="stat-head"><span class="stat-icon">📡</span><span class="stat-label">{{ t.online_sessions }}</span></div>
-      <b>{{ online_count }}</b>
-    </div>
-    <div class="card stat">
-      <div class="stat-head"><span class="stat-icon">⚙️</span><span class="stat-label">{{ t.services_status }}</span></div>
-      <div class="svc-row">
-        <span class="svc {{ 'ok' if svc.ipsec else 'bad' }}">IPSec</span>
-        <span class="svc {{ 'ok' if svc.xl2tpd else 'bad' }}">L2TP</span>
-        <span class="svc {{ 'ok' if svc.nat else 'bad' }}">NAT</span>
-      </div>
-    </div>
-  </section>
-
-  <section class="card">
-    <h2>{{ t.add_user_title }}</h2>
-    <form method="post" action="/add" class="add-form">
-      <div>
-        <label>{{ t.username }}</label>
-        <input name="username" required pattern="[A-Za-z0-9_.\-]{3,32}" placeholder="user01">
-      </div>
-      <div>
-        <label>{{ t.password_auto }}</label>
-        <div class="secret-row" style="width:100%">
-          <input name="password" id="pw-input" placeholder="{{ t.auto_placeholder }}" style="flex:1">
-          <button type="button" class="btn small" onclick="genPass()">🎲</button>
-        </div>
-      </div>
-      <div>
-        <label>{{ t.days_label }}</label>
-        <input type="number" name="days" value="30" min="1" max="3650">
-      </div>
-      <div>
-        <label>{{ t.traffic_label }}</label>
-        <input type="number" name="traffic" min="0" step="0.1" placeholder="{{ t.traffic_ph }}">
-      </div>
-      <div>
-        <label>{{ t.dns1_label }}</label>
-        <input name="dns1" placeholder="8.8.8.8" inputmode="numeric">
-      </div>
-      <div>
-        <label>{{ t.dns2_label }}</label>
-        <input name="dns2" placeholder="1.1.1.1" inputmode="numeric">
-      </div>
-      <div>
-        <label>{{ t.exact_expiry }}</label>
-        <input type="datetime-local" name="expires_at">
-      </div>
-      <div class="full">
-        <button class="btn primary">＋ {{ t.add_btn }}</button>
-        <span class="muted">{{ t.exact_note }}</span>
-      </div>
-    </form>
-  </section>
-
-  <section class="card">
-    <h2>{{ t.users_title }}</h2>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>#</th><th>{{ t.th_username }}</th><th>{{ t.th_password }}</th><th>{{ t.th_expiry }}</th>
-            <th>{{ t.th_remaining }}</th><th>{{ t.th_traffic }}</th><th>{{ t.th_dns }}</th><th>{{ t.th_key }}</th>
-            <th>{{ t.th_status }}</th><th>{{ t.th_actions }}</th>
-          </tr>
-        </thead>
-        <tbody>
-        {% for u in users %}
-          <tr class="{{ 'expired' if (u.expired or u.quota_exceeded) else '' }}">
-            <td>{{ loop.index }}</td>
-            <td><b>{{ u.username }}</b>{% if u.online %}<span class="dot" title="{{ t.online_tip }}"></span>{% endif %}</td>
-            <td>
-              <span class="secret-row">
-                <span class="pw" data-pw="{{ u.password }}" data-shown="0">••••••••</span>
-                <button type="button" class="icon-btn reveal" title="{{ t.show_tip }}">👁</button>
-                <button type="button" class="icon-btn copy-btn" data-copy="{{ u.password }}" title="{{ t.copy_tip }}">📋</button>
-              </span>
-            </td>
-            <td>{{ u.expires }}</td>
-            <td>{{ u.remaining }}</td>
-            <td>
-              <div class="traffic-cell">
-                <span>{{ u.traffic }}</span>
-                {% if u.limit_gb > 0 %}
-                <div class="bar"><div class="bar-fill {{ 'danger' if u.traffic_pct >= 90 else ('warn' if u.traffic_pct >= 70 else '') }}" style="width: {{ u.traffic_pct }}%"></div></div>
-                {% endif %}
-              </div>
-            </td>
-            <td>
-              {% if u.dns1 or u.dns2 %}
-                <span class="pw">{{ u.dns1 or '—' }} / {{ u.dns2 or '—' }}</span>
-              {% else %}
-                <span class="muted">{{ t.default_dns }}</span>
-              {% endif %}
-            </td>
-            <td>
-              <span class="secret-row">
-                <span class="pw">{{ u.key }}</span>
-                <button type="button" class="icon-btn copy-btn" data-copy="{{ u.key }}" title="{{ t.copy_tip }}">📋</button>
-                <a class="icon-btn" href="/u/{{ u.key }}" target="_blank" title="{{ t.status_link_tip }}">🔗</a>
-              </span>
-            </td>
-            <td>
-              {% if u.expired %}<span class="badge red">{{ t.badge_expired }}</span>
-              {% elif u.quota_exceeded %}<span class="badge red">{{ t.badge_quota }}</span>
-              {% elif u.soon %}<span class="badge orange">{{ t.badge_soon }}</span>
-              {% else %}<span class="badge green">{{ t.badge_active }}</span>{% endif %}
-            </td>
-            <td>
-              <form method="post" action="/renew/{{ u.id }}" class="inline">
-                <input class="mini" type="number" name="days" value="30" min="1" max="3650">
-                <button class="btn small">{{ t.renew_btn }}</button>
-              </form>
-              <button class="btn small" onclick="openEdit({{ u.id }}, '{{ u.expires_input }}', '{{ u.dns1 }}', '{{ u.dns2 }}', '{{ u.key }}')">✏️</button>
-              <form method="post" action="/reset-traffic/{{ u.id }}" class="inline">
-                <button class="btn small" title="{{ t.reset_traffic_tip }}">♻️</button>
-              </form>
-              <form method="post" action="/regen-key/{{ u.id }}" class="inline">
-                <button class="btn small" title="{{ t.regen_key_tip }}">🔑</button>
-              </form>
-              <form method="post" action="/delete/{{ u.id }}" class="inline" onsubmit="return confirm('{{ t.delete_confirm }}')">
-                <button class="btn small danger">🗑</button>
-              </form>
-            </td>
-          </tr>
-        {% else %}
-          <tr><td colspan="10" class="empty">{{ t.no_users }}</td></tr>
-        {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </section>
-</main>
-
-<div class="modal" id="editModal">
-  <form method="post" id="editForm" class="modal-card">
-    <h3>✏️ {{ t.edit_title }}</h3>
-    <label>{{ t.new_password }}</label>
-    <input name="password" id="editPass">
-    <label>{{ t.new_expiry }}</label>
-    <input type="datetime-local" name="expires_at" id="editExp">
-    <label>{{ t.new_traffic }}</label>
-    <input type="number" step="0.1" min="0" name="traffic" id="editTraffic">
-    <label>{{ t.new_dns1 }}</label>
-    <input name="dns1" id="editDns1" placeholder="8.8.8.8" inputmode="numeric">
-    <label>{{ t.new_dns2 }}</label>
-    <input name="dns2" id="editDns2" placeholder="1.1.1.1" inputmode="numeric">
-    <label>{{ t.new_key }}</label>
-    <input name="key" id="editKey">
-    <div class="modal-btns">
-      <button type="button" class="btn" onclick="closeEdit()">{{ t.cancel }}</button>
-      <button type="submit" class="btn primary">{{ t.save }}</button>
-    </div>
-  </form>
-</div>
-{% endblock %}
-
-{% block scripts %}
-<script>
-function openEdit(id, exp, dns1, dns2, key){
-  document.getElementById('editForm').action = '/edit/' + id;
-  document.getElementById('editExp').value = exp;
-  document.getElementById('editPass').value = '';
-  document.getElementById('editTraffic').value = '';
-  document.getElementById('editDns1').value = dns1;
-  document.getElementById('editDns2').value = dns2;
-  document.getElementById('editKey').value = key;
-  document.getElementById('editModal').classList.add('show');
-}
-function closeEdit(){ document.getElementById('editModal').classList.remove('show'); }
-document.getElementById('editModal').addEventListener('click', function(e){ if(e.target === this) closeEdit(); });
-document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeEdit(); });
-</script>
-{% endblock %}
-INDEXEOF
-
-cat > "${PANEL_DIR}/templates/user.html" <<'USEREOF'
-{% extends 'base.html' %}
-{% block title %}{{ t.status_title }}{% endblock %}
-{% block body %}
-<style>
-.status-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
-.status-card{width:100%;max-width:440px;padding:0;overflow:hidden}
-.status-hero{background:linear-gradient(135deg,var(--neon-cyan),var(--neon-purple));padding:28px 20px;text-align:center}
-.status-hero .logo{width:60px;height:60px;border-radius:18px;background:rgba(255,255,255,.18);
-  backdrop-filter:blur(6px);display:grid;place-items:center;font-size:1.7rem;margin:0 auto 12px}
-.status-hero h1{color:#fff;font-size:1.05rem;text-shadow:0 2px 8px rgba(0,0,0,.4)}
-.status-hero p{color:rgba(255,255,255,.8);font-size:.78rem;margin-top:5px}
-.status-body{padding:22px}
-.info-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 0;border-bottom:1px dashed var(--bd)}
-.info-row:last-child{border-bottom:none}
-.info-row>span{color:var(--mu);font-size:.8rem;font-weight:600;flex:none}
-.info-row>div,.info-row>b{word-break:break-all;text-align:end;font-size:.88rem}
-</style>
-<div class="status-wrap">
-  <div class="card status-card">
-    <div class="status-hero">
-      <div class="logo">🛡️</div>
-      <h1>{{ t.status_title }}</h1>
-      <p>{{ u.username }}</p>
-    </div>
-    <div class="status-body">
-      {% if u.expired %}
-        <div class="err-box">{{ t.badge_expired }}</div>
-      {% elif u.quota_exceeded %}
-        <div class="err-box">{{ t.badge_quota }}</div>
-      {% else %}
-        <div class="alert ok">{{ t.badge_active }}</div>
-      {% endif %}
-
-      <div class="info-row"><span>{{ t.st_server }}</span>
-        <div class="secret-row"><b class="pw">{{ server_ip }}</b>
-          <button type="button" class="icon-btn copy-btn" data-copy="{{ server_ip }}" title="{{ t.copy_tip }}">📋</button></div>
-      </div>
-      <div class="info-row"><span>{{ t.st_type }}</span><b>L2TP/IPSec PSK</b></div>
-      <div class="info-row"><span>{{ t.st_psk }}</span>
-        <div class="secret-row">
-          <span class="pw" data-pw="{{ psk }}" data-shown="0">••••••••</span>
-          <button type="button" class="icon-btn reveal" title="{{ t.show_tip }}">👁</button>
-          <button type="button" class="icon-btn copy-btn" data-copy="{{ psk }}" title="{{ t.copy_tip }}">📋</button>
-        </div>
-      </div>
-      <div class="info-row"><span>{{ t.username }}</span><b>{{ u.username }}</b></div>
-      <div class="info-row"><span>{{ t.password }}</span>
-        <div class="secret-row">
-          <span class="pw" data-pw="{{ u.password }}" data-shown="0">••••••••</span>
-          <button type="button" class="icon-btn reveal" title="{{ t.show_tip }}">👁</button>
-          <button type="button" class="icon-btn copy-btn" data-copy="{{ u.password }}" title="{{ t.copy_tip }}">📋</button>
-        </div>
-      </div>
-      <div class="info-row"><span>{{ t.st_dns }}</span>
-        <b class="pw">{% if u.dns1 or u.dns2 %}{{ u.dns1 or '—' }} / {{ u.dns2 or '—' }}{% else %}{{ t.st_dns_default }}{% endif %}</b>
-      </div>
-      <div class="info-row"><span>{{ t.st_expiry }}</span><b>{{ u.expires }}</b></div>
-      <div class="info-row"><span>{{ t.st_remaining }}</span><b>{{ u.remaining }}</b></div>
-      <div class="info-row"><span>{{ t.st_traffic }}</span>
-        <div class="traffic-cell">
-          <span>{{ u.traffic }}</span>
-          {% if u.limit_gb > 0 %}
-          <div class="bar"><div class="bar-fill {{ 'danger' if u.traffic_pct >= 90 else ('warn' if u.traffic_pct >= 70 else '') }}" style="width: {{ u.traffic_pct }}%"></div></div>
-          {% endif %}
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-{% endblock %}
-USEREOF
-
-cat > "${PANEL_DIR}/templates/restarting.html" <<'RESTARTEOF'
-{% extends 'base.html' %}
-{% block title %}{{ t.panel_restarting }}{% endblock %}
-{% block body %}
-<meta http-equiv="refresh" content="6;url=/">
-<div class="login-wrap">
-  <div class="card" style="max-width:385px;text-align:center">
-    <div style="font-size:2.4rem;margin-bottom:10px">⏳</div>
-    <h1 style="color:var(--tx)">{{ t.panel_restarting }}</h1>
-    <p class="muted" style="margin-top:8px">{{ t.restarting_msg }}</p>
-  </div>
-</div>
-{% endblock %}
-RESTARTEOF
-
-# ----------------------------- Services ------------------------------
-info "Creating services..."
-cat > /etc/systemd/system/l2tp-panel.service <<PANELEOF
-[Unit]
-Description=3OUTHBOY L2TP Panel Web UI
-After=network.target
-
-[Service]
-WorkingDirectory=${PANEL_DIR}
-ExecStart=/usr/bin/gunicorn --workers 1 --threads 4 --bind 0.0.0.0:${PANEL_PORT} --timeout 60 panel:app
-Restart=always
-RestartSec=3
-
-[Install]
-WantedBy=multi-user.target
-PANELEOF
-
-cat > /etc/systemd/system/l2tp-sync.service <<'SYNCEOF'
-[Unit]
-Description=3OUTHBOY L2TP Panel - user sync and expiry enforcement
-
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/python3 /opt/l2tp-panel/sync_users.py
-SYNCEOF
-
-cat > /etc/systemd/system/l2tp-sync.timer <<'TIMEREOF'
-[Unit]
-Description=Run L2TP sync every 30 seconds
-
-[Timer]
-OnBootSec=30
-OnUnitActiveSec=30
-AccuracySec=5
-Unit=l2tp-sync.service
-
-[Install]
-WantedBy=timers.target
-TIMEREOF
-
-# ----------------------------- Firewall ------------------------------
-if [ "${ENABLE_UFW,,}" != "n" ]; then
-  info "Configuring UFW..."
-  SSH_PORT="22"
-  if [ -n "${SSH_CONNECTION:-}" ]; then
-    SP="$(awk '{print $4}' <<<"$SSH_CONNECTION")"
-    [[ "$SP" =~ ^[0-9]+$ ]] && SSH_PORT="$SP"
-  fi
-  ufw allow "${SSH_PORT}/tcp" >/dev/null
-  ufw allow 500/udp >/dev/null
-  ufw allow 4500/udp >/dev/null
-  ufw allow 1701/udp >/dev/null
-  if [ -n "$ADMIN_IP" ]; then
-    ufw allow from "$ADMIN_IP" to any port "$PANEL_PORT" proto tcp >/dev/null
-  else
-    ufw allow "${PANEL_PORT}/tcp" >/dev/null
-  fi
-  ufw route allow from "${POOL_NET}" >/dev/null
-  ufw route allow from "${XAUTH_NET}" >/dev/null
-  ufw --force enable >/dev/null
-  ok "Firewall enabled (SSH:${SSH_PORT} | VPN:500/4500/1701/ESP | Panel:${PANEL_PORT})"
-fi
-
-# ----------------------------- Start ---------------------------------
-info "Starting services..."
-systemctl daemon-reload
-systemctl enable --now strongswan-starter >/dev/null 2>&1 || true
-systemctl restart strongswan-starter
-systemctl enable --now xl2tpd >/dev/null 2>&1 || true
-systemctl restart xl2tpd
-systemctl enable --now l2tp-nat >/dev/null 2>&1 || true
-systemctl restart l2tp-nat
-systemctl enable --now l2tp-panel >/dev/null 2>&1 || true
-systemctl enable --now l2tp-sync.timer >/dev/null 2>&1 || true
-python3 "${PANEL_DIR}/sync_users.py"
-ok "All services started."
-
-# ----------------------------- Summary -------------------------------
-echo
-echo -e "${GREEN}=====================================================${NC}"
-echo -e "${GREEN}   3OUTHBOY L2TP Panel — Installation complete!      ${NC}"
-echo -e "${GREEN}=====================================================${NC}"
-echo -e " Panel URL       : ${CYAN}http://${PUB_IP}:${PANEL_PORT}${NC}"
-echo -e " Admin username  : ${CYAN}${ADMIN_USER}${NC}"
-echo -e " Admin password  : ${CYAN}${ADMIN_PASS}${NC}"
-echo -e " IPSec PSK       : ${CYAN}${PSK}${NC}"
-echo -e " Client setup    : L2TP/IPSec PSK | Server: ${PUB_IP}"
-echo -e " User status     : http://${PUB_IP}:${PANEL_PORT}/u/<USER_KEY>"
-echo
-warn "Save these credentials! (also stored in ${PANEL_DIR}/config.json)"
-warn "Open UDP 500/4500/1701 + ESP and TCP ${PANEL_PORT} in your provider's firewall if any."
+ZQ9BASE
