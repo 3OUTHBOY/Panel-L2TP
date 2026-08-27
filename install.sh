@@ -145,6 +145,7 @@ conn xauth-psk
     modeconfig=push
     cisco_unity=yes
 
+
 IPSECEOF
 
 cat > /etc/xl2tpd/xl2tpd.conf <<'XL2TPDEOF'
@@ -160,6 +161,7 @@ require authentication = yes
 name = l2tpd
 pppoptfile = /etc/ppp/options.xl2tpd
 length bit = yes
+
 
 XL2TPDEOF
 
@@ -179,6 +181,7 @@ lock
 connect-delay 5000
 lcp-echo-interval 30
 lcp-echo-failure 5
+
 
 PPPOPT
 
@@ -211,6 +214,7 @@ if [ -s "$DMAP/$PEERNAME" ] && [ -n "$5" ]; then
 fi
 exit 0
 
+
 IPUPEOF
 chmod 755 /etc/ppp/ip-up.d/90l2tp-panel
 
@@ -235,6 +239,7 @@ fi
 rm -f "$IDIR/$1" 2>/dev/null
 exit 0
 
+
 IPDOWNEOF
 chmod 755 /etc/ppp/ip-down.d/90l2tp-panel
 
@@ -252,6 +257,7 @@ case "$1" in
   start) add 192.168.43.0/24; add 192.168.44.0/24; chain; mss ;;
   stop)  del 192.168.43.0/24; del 192.168.44.0/24; /sbin/iptables -t nat -F L2TP_DNS 2>/dev/null || true ;;
 esac
+
 
 NATEOF
 chmod 755 /usr/local/sbin/l2tp-nat.sh
@@ -1060,6 +1066,7 @@ def main():
 if __name__ == '__main__':
     main()
 
+
 SYNCPY
 chmod 755 ${PANEL_DIR}/sync_users.py
 
@@ -1108,6 +1115,7 @@ def main():
 if __name__ == '__main__':
     main()
 
+
 IFACEPY
 chmod 755 ${PANEL_DIR}/iface_down.py
 
@@ -1130,8 +1138,12 @@ cat > ${PANEL_DIR}/templates/base.html <<'TPL_BASE_HTML'
 <title>{% block title %}{{ t.brand }}{% endblock %}</title>
 <style>
 :root{
-  --bg-deep:#020203;--panel-bg:rgba(8,8,12,.7);--border-neon:rgba(0,229,255,.15);
-  --neon-cyan:#00e5ff;--neon-purple:#b026ff;--btn-tx:#020203;
+  --bg-deep:#020203;
+  --panel-bg:rgba(8,8,12,.7);
+  --border-neon:rgba(0,229,255,.15);
+  --neon-cyan:#00e5ff;
+  --neon-purple:#b026ff;
+  --btn-tx:#020203;
   --bg:#020203;--card:rgba(8,8,12,.7);--card2:rgba(255,255,255,.03);--card3:rgba(255,255,255,.06);
   --bd:rgba(0,229,255,.12);--bd2:rgba(0,229,255,.28);
   --tx:#f0f0f0;--mu:#7a7a8c;
@@ -1162,7 +1174,7 @@ body{font-family:Vazirmatn,'Segoe UI',Tahoma,Arial,sans-serif;color:var(--tx);mi
 ::-webkit-scrollbar-thumb{background:var(--neon-cyan);border-radius:10px}
 [data-theme=light] ::-webkit-scrollbar-thumb{background:#a3c3e0}
 html[dir=ltr] body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif}
-html[dir=ltr] .gheading,html[dir=ltr] .login-heading{letter-spacing:3px}
+html[dir=ltr] .gheading{letter-spacing:3px}
 .container{max-width:1180px;margin:0 auto;padding:0 16px}
 header{background:var(--panel-bg);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
   border-bottom:1px solid var(--border-neon);padding:15px 0;margin-bottom:24px;
@@ -1170,9 +1182,9 @@ header{background:var(--panel-bg);backdrop-filter:blur(20px);-webkit-backdrop-fi
 [data-theme=light] header{box-shadow:var(--sh2)}
 .header-in{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
 .brand{display:flex;align-items:center;gap:12px}
-.brand-badge{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;font-size:1.25rem;
-  background:linear-gradient(45deg,var(--neon-cyan),var(--neon-purple));
-  box-shadow:0 0 15px rgba(0,229,255,.3);flex:none}
+.brand-badge{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;font-size:0;
+  background:var(--card3);border:1px solid var(--bd2);box-shadow:0 0 16px rgba(0,229,255,.18)}
+.brand-badge .logo-svg{width:31px;height:31px}
 h1{font-size:1.05rem;font-weight:700;text-shadow:0 0 25px rgba(0,229,255,.35)}
 [data-theme=light] h1{text-shadow:none}
 h2{font-size:.98rem;margin-bottom:16px;font-weight:700;display:flex;align-items:center;gap:8px}
@@ -1197,12 +1209,6 @@ h2::before{content:'';width:4px;height:18px;border-radius:99px;
   background:var(--card3);border:1px solid var(--bd);flex:none}
 .stat-label{color:var(--mu);font-size:.82rem;font-weight:600}
 .stat b{font-size:1.05rem;word-break:break-all}
-.svc-row{display:flex;gap:8px;flex-wrap:wrap}
-.svc{padding:5px 13px;border-radius:9px;font-size:.76rem;font-weight:700}
-.svc.ok{background:rgba(52,211,153,.13);color:var(--grn)}
-.svc.bad{background:rgba(248,113,113,.13);color:var(--red)}
-[data-theme=light] .svc.ok{background:#dcfce7;color:#15803d}
-[data-theme=light] .svc.bad{background:#fee2e2;color:#b91c1c}
 .btn{border:1px solid rgba(255,255,255,.08);background:var(--card2);color:var(--tx);
   border-radius:10px;padding:9px 16px;cursor:pointer;font-family:inherit;font-size:.87rem;
   font-weight:600;transition:all .18s;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
@@ -1285,8 +1291,18 @@ tr.expired{opacity:.45}
 .bar-fill.warn{background:linear-gradient(90deg,#f59e0b,#f97316);box-shadow:0 0 12px rgba(245,158,11,.4)}
 .bar-fill.danger{background:linear-gradient(90deg,#ef4444,#dc2626);box-shadow:0 0 12px rgba(239,68,68,.4)}
 .traffic-cell{display:flex;flex-direction:column;min-width:110px}
+/* ===== logo (L2TP tunnel shield) ===== */
+.lg-a{stop-color:var(--neon-cyan)}
+.lg-b{stop-color:var(--neon-purple)}
+.logo-svg{display:block;filter:drop-shadow(0 0 6px color-mix(in srgb,var(--neon-cyan) 45%,transparent))}
+[data-theme=light] .logo-svg{filter:drop-shadow(0 0 5px color-mix(in srgb,var(--acc) 30%,transparent))}
+.logo-svg circle{animation:lgpulse 2.6s ease-in-out infinite}
+@keyframes lgpulse{0%,100%{opacity:1}50%{opacity:.4}}
+.login-logo{width:66px;height:66px;border-radius:19px;display:grid;place-items:center;margin:0 auto 12px;
+  background:var(--card3);border:1px solid var(--bd2);box-shadow:0 0 20px rgba(0,229,255,.22)}
+.login-logo .logo-svg{width:44px;height:44px}
 @media(max-width:600px){h1{font-size:.95rem}.card{padding:16px}}
-/* Aura cursor: hide ALL native cursors + glow follower */
+/* ===== aura cursor ===== */
 @media (hover:hover) and (pointer:fine){
   *,*::before,*::after{cursor:none !important}
   .cursor-orb{position:fixed;top:0;left:0;width:34px;height:34px;border-radius:50%;
@@ -1303,29 +1319,11 @@ tr.expired{opacity:.45}
   .cursor-orb.hot::after{width:11px;height:11px}
   .cursor-orb.click{opacity:.55}
 }
-
-/* ===== logo-update: L2TP tunnel shield ===== */
-.lg-a{stop-color:var(--neon-cyan)}
-.lg-b{stop-color:var(--neon-purple)}
-.logo-svg{display:block;filter:drop-shadow(0 0 6px color-mix(in srgb,var(--neon-cyan) 45%,transparent))}
-[data-theme=light] .logo-svg{filter:drop-shadow(0 0 5px color-mix(in srgb,var(--acc) 30%,transparent))}
-.logo-svg circle{animation:lgpulse 2.6s ease-in-out infinite}
-@keyframes lgpulse{0%,100%{opacity:1}50%{opacity:.4}}
-.brand-badge{width:46px;height:46px;border-radius:14px;font-size:0;
-  background:var(--card3);border:1px solid var(--bd2);box-shadow:0 0 16px rgba(0,229,255,.18)}
-.brand-badge .logo-svg{width:31px;height:31px}
-.login-logo{width:66px;height:66px;border-radius:19px;display:grid;place-items:center;margin:0 auto 12px;
-  background:var(--card3);border:1px solid var(--bd2);box-shadow:0 0 20px rgba(0,229,255,.22)}
-.login-logo .logo-svg{width:44px;height:44px}
-.restart-logo{width:66px;height:66px;border-radius:19px;display:grid;place-items:center;margin:0 auto 12px;
-  background:var(--card3);border:1px solid var(--bd2);box-shadow:0 0 20px rgba(0,229,255,.22)}
-.restart-logo .logo-svg{width:44px;height:44px}
-
 </style>
 </head>
 <body>
 <div class="ctrl-cluster">
-  <button type="button" class="ctrl-btn" id="themeBtn" onclick="toggleTheme()" title="{{ t.theme_tip }}">ðŸŒ™</button>
+  <button type="button" class="ctrl-btn" id="themeBtn" onclick="toggleTheme()" title="{{ t.theme_tip }}">&#127769;</button>
   <a class="ctrl-btn" href="/lang/{{ 'en' if lang == 'fa' else 'fa' }}" title="{{ lang|upper }}">{{ 'EN' if lang == 'fa' else 'FA' }}</a>
 </div>
 {% block body %}{% endblock %}
@@ -1333,7 +1331,7 @@ tr.expired{opacity:.45}
 function applyThemeBtn(){
   var cur=document.documentElement.getAttribute('data-theme')||'dark';
   var b=document.getElementById('themeBtn');
-  if(b){b.textContent = cur==='dark' ? 'â˜€ï¸' : 'ðŸŒ™';}
+  if(b){b.textContent = (cur==='dark') ? '\u2600\uFE0F' : '\uD83C\uDF19';}
 }
 function toggleTheme(){
   var cur=document.documentElement.getAttribute('data-theme')||'dark';
@@ -1343,9 +1341,9 @@ function toggleTheme(){
   applyThemeBtn();
 }
 applyThemeBtn();
-function copyText(t,b){var d=function(){var o=b.innerHTML;b.innerHTML='âœ“';setTimeout(function(){b.innerHTML=o;},1200);};if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(t).then(d);}else{var a=document.createElement('textarea');a.value=t;a.style.position='fixed';a.style.opacity='0';document.body.appendChild(a);a.select();document.execCommand('copy');a.remove();d();}}
+function copyText(t,b){var d=function(){var o=b.innerHTML;b.innerHTML='\u2713';setTimeout(function(){b.innerHTML=o;},1200);};if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(t).then(d);}else{var a=document.createElement('textarea');a.value=t;a.style.position='fixed';a.style.opacity='0';document.body.appendChild(a);a.select();document.execCommand('copy');a.remove();d();}}
 document.querySelectorAll('.copy-btn').forEach(function(b){b.addEventListener('click',function(){copyText(b.getAttribute('data-copy'),b);});});
-document.querySelectorAll('.reveal').forEach(function(b){b.addEventListener('click',function(){var s=b.parentElement.querySelector('.pw');if(s.getAttribute('data-shown')==='1'){s.textContent='â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢';s.setAttribute('data-shown','0');b.textContent='ðŸ‘';}else{s.textContent=s.getAttribute('data-pw');s.setAttribute('data-shown','1');b.textContent='ðŸ™ˆ';}});});
+document.querySelectorAll('.reveal').forEach(function(b){b.addEventListener('click',function(){var s=b.parentElement.querySelector('.pw');if(s.getAttribute('data-shown')==='1'){s.textContent='\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';s.setAttribute('data-shown','0');b.textContent='\uD83D\uDC41';}else{s.textContent=s.getAttribute('data-pw');s.setAttribute('data-shown','1');b.textContent='\uD83D\uDE48';}});});
 function genPass(){var c='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789',a=new Uint32Array(12);window.crypto.getRandomValues(a);var p='';for(var i=0;i<12;i++){p+=c[a[i]%c.length];}document.getElementById('pw-input').value=p;}
 </script>
 <script>
@@ -1370,7 +1368,6 @@ function genPass(){var c='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz2345678
 {% block scripts %}{% endblock %}
 </body>
 </html>
-
 TPL_BASE_HTML
 
 cat > ${PANEL_DIR}/templates/login.html <<'TPL_LOGIN_HTML'
@@ -1431,7 +1428,16 @@ cat > ${PANEL_DIR}/templates/login.html <<'TPL_LOGIN_HTML'
 <div class="login-wrap">
   <form method="post" class="gcard">
     <div class="gform">
-      <div class="login-logo"><svg class="logo-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="L2TP"><defs><linearGradient id="lgl" x1="10" y1="6" x2="54" y2="58" gradientUnits="userSpaceOnUse"><stop class="lg-a" offset="0"/><stop class="lg-b" offset="1"/></linearGradient></defs><path d="M32 4 L55.5 12.5 V28 C55.5 42.5 46 52.5 32 59.5 C18 52.5 8.5 42.5 8.5 28 V12.5 Z" stroke="url(#lgl)" stroke-width="3.4" stroke-linejoin="round" fill="url(#lgl)" fill-opacity="0.08"/><path d="M22 46.5 V29 C22 21.8 26.4 16 32 16 C37.6 16 42 21.8 42 29 V46.5" stroke="url(#lgl)" stroke-width="2.6" stroke-linecap="round"/><path d="M28 46.5 V31.5 C28 27 29.7 23.5 32 23.5 C34.3 23.5 36 27 36 31.5 V46.5" stroke="url(#lgl)" stroke-width="2" stroke-linecap="round" opacity="0.6"/><circle cx="32" cy="36.5" r="3" fill="url(#lgl)"/></svg></div>
+      <div class="login-logo">
+        <svg class="logo-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="L2TP">
+          <defs><linearGradient id="lgl" x1="10" y1="6" x2="54" y2="58" gradientUnits="userSpaceOnUse">
+            <stop class="lg-a" offset="0"/><stop class="lg-b" offset="1"/></linearGradient></defs>
+          <path d="M32 4 L55.5 12.5 V28 C55.5 42.5 46 52.5 32 59.5 C18 52.5 8.5 42.5 8.5 28 V12.5 Z" stroke="url(#lgl)" stroke-width="3.4" stroke-linejoin="round" fill="url(#lgl)" fill-opacity="0.08"/>
+          <path d="M22 46.5 V29 C22 21.8 26.4 16 32 16 C37.6 16 42 21.8 42 29 V46.5" stroke="url(#lgl)" stroke-width="2.6" stroke-linecap="round"/>
+          <path d="M28 46.5 V31.5 C28 27 29.7 23.5 32 23.5 C34.3 23.5 36 27 36 31.5 V46.5" stroke="url(#lgl)" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+          <circle cx="32" cy="36.5" r="3" fill="url(#lgl)"/>
+        </svg>
+      </div>
       <div class="gheading">{{ t.brand }}</div>
       <div class="gsub">L2TP / IPSec PSK</div>
       {% if error %}<div class="gerr">{{ error }}</div>{% endif %}
@@ -1883,7 +1889,7 @@ cat > ${PANEL_DIR}/templates/user.html <<'TPL_USER_HTML'
     </div>
 
     <div class="sub-footer">
-      <span class="muted">{{ t.brand }} Â· v{{ panel_version }}</span>
+      <span class="muted">{{ t.brand }}</span>
     </div>
   </div>
 </div>
@@ -1929,6 +1935,7 @@ cat > ${PANEL_DIR}/templates/restarting.html <<'TPL_RESTARTING_HTML'
   </div>
 </div>
 {% endblock %}
+
 
 TPL_RESTARTING_HTML
 
