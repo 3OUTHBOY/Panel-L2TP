@@ -1,6 +1,6 @@
 #!/bin/bash
 # =====================================================================
-#   3OUTHBOY PANEL â€” L2TP/IPSec VPN + Web Management Panel  v1.0.0
+#   3OUTHBOY PANEL â€” L2TP/IPSec VPN + Web Management Panel  v1.0.1
 #   Generated from live server state (build-installer.py)
 #   Ubuntu 20.04 / 22.04 / 24.04
 #   Interactive:  sudo bash install.sh
