@@ -146,6 +146,7 @@ conn xauth-psk
     cisco_unity=yes
 
 
+
 IPSECEOF
 
 cat > /etc/xl2tpd/xl2tpd.conf <<'XL2TPDEOF'
@@ -161,6 +162,7 @@ require authentication = yes
 name = l2tpd
 pppoptfile = /etc/ppp/options.xl2tpd
 length bit = yes
+
 
 
 XL2TPDEOF
@@ -181,6 +183,7 @@ lock
 connect-delay 5000
 lcp-echo-interval 30
 lcp-echo-failure 5
+
 
 
 PPPOPT
@@ -215,6 +218,7 @@ fi
 exit 0
 
 
+
 IPUPEOF
 chmod 755 /etc/ppp/ip-up.d/90l2tp-panel
 
@@ -240,6 +244,7 @@ rm -f "$IDIR/$1" 2>/dev/null
 exit 0
 
 
+
 IPDOWNEOF
 chmod 755 /etc/ppp/ip-down.d/90l2tp-panel
 
@@ -257,6 +262,7 @@ case "$1" in
   start) add 192.168.43.0/24; add 192.168.44.0/24; chain; mss ;;
   stop)  del 192.168.43.0/24; del 192.168.44.0/24; /sbin/iptables -t nat -F L2TP_DNS 2>/dev/null || true ;;
 esac
+
 
 
 NATEOF
@@ -319,7 +325,7 @@ KEY_RE = re.compile(r'^[A-Za-z0-9]{8,32}$')
 IPV4_RE = re.compile(r'^(\d{1,3}\.){3}\d{1,3}$')
 BAD_PW_CHARS = set(' \t\n\r"\'\\*:;#')
 DEFAULT_LANG = 'fa'
-PANEL_VERSION = '2.0.0'
+PANEL_VERSION = '1.0.0'
 UPDATE_URL = 'https://raw.githubusercontent.com/3OUTHBOY/Panel-L2TP/main/install.sh'
 UPDATE_LOG = '/var/log/l2tp-panel-update.log'
 
@@ -630,6 +636,11 @@ def set_lang(code):
         session['lang'] = code
     return redirect(request.referrer or url_for('index'))
 
+@app.route('/version')
+def version():
+    return PANEL_VERSION
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     error = None
@@ -857,11 +868,18 @@ def restart_panel():
 @app.route('/update', methods=['POST'])
 @login_required
 def panel_update():
-    # 1) download latest installer from GitHub
+    # 1) download latest installer from GitHub (cache-busted + validated)
     try:
-        req = urllib.request.Request(UPDATE_URL, headers={'User-Agent': 'Mozilla/5.0'})
+        url = UPDATE_URL + '?t=' + str(int(time.time()))
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
         with urllib.request.urlopen(req, timeout=30) as r:
             data = r.read()
+        text = data.decode('utf-8', 'replace')
+        if not text.startswith('#!/bin/bash') or '3OUTHBOY' not in text:
+            flash(T('update_failed'))
+            return redirect(url_for('index'))
+        mver = re.search(r"PANEL_VERSION\s*=\s*'([^']+)'", text)
+        target_ver = mver.group(1) if mver else None
         fd, tmp_path = tempfile.mkstemp(suffix='.sh')
         with os.fdopen(fd, 'wb') as f:
             f.write(data)
@@ -877,15 +895,21 @@ def panel_update():
         if m: port = m.group(1)
     except OSError:
         pass
-    # 3) run installer unattended in background (shlex = safe quoting)
+    # 3) run installer in its OWN systemd unit -> survives panel restart
     cmd = ('sleep 2; bash {f} --user {u} --pass {p} --psk {k} --port {o} '
            '--tz n --no-ufw >> {log} 2>&1; rm -f {f}').format(
         f=shlex.quote(tmp_path), u=shlex.quote(CFG['admin_user']),
         p=shlex.quote(CFG['admin_pass']), k=shlex.quote(CFG['psk']),
         o=shlex.quote(port), log=shlex.quote(UPDATE_LOG))
-    subprocess.Popen(['/bin/sh', '-c', cmd], start_new_session=True,
-                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    return render_template('updating.html')
+    unit = 'l2tppanel-update-%d' % int(time.time())
+    try:
+        subprocess.run(['systemd-run', '--collect', '--unit=' + unit,
+                        '/bin/sh', '-c', cmd],
+                       capture_output=True, timeout=20)
+    except Exception:
+        subprocess.Popen(['/bin/sh', '-c', cmd], start_new_session=True,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return render_template('updating.html', target_version=target_ver)
 
 init_db()
 
@@ -1067,6 +1091,7 @@ if __name__ == '__main__':
     main()
 
 
+
 SYNCPY
 chmod 755 ${PANEL_DIR}/sync_users.py
 
@@ -1114,6 +1139,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 IFACEPY
@@ -1368,6 +1394,7 @@ function genPass(){var c='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz2345678
 {% block scripts %}{% endblock %}
 </body>
 </html>
+
 TPL_BASE_HTML
 
 cat > ${PANEL_DIR}/templates/login.html <<'TPL_LOGIN_HTML'
@@ -1456,6 +1483,7 @@ cat > ${PANEL_DIR}/templates/login.html <<'TPL_LOGIN_HTML'
   </form>
 </div>
 {% endblock %}
+
 
 TPL_LOGIN_HTML
 
@@ -1814,7 +1842,7 @@ cat > ${PANEL_DIR}/templates/user.html <<'TPL_USER_HTML'
       </div>
       <div class="sb-text">
         <span class="sb-title">{{ t.badge_expired if u.expired else (t.badge_quota if u.quota_exceeded else t.badge_active) }}</span>
-        <span class="sb-sub">{{ u.username }} Â· L2TP/IPSec</span>
+        <span class="sb-sub">{{ u.username }} Ã‚Â· L2TP/IPSec</span>
       </div>
     </div>
 
@@ -1831,7 +1859,7 @@ cat > ${PANEL_DIR}/templates/user.html <<'TPL_USER_HTML'
           {% if u.limit_gb > 0 %}
             <b>{{ pct }}%</b>
           {% else %}
-            <b>âˆž</b>
+            <b>Ã¢Ë†Å¾</b>
           {% endif %}
           <span>{{ u.traffic }}</span>
         </div>
@@ -1839,20 +1867,20 @@ cat > ${PANEL_DIR}/templates/user.html <<'TPL_USER_HTML'
 
       <div class="gauge-side">
         <div class="mini-stat">
-          <div class="ms-label">â± {{ t.st_remaining }}</div>
+          <div class="ms-label">Ã¢ÂÂ± {{ t.st_remaining }}</div>
           {% if u.expired or u.quota_exceeded %}
-            <div class="ms-value muted">â€”</div>
+            <div class="ms-value muted">Ã¢â‚¬â€</div>
           {% else %}
             <div class="countdown" id="liveCountdown" data-expires="{{ u.expires }}">
-              <div class="cd-box"><b id="cdD">â€”</b><span>{{ 'Ø±ÙˆØ²' if lang=='fa' else 'D' }}</span></div>
-              <div class="cd-box"><b id="cdH">â€”</b><span>{{ 'Ø³Ø§Ø¹Øª' if lang=='fa' else 'H' }}</span></div>
-              <div class="cd-box"><b id="cdM">â€”</b><span>{{ 'Ø¯Ù‚ÛŒÙ‚Ù‡' if lang=='fa' else 'M' }}</span></div>
-              <div class="cd-box"><b id="cdS">â€”</b><span>{{ 'Ø«Ø§Ù†ÛŒÙ‡' if lang=='fa' else 'S' }}</span></div>
+              <div class="cd-box"><b id="cdD">Ã¢â‚¬â€</b><span>{{ 'Ã˜Â±Ã™Ë†Ã˜Â²' if lang=='fa' else 'D' }}</span></div>
+              <div class="cd-box"><b id="cdH">Ã¢â‚¬â€</b><span>{{ 'Ã˜Â³Ã˜Â§Ã˜Â¹Ã˜Âª' if lang=='fa' else 'H' }}</span></div>
+              <div class="cd-box"><b id="cdM">Ã¢â‚¬â€</b><span>{{ 'Ã˜Â¯Ã™â€šÃ›Å’Ã™â€šÃ™â€¡' if lang=='fa' else 'M' }}</span></div>
+              <div class="cd-box"><b id="cdS">Ã¢â‚¬â€</b><span>{{ 'Ã˜Â«Ã˜Â§Ã™â€ Ã›Å’Ã™â€¡' if lang=='fa' else 'S' }}</span></div>
             </div>
           {% endif %}
         </div>
         <div class="mini-stat">
-          <div class="ms-label">ðŸ“… {{ t.st_expiry }}</div>
+          <div class="ms-label">Ã°Å¸â€œâ€¦ {{ t.st_expiry }}</div>
           <div class="ms-value pw">{{ u.expires }}</div>
         </div>
       </div>
@@ -1863,33 +1891,33 @@ cat > ${PANEL_DIR}/templates/user.html <<'TPL_USER_HTML'
     <div class="sub-info">
       <div class="info-row"><span>{{ t.st_server }}</span>
         <div class="secret-row"><b class="pw">{{ server_ip }}</b>
-          <button type="button" class="icon-btn copy-btn" data-copy="{{ server_ip }}" title="{{ t.copy_tip }}">ðŸ“‹</button></div>
+          <button type="button" class="icon-btn copy-btn" data-copy="{{ server_ip }}" title="{{ t.copy_tip }}">Ã°Å¸â€œâ€¹</button></div>
       </div>
       <div class="info-row"><span>{{ t.st_psk }}</span>
         <div class="secret-row">
-          <span class="pw" data-pw="{{ psk }}" data-shown="0">â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢</span>
-          <button type="button" class="icon-btn reveal" title="{{ t.show_tip }}">ðŸ‘</button>
-          <button type="button" class="icon-btn copy-btn" data-copy="{{ psk }}" title="{{ t.copy_tip }}">ðŸ“‹</button>
+          <span class="pw" data-pw="{{ psk }}" data-shown="0">Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢</span>
+          <button type="button" class="icon-btn reveal" title="{{ t.show_tip }}">Ã°Å¸â€˜Â</button>
+          <button type="button" class="icon-btn copy-btn" data-copy="{{ psk }}" title="{{ t.copy_tip }}">Ã°Å¸â€œâ€¹</button>
         </div>
       </div>
       <div class="info-row"><span>{{ t.username }}</span>
         <div class="secret-row"><b class="pw">{{ u.username }}</b>
-          <button type="button" class="icon-btn copy-btn" data-copy="{{ u.username }}" title="{{ t.copy_tip }}">ðŸ“‹</button></div>
+          <button type="button" class="icon-btn copy-btn" data-copy="{{ u.username }}" title="{{ t.copy_tip }}">Ã°Å¸â€œâ€¹</button></div>
       </div>
       <div class="info-row"><span>{{ t.password }}</span>
         <div class="secret-row">
-          <span class="pw" data-pw="{{ u.password }}" data-shown="0">â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢</span>
-          <button type="button" class="icon-btn reveal" title="{{ t.show_tip }}">ðŸ‘</button>
-          <button type="button" class="icon-btn copy-btn" data-copy="{{ u.password }}" title="{{ t.copy_tip }}">ðŸ“‹</button>
+          <span class="pw" data-pw="{{ u.password }}" data-shown="0">Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢Ã¢â‚¬Â¢</span>
+          <button type="button" class="icon-btn reveal" title="{{ t.show_tip }}">Ã°Å¸â€˜Â</button>
+          <button type="button" class="icon-btn copy-btn" data-copy="{{ u.password }}" title="{{ t.copy_tip }}">Ã°Å¸â€œâ€¹</button>
         </div>
       </div>
       <div class="info-row"><span>{{ t.st_dns }}</span>
-        <b class="pw">{% if u.dns1 or u.dns2 %}{{ u.dns1 or 'â€”' }} / {{ u.dns2 or 'â€”' }}{% else %}{{ t.st_dns_default }}{% endif %}</b>
+        <b class="pw">{% if u.dns1 or u.dns2 %}{{ u.dns1 or 'Ã¢â‚¬â€' }} / {{ u.dns2 or 'Ã¢â‚¬â€' }}{% else %}{{ t.st_dns_default }}{% endif %}</b>
       </div>
     </div>
 
     <div class="sub-footer">
-      <span class="muted">{{ t.brand }}</span>
+      <span class="muted">{{ t.brand }} Â· v{{ panel_version }}</span>
     </div>
   </div>
 </div>
@@ -1920,6 +1948,7 @@ cat > ${PANEL_DIR}/templates/user.html <<'TPL_USER_HTML'
 </script>
 {% endblock %}
 
+
 TPL_USER_HTML
 
 cat > ${PANEL_DIR}/templates/restarting.html <<'TPL_RESTARTING_HTML'
@@ -1937,27 +1966,28 @@ cat > ${PANEL_DIR}/templates/restarting.html <<'TPL_RESTARTING_HTML'
 {% endblock %}
 
 
+
 TPL_RESTARTING_HTML
 
 cat > ${PANEL_DIR}/templates/updating.html <<'TPL_UPDATING_HTML'
 {% extends 'base.html' %}
 {% block title %}{{ t.updating_title }}{% endblock %}
 {% block body %}
-<meta http-equiv="refresh" content="15;url=/">
 <style>
 .upd-logo{width:66px;height:66px;border-radius:19px;display:grid;place-items:center;margin:0 auto 14px;
   background:var(--card3);border:1px solid var(--bd2);box-shadow:0 0 22px rgba(0,229,255,.22);
   animation:updspin 2.2s ease-in-out infinite}
 @keyframes updspin{0%,100%{transform:rotate(0)}50%{transform:rotate(180deg)}}
-.upd-bar{height:6px;background:rgba(255,255,255,.07);border-radius:99px;overflow:hidden;margin:18px 0 14px}
+.upd-bar{height:6px;background:rgba(255,255,255,.07);border-radius:99px;overflow:hidden;margin:18px 0 10px}
 [data-theme=light] .upd-bar{background:#e2e8f4}
 .upd-fill{height:100%;width:40%;border-radius:99px;
   background:linear-gradient(90deg,var(--neon-cyan),var(--neon-purple));
   box-shadow:0 0 12px rgba(0,229,255,.5);animation:updmv 1.6s ease-in-out infinite}
 @keyframes updmv{0%{margin-left:-40%}100%{margin-left:100%}}
+.upd-status{font-size:.72rem;color:var(--mu);margin-top:10px;min-height:1.2em}
 </style>
 <div class="login-wrap">
-  <div class="card" style="max-width:400px;text-align:center">
+  <div class="card" style="max-width:410px;text-align:center">
     <div class="upd-logo">
       <svg class="logo-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="lgup" x1="10" y1="6" x2="54" y2="58" gradientUnits="userSpaceOnUse">
@@ -1970,9 +2000,40 @@ cat > ${PANEL_DIR}/templates/updating.html <<'TPL_UPDATING_HTML'
     <h1 style="color:var(--tx)">{{ t.updating_title }}</h1>
     <p class="muted" style="margin-top:8px;line-height:1.8">{{ t.updating_msg }}</p>
     <div class="upd-bar"><div class="upd-fill"></div></div>
-    <span class="muted">v{{ panel_version }}</span>
+    <div class="upd-status" id="updStatus">&#8230;</div>
+    <span class="muted">v{{ panel_version }} {% if target_version %}&rarr; v{{ target_version }}{% endif %}</span>
   </div>
 </div>
+<script>
+(function(){
+  var target = {{ (target_version or '')|tojson }};
+  var current = {{ panel_version|tojson }};
+  var started = Date.now();
+  var sawDown = false;
+  var el = document.getElementById('updStatus');
+  function finish(){
+    el.textContent = '\u2713';
+    setTimeout(function(){ location.href = '/'; }, 800);
+  }
+  function poll(){
+    fetch('/version', {cache:'no-store'}).then(function(r){
+      if(!r.ok) throw 0;
+      return r.text();
+    }).then(function(v){
+      v = (v || '').trim();
+      if (sawDown) { finish(); return; }
+      if (target && v === target && v !== current) { finish(); return; }
+      if (Date.now() - started > 600000) { finish(); return; }
+      setTimeout(poll, 5000);
+    }).catch(function(){
+      if (Date.now() - started > 600000) { finish(); return; }
+      sawDown = true;
+      setTimeout(poll, 5000);
+    });
+  }
+  setTimeout(poll, 20000);
+})();
+</script>
 {% endblock %}
 
 TPL_UPDATING_HTML
@@ -2046,7 +2107,10 @@ systemctl enable --now xl2tpd >/dev/null 2>&1 || true
 systemctl restart xl2tpd
 systemctl enable --now l2tp-nat >/dev/null 2>&1 || true
 systemctl restart l2tp-nat
-systemctl enable --now l2tp-panel >/dev/null 2>&1 || true
+systemctl enable l2tp-panel >/dev/null 2>&1 || true
+systemctl restart l2tp-panel || warn "Panel restart failed! Check: journalctl -u l2tp-panel -e"
+sleep 2
+systemctl is-active --quiet l2tp-panel || warn "Panel is NOT running! Check: journalctl -u l2tp-panel -e"
 systemctl enable --now l2tp-sync.timer >/dev/null 2>&1 || true
 python3 "${PANEL_DIR}/sync_users.py"
 ok "All services started."
