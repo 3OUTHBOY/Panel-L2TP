@@ -1,0 +1,221 @@
+{% extends 'base.html' %}
+{% block title %}{{ t.status_title }}{% endblock %}
+{% block body %}
+<style>
+.sub-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px}
+.sub-card{width:100%;max-width:480px;animation:subIn .5s ease}
+
+/* ---- status banner (logo + status text) ---- */
+.status-banner{display:flex;align-items:center;gap:16px;padding:16px 20px;border-radius:18px;
+  margin-bottom:18px;border:1px solid}
+.status-banner.active{background:rgba(0,255,157,.07);border-color:rgba(0,255,157,.35);
+  box-shadow:0 0 24px rgba(0,255,157,.12)}
+.status-banner.expired{background:rgba(255,77,109,.07);border-color:rgba(255,77,109,.35);
+  box-shadow:0 0 24px rgba(255,77,109,.12)}
+.status-banner.quota{background:rgba(255,176,32,.07);border-color:rgba(255,176,32,.35);
+  box-shadow:0 0 24px rgba(255,176,32,.12)}
+[data-theme=light] .status-banner.active{background:#f0fdf4;border-color:#bbf7d0;box-shadow:none}
+[data-theme=light] .status-banner.expired{background:#fef2f2;border-color:#fecaca;box-shadow:none}
+[data-theme=light] .status-banner.quota{background:#fffbeb;border-color:#fde68a;box-shadow:none}
+.sub-logo{width:56px;height:56px;border-radius:17px;display:grid;place-items:center;flex:none;
+  background:var(--card3);border:1px solid var(--bd2);box-shadow:0 0 18px rgba(0,229,255,.2)}
+.sub-logo .logo-svg{width:37px;height:37px}
+.sb-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.sb-title{font-weight:800;font-size:1.06rem}
+.sb-sub{font-size:.86rem;color:var(--mu)}
+
+/* ---- gauge zone ---- */
+.gauge-zone{display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:8px 24px 4px}
+.gauge{position:relative;width:150px;height:150px;flex:none}
+.gauge svg{transform:rotate(-90deg)}
+.gauge .g-bg{fill:none;stroke:rgba(255,255,255,.07);stroke-width:11}
+[data-theme=light] .gauge .g-bg{stroke:#e5eaf4}
+.gauge .g-fill{fill:none;stroke:url(#gaugeGrad);stroke-width:11;stroke-linecap:round;
+  transition:stroke-dashoffset 1.2s cubic-bezier(.22,1,.36,1)}
+.gauge .g-fill.warn{stroke:url(#gaugeWarn)}
+.gauge .g-fill.danger{stroke:url(#gaugeDanger)}
+.gauge-center{position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;text-align:center}
+.gauge-center b{font-size:1.5rem;font-weight:800;
+  background:linear-gradient(90deg,var(--neon-cyan),var(--neon-purple));
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.gauge-center span{font-size:.68rem;color:var(--mu);margin-top:3px}
+
+.gauge-side{flex:1;min-width:0;display:flex;flex-direction:column;gap:12px}
+.mini-stat{background:var(--card3);border:1px solid var(--bd);border-radius:14px;
+  padding:12px 14px;overflow:hidden}
+.mini-stat .ms-label{font-size:.7rem;color:var(--mu);font-weight:700;margin-bottom:7px;
+  display:flex;align-items:center;gap:6px}
+.mini-stat .ms-value{font-size:1.02rem;font-weight:700;word-break:break-word}
+.mini-stat .ms-value.pw{font-weight:400}
+
+/* ---- countdown (compact single row) ---- */
+.countdown{display:flex;flex-wrap:nowrap;gap:4px;margin-top:2px;align-items:stretch}
+.cd-box{flex:1 1 0;min-width:0;background:var(--bg-deep);
+  border:1px solid var(--bd);border-radius:9px;padding:6px 2px;text-align:center}
+[data-theme=light] .cd-box{background:var(--card2)}
+.cd-box b{display:block;font-size:.84rem;font-weight:800;font-variant-numeric:tabular-nums;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.2}
+.cd-box span{display:block;font-size:.52rem;color:var(--mu);line-height:1.4;margin-top:2px}
+
+/* ---- divider ---- */
+.sub-divider{display:flex;align-items:center;gap:12px;padding:16px 24px 6px}
+.sub-divider::before,.sub-divider::after{content:'';flex:1;height:1px;
+  background:linear-gradient(90deg,transparent,var(--bd2),transparent)}
+.sub-divider span{font-size:.72rem;color:var(--mu);letter-spacing:1.5px;font-weight:700}
+
+/* ---- info rows ---- */
+.sub-info{padding:4px 24px 10px}
+.info-row{display:flex;justify-content:space-between;align-items:center;gap:12px;
+  padding:12px 0;border-bottom:1px dashed var(--bd)}
+.info-row:last-child{border-bottom:none}
+.info-row>span{color:var(--mu);font-size:.82rem;font-weight:600;flex:none}
+.info-row>div,.info-row>b{word-break:break-all;text-align:end;font-size:.9rem;min-width:0}
+
+.sub-footer{padding:12px 24px 20px;text-align:center}
+.sub-footer .muted{font-size:.72rem}
+
+@keyframes subIn{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
+
+@media(max-width:430px){
+  .gauge-zone{flex-direction:column}
+  .gauge-side{width:100%}
+}
+</style>
+
+<!-- shared gradient defs -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" class="lg-a"/><stop offset="100%" class="lg-b"/>
+    </linearGradient>
+    <linearGradient id="gaugeWarn" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f97316"/>
+    </linearGradient>
+    <linearGradient id="gaugeDanger" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ef4444"/><stop offset="100%" stop-color="#dc2626"/>
+    </linearGradient>
+    <linearGradient id="lgu" x1="10" y1="6" x2="54" y2="58" gradientUnits="userSpaceOnUse">
+      <stop class="lg-a" offset="0"/><stop class="lg-b" offset="1"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<div class="sub-wrap">
+  <div class="card sub-card">
+
+    {% set pct = u.traffic_pct %}
+    {% set CIRC = 314 %}
+
+    <div class="status-banner {{ 'expired' if u.expired else ('quota' if u.quota_exceeded else 'active') }}">
+      <div class="sub-logo">
+        <svg class="logo-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="L2TP"><path d="M32 4 L55.5 12.5 V28 C55.5 42.5 46 52.5 32 59.5 C18 52.5 8.5 42.5 8.5 28 V12.5 Z" stroke="url(#lgu)" stroke-width="3.4" stroke-linejoin="round" fill="url(#lgu)" fill-opacity="0.08"/><path d="M22 46.5 V29 C22 21.8 26.4 16 32 16 C37.6 16 42 21.8 42 29 V46.5" stroke="url(#lgu)" stroke-width="2.6" stroke-linecap="round"/><path d="M28 46.5 V31.5 C28 27 29.7 23.5 32 23.5 C34.3 23.5 36 27 36 31.5 V46.5" stroke="url(#lgu)" stroke-width="2" stroke-linecap="round" opacity="0.6"/><circle cx="32" cy="36.5" r="3" fill="url(#lgu)"/></svg>
+      </div>
+      <div class="sb-text">
+        <span class="sb-title">{{ t.badge_expired if u.expired else (t.badge_quota if u.quota_exceeded else t.badge_active) }}</span>
+        <span class="sb-sub">{{ u.username }} · L2TP/IPSec</span>
+      </div>
+    </div>
+
+    <div class="gauge-zone">
+      <div class="gauge">
+        <svg width="150" height="150" viewBox="0 0 150 150">
+          <circle class="g-bg" cx="75" cy="75" r="52"/>
+          <circle class="g-fill {{ 'danger' if pct >= 90 else ('warn' if pct >= 70 else '') }}"
+                  cx="75" cy="75" r="52"
+                  stroke-dasharray="{{ CIRC }}"
+                  stroke-dashoffset="{{ CIRC - (CIRC * pct / 100) if u.limit_gb > 0 else CIRC }}"/>
+        </svg>
+        <div class="gauge-center">
+          {% if u.limit_gb > 0 %}
+            <b>{{ pct }}%</b>
+          {% else %}
+            <b>∞</b>
+          {% endif %}
+          <span>{{ u.traffic }}</span>
+        </div>
+      </div>
+
+      <div class="gauge-side">
+        <div class="mini-stat">
+          <div class="ms-label">⏱ {{ t.st_remaining }}</div>
+          {% if u.expired or u.quota_exceeded %}
+            <div class="ms-value muted">—</div>
+          {% else %}
+            <div class="countdown" id="liveCountdown" data-expires="{{ u.expires }}">
+              <div class="cd-box"><b id="cdD">—</b><span>{{ 'روز' if lang=='fa' else 'D' }}</span></div>
+              <div class="cd-box"><b id="cdH">—</b><span>{{ 'ساعت' if lang=='fa' else 'H' }}</span></div>
+              <div class="cd-box"><b id="cdM">—</b><span>{{ 'دقیقه' if lang=='fa' else 'M' }}</span></div>
+              <div class="cd-box"><b id="cdS">—</b><span>{{ 'ثانیه' if lang=='fa' else 'S' }}</span></div>
+            </div>
+          {% endif %}
+        </div>
+        <div class="mini-stat">
+          <div class="ms-label">📅 {{ t.st_expiry }}</div>
+          <div class="ms-value pw">{{ u.expires }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sub-divider"><span>{{ t.st_type }}</span></div>
+
+    <div class="sub-info">
+      <div class="info-row"><span>{{ t.st_server }}</span>
+        <div class="secret-row"><b class="pw">{{ server_ip }}</b>
+          <button type="button" class="icon-btn copy-btn" data-copy="{{ server_ip }}" title="{{ t.copy_tip }}">📋</button></div>
+      </div>
+      <div class="info-row"><span>{{ t.st_psk }}</span>
+        <div class="secret-row">
+          <span class="pw" data-pw="{{ psk }}" data-shown="0">••••••••</span>
+          <button type="button" class="icon-btn reveal" title="{{ t.show_tip }}">👁</button>
+          <button type="button" class="icon-btn copy-btn" data-copy="{{ psk }}" title="{{ t.copy_tip }}">📋</button>
+        </div>
+      </div>
+      <div class="info-row"><span>{{ t.username }}</span>
+        <div class="secret-row"><b class="pw">{{ u.username }}</b>
+          <button type="button" class="icon-btn copy-btn" data-copy="{{ u.username }}" title="{{ t.copy_tip }}">📋</button></div>
+      </div>
+      <div class="info-row"><span>{{ t.password }}</span>
+        <div class="secret-row">
+          <span class="pw" data-pw="{{ u.password }}" data-shown="0">••••••••</span>
+          <button type="button" class="icon-btn reveal" title="{{ t.show_tip }}">👁</button>
+          <button type="button" class="icon-btn copy-btn" data-copy="{{ u.password }}" title="{{ t.copy_tip }}">📋</button>
+        </div>
+      </div>
+      <div class="info-row"><span>{{ t.st_dns }}</span>
+        <b class="pw">{% if u.dns1 or u.dns2 %}{{ u.dns1 or '—' }} / {{ u.dns2 or '—' }}{% else %}{{ t.st_dns_default }}{% endif %}</b>
+      </div>
+    </div>
+
+    <div class="sub-footer">
+      <span class="muted">{{ t.brand }}</span>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  var el = document.getElementById('liveCountdown');
+  if(!el) return;
+  var target = new Date(el.getAttribute('data-expires').replace(' ','T')).getTime();
+  function pad(n){return n<10?'0'+n:''+n;}
+  function tick(){
+    var diff = Math.max(0, target - Date.now());
+    var d = Math.floor(diff/86400000),
+        h = Math.floor(diff%86400000/3600000),
+        m = Math.floor(diff%3600000/60000),
+        s = Math.floor(diff%60000/1000);
+    document.getElementById('cdD').textContent = d;
+    document.getElementById('cdH').textContent = pad(h);
+    document.getElementById('cdM').textContent = pad(m);
+    document.getElementById('cdS').textContent = pad(s);
+    if(diff <= 0){ clearInterval(timer); }
+  }
+  tick();
+  var timer = setInterval(tick, 1000);
+})();
+</script>
+{% endblock %}

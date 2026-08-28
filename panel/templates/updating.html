@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}{{ t.updating_title }}{% endblock %}
+{% block body %}
+<meta http-equiv="refresh" content="15;url=/">
+<style>
+.upd-logo{width:66px;height:66px;border-radius:19px;display:grid;place-items:center;margin:0 auto 14px;
+  background:var(--card3);border:1px solid var(--bd2);box-shadow:0 0 22px rgba(0,229,255,.22);
+  animation:updspin 2.2s ease-in-out infinite}
+@keyframes updspin{0%,100%{transform:rotate(0)}50%{transform:rotate(180deg)}}
+.upd-bar{height:6px;background:rgba(255,255,255,.07);border-radius:99px;overflow:hidden;margin:18px 0 14px}
+[data-theme=light] .upd-bar{background:#e2e8f4}
+.upd-fill{height:100%;width:40%;border-radius:99px;
+  background:linear-gradient(90deg,var(--neon-cyan),var(--neon-purple));
+  box-shadow:0 0 12px rgba(0,229,255,.5);animation:updmv 1.6s ease-in-out infinite}
+@keyframes updmv{0%{margin-left:-40%}100%{margin-left:100%}}
+</style>
+<div class="login-wrap">
+  <div class="card" style="max-width:400px;text-align:center">
+    <div class="upd-logo">
+      <svg class="logo-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+        <defs><linearGradient id="lgup" x1="10" y1="6" x2="54" y2="58" gradientUnits="userSpaceOnUse">
+          <stop class="lg-a" offset="0"/><stop class="lg-b" offset="1"/></linearGradient></defs>
+        <path d="M32 4 L55.5 12.5 V28 C55.5 42.5 46 52.5 32 59.5 C18 52.5 8.5 42.5 8.5 28 V12.5 Z" stroke="url(#lgup)" stroke-width="3.4" stroke-linejoin="round" fill="url(#lgup)" fill-opacity="0.08"/>
+        <path d="M22 46.5 V29 C22 21.8 26.4 16 32 16 C37.6 16 42 21.8 42 29 V46.5" stroke="url(#lgup)" stroke-width="2.6" stroke-linecap="round"/>
+        <circle cx="32" cy="36.5" r="3" fill="url(#lgup)"/>
+      </svg>
+    </div>
+    <h1 style="color:var(--tx)">{{ t.updating_title }}</h1>
+    <p class="muted" style="margin-top:8px;line-height:1.8">{{ t.updating_msg }}</p>
+    <div class="upd-bar"><div class="upd-fill"></div></div>
+    <span class="muted">v{{ panel_version }}</span>
+  </div>
+</div>
+{% endblock %}

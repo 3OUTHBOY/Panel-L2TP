@@ -1,0 +1,234 @@
+{% extends 'base.html' %}
+{% block title %}{{ t.header_title }}{% endblock %}
+{% block body %}
+<style>
+.ver-badge{display:inline-block;vertical-align:middle;font-size:.62rem;font-weight:700;
+  padding:2px 9px;border-radius:99px;margin-inline-start:8px;letter-spacing:.5px;
+  background:var(--card3);border:1px solid var(--bd2);color:var(--mu);
+  -webkit-text-fill-color:var(--mu)}
+.svc-row{display:flex;gap:8px;flex-wrap:wrap}
+.svc{padding:5px 13px;border-radius:9px;font-size:.76rem;font-weight:700}
+.svc.ok{background:rgba(52,211,153,.13);color:var(--grn)}
+.svc.bad{background:rgba(248,113,113,.13);color:var(--red)}
+[data-theme=light] .svc.ok{background:#dcfce7;color:#15803d}
+[data-theme=light] .svc.bad{background:#fee2e2;color:#b91c1c}
+</style>
+<header>
+  <div class="container header-in">
+    <div class="brand">
+      <div class="brand-badge"><svg class="logo-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="L2TP"><defs><linearGradient id="lgh" x1="10" y1="6" x2="54" y2="58" gradientUnits="userSpaceOnUse"><stop class="lg-a" offset="0"/><stop class="lg-b" offset="1"/></linearGradient></defs><path d="M32 4 L55.5 12.5 V28 C55.5 42.5 46 52.5 32 59.5 C18 52.5 8.5 42.5 8.5 28 V12.5 Z" stroke="url(#lgh)" stroke-width="3.4" stroke-linejoin="round" fill="url(#lgh)" fill-opacity="0.08"/><path d="M22 46.5 V29 C22 21.8 26.4 16 32 16 C37.6 16 42 21.8 42 29 V46.5" stroke="url(#lgh)" stroke-width="2.6" stroke-linecap="round"/><path d="M28 46.5 V31.5 C28 27 29.7 23.5 32 23.5 C34.3 23.5 36 27 36 31.5 V46.5" stroke="url(#lgh)" stroke-width="2" stroke-linecap="round" opacity="0.6"/><circle cx="32" cy="36.5" r="3" fill="url(#lgh)"/></svg></div>
+      <h1>{{ t.header_title }} <span class="ver-badge">v{{ panel_version }}</span></h1>
+    </div>
+    <div class="actions">
+      <form method="post" action="/sync" class="inline"><button class="btn small">{{ t.sync_btn }}</button></form>
+      <form method="post" action="/update" class="inline" onsubmit="return confirm('{{ t.update_confirm }}')">
+        <button class="btn small">{{ t.update_btn }}</button>
+      </form>
+      <form method="post" action="/restart-vpn" class="inline" onsubmit="return confirm('{{ t.restart_vpn_confirm }}')">
+        <button class="btn small">{{ t.restart_vpn_btn }}</button>
+      </form>
+      <form method="post" action="/restart-panel" class="inline" onsubmit="return confirm('{{ t.restart_panel_confirm }}')">
+        <button class="btn small">{{ t.restart_panel_btn }}</button>
+      </form>
+      <a class="btn small" href="/logout">{{ t.logout_btn }}</a>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+  {% with msgs = get_flashed_messages() %}
+    {% for m in msgs %}<div class="alert ok">{{ m }}</div>{% endfor %}
+  {% endwith %}
+
+  <section class="cards">
+    <div class="card stat">
+      <div class="stat-head"><span class="stat-icon">🌐</span><span class="stat-label">{{ t.server_address }}</span></div>
+      <div class="secret-row"><b class="pw">{{ server_ip }}</b>
+        <button type="button" class="icon-btn copy-btn" data-copy="{{ server_ip }}" title="{{ t.copy_tip }}">📋</button></div>
+    </div>
+    <div class="card stat">
+      <div class="stat-head"><span class="stat-icon">🔑</span><span class="stat-label">{{ t.psk_label }}</span></div>
+      <div class="secret-row">
+        <span class="pw" data-pw="{{ psk }}" data-shown="0">••••••••</span>
+        <button type="button" class="icon-btn reveal" title="{{ t.show_tip }}">👁</button>
+        <button type="button" class="icon-btn copy-btn" data-copy="{{ psk }}" title="{{ t.copy_tip }}">📋</button>
+      </div>
+    </div>
+    <div class="card stat">
+      <div class="stat-head"><span class="stat-icon">👤</span><span class="stat-label">{{ t.active_users }}</span></div>
+      <b>{{ active_count }} {{ t.of_word }} {{ total_count }}</b>
+    </div>
+    <div class="card stat">
+      <div class="stat-head"><span class="stat-icon">📡</span><span class="stat-label">{{ t.online_sessions }}</span></div>
+      <b>{{ online_count }}</b>
+    </div>
+    <div class="card stat">
+      <div class="stat-head"><span class="stat-icon">⚙️</span><span class="stat-label">{{ t.services_status }}</span></div>
+      <div class="svc-row">
+        <span class="svc {{ 'ok' if svc.ipsec else 'bad' }}">IPSec</span>
+        <span class="svc {{ 'ok' if svc.xl2tpd else 'bad' }}">L2TP</span>
+        <span class="svc {{ 'ok' if svc.nat else 'bad' }}">NAT</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>{{ t.add_user_title }}</h2>
+    <form method="post" action="/add" class="add-form">
+      <div>
+        <label>{{ t.username }}</label>
+        <input name="username" required pattern="[A-Za-z0-9_.\-]{3,32}" placeholder="user01">
+      </div>
+      <div>
+        <label>{{ t.password_auto }}</label>
+        <div class="secret-row" style="width:100%">
+          <input name="password" id="pw-input" placeholder="{{ t.auto_placeholder }}" style="flex:1">
+          <button type="button" class="btn small" onclick="genPass()">🎲</button>
+        </div>
+      </div>
+      <div>
+        <label>{{ t.days_label }}</label>
+        <input type="number" name="days" value="30" min="1" max="3650">
+      </div>
+      <div>
+        <label>{{ t.traffic_label }}</label>
+        <input type="number" name="traffic" min="0" step="0.1" placeholder="{{ t.traffic_ph }}">
+      </div>
+      <div>
+        <label>{{ t.dns1_label }}</label>
+        <input name="dns1" placeholder="8.8.8.8" inputmode="numeric">
+      </div>
+      <div>
+        <label>{{ t.dns2_label }}</label>
+        <input name="dns2" placeholder="1.1.1.1" inputmode="numeric">
+      </div>
+      <div>
+        <label>{{ t.exact_expiry }}</label>
+        <input type="datetime-local" name="expires_at">
+      </div>
+      <div class="full">
+        <button class="btn primary">＋ {{ t.add_btn }}</button>
+        <span class="muted">{{ t.exact_note }}</span>
+      </div>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>{{ t.users_title }}</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>{{ t.th_username }}</th><th>{{ t.th_password }}</th><th>{{ t.th_expiry }}</th>
+            <th>{{ t.th_remaining }}</th><th>{{ t.th_traffic }}</th><th>{{ t.th_dns }}</th><th>{{ t.th_key }}</th>
+            <th>{{ t.th_status }}</th><th>{{ t.th_actions }}</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for u in users %}
+          <tr class="{{ 'expired' if (u.expired or u.quota_exceeded) else '' }}">
+            <td>{{ loop.index }}</td>
+            <td><b>{{ u.username }}</b>{% if u.online %}<span class="dot" title="{{ t.online_tip }}"></span>{% endif %}</td>
+            <td>
+              <span class="secret-row">
+                <span class="pw" data-pw="{{ u.password }}" data-shown="0">••••••••</span>
+                <button type="button" class="icon-btn reveal" title="{{ t.show_tip }}">👁</button>
+                <button type="button" class="icon-btn copy-btn" data-copy="{{ u.password }}" title="{{ t.copy_tip }}">📋</button>
+              </span>
+            </td>
+            <td>{{ u.expires }}</td>
+            <td>{{ u.remaining }}</td>
+            <td>
+              <div class="traffic-cell">
+                <span>{{ u.traffic }}</span>
+                {% if u.limit_gb > 0 %}
+                <div class="bar"><div class="bar-fill {{ 'danger' if u.traffic_pct >= 90 else ('warn' if u.traffic_pct >= 70 else '') }}" style="width: {{ u.traffic_pct }}%"></div></div>
+                {% endif %}
+              </div>
+            </td>
+            <td>
+              {% if u.dns1 or u.dns2 %}
+                <span class="pw">{{ u.dns1 or '—' }} / {{ u.dns2 or '—' }}</span>
+              {% else %}
+                <span class="muted">{{ t.default_dns }}</span>
+              {% endif %}
+            </td>
+            <td>
+              <span class="secret-row">
+                <span class="pw">{{ u.key }}</span>
+                <button type="button" class="icon-btn copy-btn" data-copy="{{ u.key }}" title="{{ t.copy_tip }}">📋</button>
+                <a class="icon-btn" href="/u/{{ u.key }}" target="_blank" title="{{ t.status_link_tip }}">🔗</a>
+              </span>
+            </td>
+            <td>
+              {% if u.expired %}<span class="badge red">{{ t.badge_expired }}</span>
+              {% elif u.quota_exceeded %}<span class="badge red">{{ t.badge_quota }}</span>
+              {% elif u.soon %}<span class="badge orange">{{ t.badge_soon }}</span>
+              {% else %}<span class="badge green">{{ t.badge_active }}</span>{% endif %}
+            </td>
+            <td>
+              <form method="post" action="/renew/{{ u.id }}" class="inline">
+                <input class="mini" type="number" name="days" value="30" min="1" max="3650">
+                <button class="btn small">{{ t.renew_btn }}</button>
+              </form>
+              <button class="btn small" onclick="openEdit({{ u.id }}, '{{ u.expires_input }}', '{{ u.dns1 }}', '{{ u.dns2 }}', '{{ u.key }}')">✏️</button>
+              <form method="post" action="/reset-traffic/{{ u.id }}" class="inline">
+                <button class="btn small" title="{{ t.reset_traffic_tip }}">♻️</button>
+              </form>
+              <form method="post" action="/regen-key/{{ u.id }}" class="inline">
+                <button class="btn small" title="{{ t.regen_key_tip }}">🔑</button>
+              </form>
+              <form method="post" action="/delete/{{ u.id }}" class="inline" onsubmit="return confirm('{{ t.delete_confirm }}')">
+                <button class="btn small danger">🗑</button>
+              </form>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="10" class="empty">{{ t.no_users }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<div class="modal" id="editModal">
+  <form method="post" id="editForm" class="modal-card">
+    <h3>✏️ {{ t.edit_title }}</h3>
+    <label>{{ t.new_password }}</label>
+    <input name="password" id="editPass">
+    <label>{{ t.new_expiry }}</label>
+    <input type="datetime-local" name="expires_at" id="editExp">
+    <label>{{ t.new_traffic }}</label>
+    <input type="number" step="0.1" min="0" name="traffic" id="editTraffic">
+    <label>{{ t.new_dns1 }}</label>
+    <input name="dns1" id="editDns1" placeholder="8.8.8.8" inputmode="numeric">
+    <label>{{ t.new_dns2 }}</label>
+    <input name="dns2" id="editDns2" placeholder="1.1.1.1" inputmode="numeric">
+    <label>{{ t.new_key }}</label>
+    <input name="key" id="editKey">
+    <div class="modal-btns">
+      <button type="button" class="btn" onclick="closeEdit()">{{ t.cancel }}</button>
+      <button type="submit" class="btn primary">{{ t.save }}</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openEdit(id, exp, dns1, dns2, key){
+  document.getElementById('editForm').action = '/edit/' + id;
+  document.getElementById('editExp').value = exp;
+  document.getElementById('editPass').value = '';
+  document.getElementById('editTraffic').value = '';
+  document.getElementById('editDns1').value = dns1;
+  document.getElementById('editDns2').value = dns2;
+  document.getElementById('editKey').value = key;
+  document.getElementById('editModal').classList.add('show');
+}
+function closeEdit(){ document.getElementById('editModal').classList.remove('show'); }
+document.getElementById('editModal').addEventListener('click', function(e){ if(e.target === this) closeEdit(); });
+document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeEdit(); });
+</script>
+{% endblock %}
