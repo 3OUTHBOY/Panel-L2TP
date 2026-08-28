@@ -60,7 +60,7 @@ TRANSLATIONS = {
   'updating_msg':'نسخه جدید از گیت‌هاب در حال دانلود و نصب است. چند دقیقه صبر کنید؛ صفحه خودکار بازمی‌گردد و باید دوباره وارد شوید.',
   'update_confirm':'پنل از گیت‌هاب آپدیت شود؟ چند دقیقه طول می‌کشد و بعدش باید دوباره لاگین کنید.',
   'update_failed':'آپدیت ناموفق بود! اتصال سرور به گیت‌هاب را بررسی کنید.',
-  'logout_btn':'خروج','copy_tip':'کپی','show_tip':'نمایش',
+  'tab_dashboard':'داشبورد','tab_users':'کاربران','tab_settings':'تنظیمات','total_traffic':'مصرف کل کاربران','sum_of_quotas':'مجموع سهم کاربران محدود','settings_account':'حساب ادمین','settings_account_desc':'نام کاربری و رمز عبور ورود به پنل','cur_password':'رمز فعلی','new_username':'نام کاربری جدید','new_password':'رمز عبور جدید','new_password2':'تکرار رمز عبور جدید','save_btn':'ذخیره تغییرات','creds_note':'بعد از ذخیره، از پنل خارج می‌شوید و باید با اطلاعات جدید وارد شوید.','wrong_cur_password':'رمز فعلی اشتباه است.','password_mismatch':'رمزهای جدید یکسان نیستند.','invalid_password_short':'رمز جدید باید حداقل ۶ کاراکتر باشد.','relogin_note':'اعتبارنامه‌ها تغییر کرد؛ لطفاً با اطلاعات جدید وارد شوید.','settings_vpn':'تنظیمات VPN','change_psk':'تغییر کلید PSK','change_psk_warn':'هشدار: با تغییر PSK همه کاربران باید PSK جدید را در دستگاه خود وارد کنند و کاربران متصل موقتاً قطع می‌شوند.','new_psk':'PSK جدید (حداقل ۸ کاراکتر)','invalid_psk':'PSK نامعتبر است (حداقل ۸ کاراکتر، بدون فاصله).','psk_saved':'PSK جدید ذخیره شد و سرویس IPSec ریستارت شد.','default_dns_title':'DNS پیش‌فرض سرور (کاربران بدون DNS اختصاصی)','dns_saved':'DNS پیش‌فرض ذخیره شد و سرویس L2TP ریستارت شد.','settings_panel':'تنظیمات پنل','cur_port':'پورت فعلی','port_label':'پورت جدید پنل','port_warn':'بعد از تغییر پورت، چند ثانیه بعد به آدرس جدید منتقل می‌شوید. پورت جدید به‌صورت خودکار در فایروال باز می‌شود.','invalid_port':'پورت نامعتبر است (عدد بین ۱۰۲۴ تا ۶۵۵۳۵).','settings_data':'داده‌ها و بکاپ','backup_btn':'📥 دانلود فایل بکاپ','backup_note':'شامل همه کاربران، حجم‌ها، تاریخ انقضا و تنظیمات پنل. در جای امن نگه دارید.','chart_title':'مصرف ۷ روز اخیر','top_users':'مصرف‌کننده‌های برتر','expired_count':'کاربران منقضی','capacity':'ظرفیت سیستم','slots_used':'اسلات IP استفاده‌شده','today':'امروز','no_chart_data':'هنوز داده‌ای ثبت نشده — از فردا نمودار پر می‌شود.','logout_btn':'خروج','copy_tip':'کپی','show_tip':'نمایش',
   'reset_traffic_tip':'صفر کردن حجم مصرفی','regen_key_tip':'تولید کد جدید',
   'status_link_tip':'صفحه وضعیت کاربر','theme_tip':'حالت روشن / تاریک',
   'invalid_username':'نام کاربری نامعتبر است (۳ تا ۳۲ کاراکتر لاتین/عدد).',
@@ -118,7 +118,7 @@ TRANSLATIONS = {
   'updating_msg':'Downloading and installing the new version from GitHub. This takes a few minutes; the page will return automatically and you will need to log in again.',
   'update_confirm':'Update the panel from GitHub? Takes a few minutes and you will need to log in again.',
   'update_failed':'Update failed! Check server connectivity to GitHub.',
-  'logout_btn':'Logout','copy_tip':'Copy','show_tip':'Show',
+  'tab_dashboard':'Dashboard','tab_users':'Users','tab_settings':'Settings','total_traffic':'Total traffic (all users)','sum_of_quotas':'Sum of user quotas','settings_account':'Admin Account','settings_account_desc':'Panel login username and password','cur_password':'Current password','new_username':'New username','new_password':'New password','new_password2':'Repeat new password','save_btn':'Save changes','creds_note':'After saving you will be logged out and must sign in with the new credentials.','wrong_cur_password':'Current password is wrong.','password_mismatch':'New passwords do not match.','invalid_password_short':'New password must be at least 6 characters.','relogin_note':'Credentials changed — please sign in with the new ones.','settings_vpn':'VPN Settings','change_psk':'Change PSK','change_psk_warn':'Warning: after changing the PSK, all users must enter the new PSK on their devices; connected users will be disconnected briefly.','new_psk':'New PSK (min 8 chars)','invalid_psk':'Invalid PSK (min 8 chars, no spaces).','psk_saved':'New PSK saved and IPSec service restarted.','default_dns_title':'Server default DNS (users without custom DNS)','dns_saved':'Default DNS saved and L2TP service restarted.','settings_panel':'Panel Settings','cur_port':'Current port','port_label':'New panel port','port_warn':'After changing the port you will be redirected to the new address in a few seconds. The new port is opened in the firewall automatically.','invalid_port':'Invalid port (number between 1024 and 65535).','settings_data':'Data & Backup','backup_btn':'📥 Download backup','backup_note':'Contains all users, quotas, expiry dates and panel settings. Keep it somewhere safe.','chart_title':'Traffic — last 7 days','top_users':'Top consumers','expired_count':'Expired users','capacity':'System capacity','slots_used':'IP slots used','today':'Today','no_chart_data':'No data yet — the chart fills up day by day.','logout_btn':'Logout','copy_tip':'Copy','show_tip':'Show',
   'reset_traffic_tip':'Reset traffic counter','regen_key_tip':'Regenerate key',
   'status_link_tip':'User status page','theme_tip':'Toggle light / dark mode',
   'invalid_username':'Invalid username (3-32 chars).',
@@ -348,12 +348,66 @@ def login():
             else:
                 recent.append(now); _attempts[ip] = recent
         error = T('err_locked') if locked else T('err_credentials')
-    return render_template('login.html', error=error)
+    return render_template('login.html', error=error, relogin=request.args.get('relogin'))
 
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect(url_for('login'))
+
+
+def _record_daily_stats():
+    # Record today's total usage snapshot (idempotent per day).
+    try:
+        conn = get_db()
+        conn.execute("CREATE TABLE IF NOT EXISTS daily_stats ("
+                     "day TEXT PRIMARY KEY, "
+                     "total_bytes INTEGER NOT NULL DEFAULT 0)")
+        today = datetime.now().strftime('%Y-%m-%d')
+        row = conn.execute('SELECT COALESCE(SUM(used_bytes),0) FROM users').fetchone()
+        total = row[0] if row else 0
+        conn.execute("INSERT INTO daily_stats(day, total_bytes) VALUES(?,?) "
+                     "ON CONFLICT(day) DO UPDATE SET total_bytes=excluded.total_bytes",
+                     (today, total))
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
+
+
+def _get_chart_data():
+    # Return [(label, bytes, pct, gb), ...] for last 7 days + top users.
+    try:
+        conn = get_db()
+        days = []
+        today = datetime.now().date()
+        for i in range(6, -1, -1):
+            d = today - timedelta(days=i)
+            key = d.strftime('%Y-%m-%d')
+            row = conn.execute('SELECT total_bytes FROM daily_stats WHERE day=?',
+                               (key,)).fetchone()
+            total = row['total_bytes'] if row else 0
+            label = ('امروز' if i == 0 else str(i)) if get_lang() == 'fa' \
+                    else ('Today' if i == 0 else str(i))
+            days.append({'label': label, 'bytes': total})
+        top = conn.execute('SELECT username, used_bytes, traffic_limit_mb FROM users '
+                           'WHERE used_bytes > 0 ORDER BY used_bytes DESC LIMIT 5').fetchall()
+        conn.close()
+        peak = max((d['bytes'] for d in days), default=0)
+        for d in days:
+            d['pct'] = int(d['bytes'] * 100 / peak) if peak else 0
+            d['gb'] = round(d['bytes'] / (1024.0 ** 3), 2)
+        top_users = []
+        for r in top:
+            lim = r['traffic_limit_mb'] or 0
+            pct = min(int(r['used_bytes'] * 100 / (lim * 1024 * 1024)), 100) if lim else 100
+            top_users.append({'username': r['username'],
+                              'used': fmt_traffic(r['used_bytes']),
+                              'pct': pct})
+        return days, top_users
+    except Exception:
+        return [], []
+
 
 @app.route('/')
 @login_required
@@ -373,11 +427,25 @@ def index():
         u['online'] = row['username'] in online_users
         if not u['expired'] and not u['quota_exceeded']: active_count += 1
         users.append(u)
+    total_used = sum((row['used_bytes'] or 0) for row in rows)
+    total_limit_mb = sum((row['traffic_limit_mb'] or 0) for row in rows
+                         if row['traffic_limit_mb'])
+    def_dns = _default_dns()
+    _record_daily_stats()
+    chart_days, top_users = _get_chart_data()
+    expired_count = sum(1 for row in rows
+                       if row['expires_at'] <= datetime.now().strftime(DT_FMT))
     svc = {'ipsec': service_active('strongswan-starter') or service_active('ipsec'),
            'xl2tpd': service_active('xl2tpd'), 'nat': service_active('l2tp-nat')}
     return render_template('index.html', users=users, server_ip=SERVER_IP, psk=CFG['psk'],
                            active_count=active_count, total_count=len(users),
-                           online_count=len(online_users), svc=svc)
+                           online_count=len(online_users), svc=svc,
+                           total_used=fmt_traffic(total_used),
+                           total_limit=(fmt_traffic(total_limit_mb * 1024 * 1024) if total_limit_mb else None),
+                           default_dns1=def_dns[0], default_dns2=def_dns[1],
+                           admin_user=CFG['admin_user'], panel_port=_panel_port(),
+                           chart_days=chart_days, top_users=top_users,
+                           expired_count=expired_count)
 
 @app.route('/u/<string:key>')
 def user_status(key):
@@ -585,7 +653,218 @@ def panel_update():
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return render_template('updating.html')
 
+
+def _save_config():
+    try:
+        with open(os.path.join(BASE, 'config.json'), 'w', encoding='utf-8') as fh:
+            json.dump(CFG, fh, ensure_ascii=False, indent=2)
+        os.chmod(os.path.join(BASE, 'config.json'), 0o600)
+    except Exception:
+        pass
+
+
+def _default_dns():
+    vals = []
+    try:
+        with open('/etc/ppp/options.xl2tpd') as fh:
+            for line in fh:
+                if line.strip().startswith('ms-dns'):
+                    parts = line.split()
+                    if len(parts) > 1:
+                        vals.append(parts[1].strip())
+    except OSError:
+        pass
+    return (vals[0] if len(vals) > 0 else '', vals[1] if len(vals) > 1 else '')
+
+
+def _panel_port():
+    try:
+        with open('/etc/systemd/system/l2tp-panel.service') as fh:
+            m = re.search(r'--bind\s+\S+?:(\d+)', fh.read())
+        if m:
+            return m.group(1)
+    except OSError:
+        pass
+    return '8080'
+
+
+@app.route('/settings/credentials', methods=['POST'])
+@login_required
+def settings_credentials():
+    current = request.form.get('current_password', '')
+    new_user = request.form.get('new_username', '').strip()
+    new_pass = request.form.get('new_password', '')
+    new_pass2 = request.form.get('new_password2', '')
+    if current != CFG['admin_pass']:
+        flash(T('wrong_cur_password'))
+        return redirect(url_for('index'))
+    if new_pass or new_pass2:
+        if new_pass != new_pass2:
+            flash(T('password_mismatch'))
+            return redirect(url_for('index'))
+        if BAD_PW_CHARS & set(new_pass):
+            flash(T('bad_pw_chars'))
+            return redirect(url_for('index'))
+        if len(new_pass) < 6:
+            flash(T('invalid_password_short'))
+            return redirect(url_for('index'))
+    if new_user and not USERNAME_RE.match(new_user):
+        flash(T('invalid_username'))
+        return redirect(url_for('index'))
+    if not new_user and not new_pass:
+        flash(T('nothing_changed'))
+        return redirect(url_for('index'))
+    changed = False
+    if new_user and new_user != CFG['admin_user']:
+        CFG['admin_user'] = new_user
+        changed = True
+    if new_pass:
+        CFG['admin_pass'] = new_pass
+        changed = True
+    _save_config()
+    if changed:
+        session.clear()
+        return redirect(url_for('login') + '?relogin=1')
+    flash(T('changes_saved'))
+    return redirect(url_for('index'))
+
+
+@app.route('/settings/psk', methods=['POST'])
+@login_required
+def settings_psk():
+    current = request.form.get('current_password', '')
+    new_psk = request.form.get('new_psk', '').strip()
+    if current != CFG['admin_pass']:
+        flash(T('wrong_cur_password'))
+        return redirect(url_for('index'))
+    if not new_psk or len(new_psk) < 8 or BAD_PW_CHARS & set(new_psk):
+        flash(T('invalid_psk'))
+        return redirect(url_for('index'))
+    CFG['psk'] = new_psk
+    _save_config()
+    try:
+        with open('/etc/ipsec.secrets', 'w') as fh:
+            fh.write('%%any %%any : PSK "%s"\n' % new_psk)
+        os.chmod('/etc/ipsec.secrets', 0o600)
+        subprocess.run(['systemctl', 'restart', 'strongswan-starter'],
+                       capture_output=True, timeout=60)
+    except Exception:
+        pass
+    flash(T('psk_saved'))
+    return redirect(url_for('index'))
+
+
+@app.route('/settings/dns', methods=['POST'])
+@login_required
+def settings_dns():
+    dns1 = request.form.get('dns1', '').strip()
+    dns2 = request.form.get('dns2', '').strip()
+    for d in (dns1, dns2):
+        if d and not IPV4_RE.match(d):
+            flash(T('invalid_dns'))
+            return redirect(url_for('index'))
+    try:
+        path = '/etc/ppp/options.xl2tpd'
+        with open(path) as fh:
+            lines = fh.readlines()
+        kept = [ln for ln in lines if not ln.strip().startswith('ms-dns')]
+        new_lines = []
+        inserted = False
+        for ln in kept:
+            new_lines.append(ln)
+            if not inserted and ln.strip().startswith('ipcp-accept-remote'):
+                if dns1:
+                    new_lines.append('ms-dns %s\n' % dns1)
+                if dns2:
+                    new_lines.append('ms-dns %s\n' % dns2)
+                inserted = True
+        if not inserted:
+            if dns1:
+                new_lines.append('ms-dns %s\n' % dns1)
+            if dns2:
+                new_lines.append('ms-dns %s\n' % dns2)
+        with open(path, 'w') as fh:
+            fh.writelines(new_lines)
+        subprocess.run(['systemctl', 'restart', 'xl2tpd'],
+                       capture_output=True, timeout=60)
+    except Exception:
+        flash(T('vpn_restart_failed'))
+        return redirect(url_for('index'))
+    flash(T('dns_saved'))
+    return redirect(url_for('index'))
+
+
+@app.route('/settings/port', methods=['POST'])
+@login_required
+def settings_port():
+    current = request.form.get('current_password', '')
+    port = request.form.get('port', '').strip()
+    if current != CFG['admin_pass']:
+        flash(T('wrong_cur_password'))
+        return redirect(url_for('index'))
+    if not port.isdigit() or not (1024 <= int(port) <= 65535):
+        flash(T('invalid_port'))
+        return redirect(url_for('index'))
+    if port == _panel_port():
+        flash(T('nothing_changed'))
+        return redirect(url_for('index'))
+    try:
+        svc_path = '/etc/systemd/system/l2tp-panel.service'
+        with open(svc_path) as fh:
+            content = fh.read()
+        content = re.sub(r'--bind\s+\S+?:(\d+)', '--bind 0.0.0.0:' + port, content)
+        with open(svc_path, 'w') as fh:
+            fh.write(content)
+        subprocess.run(['systemctl', 'daemon-reload'], capture_output=True, timeout=30)
+        subprocess.run(['ufw', 'allow', port + '/tcp'], capture_output=True, timeout=30)
+    except Exception:
+        flash(T('vpn_restart_failed'))
+        return redirect(url_for('index'))
+    new_url = 'http://%s:%s/' % (request.host.split(':')[0], port)
+    try:
+        subprocess.run(['systemd-run', '--collect', '--unit=l2tp-portchg',
+                        '/bin/sh', '-c', 'sleep 1; systemctl restart l2tp-panel'],
+                       capture_output=True, timeout=15)
+    except Exception:
+        subprocess.Popen(['/bin/sh', '-c', 'sleep 1; systemctl restart l2tp-panel'],
+                         start_new_session=True,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    html = ('<!doctype html><html><head><meta charset="utf-8">'
+            '<meta http-equiv="refresh" content="4;url=%s"><title>OK</title></head>'
+            '<body style="font-family:Tahoma;background:#020203;color:#f0f0f0;'
+            'display:grid;place-items:center;height:100vh;margin:0">'
+            '<div style="background:rgba(8,8,12,.7);border:1px solid rgba(0,229,255,.2);'
+            'padding:40px 50px;border-radius:20px;text-align:center">'
+            '<div style="font-size:2.4rem">&#10004;</div>'
+            '<h2 style="margin:14px 0 8px">Port changed</h2>'
+            '<p style="color:#7a7a8c;font-size:.85rem">Redirecting...</p>'
+            '<p style="margin-top:10px"><a href="%s" style="color:#00e5ff">%s</a></p>'
+            '</div></body></html>') % (new_url, new_url, new_url)
+    return html
+
+
+@app.route('/backup')
+@login_required
+def backup():
+    import io, zipfile
+    from flask import send_file
+    buf = io.BytesIO()
+    try:
+        with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+            zf.write(DB_FILE, 'users.db')
+            zf.write(os.path.join(BASE, 'config.json'), 'config.json')
+        buf.seek(0)
+        stamp = datetime.now().strftime('%Y%m%d-%H%M%S')
+        return send_file(buf, as_attachment=True,
+                         download_name='3outhboy-backup-%s.zip' % stamp,
+                         mimetype='application/zip')
+    except Exception:
+        flash(T('update_failed'))
+        return redirect(url_for('index'))
+
+
 init_db()
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5000)
+

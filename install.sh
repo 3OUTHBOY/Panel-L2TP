@@ -346,7 +346,7 @@ TRANSLATIONS = {
   'updating_msg':'نسخه جدید از گیت‌هاب در حال دانلود و نصب است. چند دقیقه صبر کنید؛ صفحه خودکار بازمی‌گردد و باید دوباره وارد شوید.',
   'update_confirm':'پنل از گیت‌هاب آپدیت شود؟ چند دقیقه طول می‌کشد و بعدش باید دوباره لاگین کنید.',
   'update_failed':'آپدیت ناموفق بود! اتصال سرور به گیت‌هاب را بررسی کنید.',
-  'logout_btn':'خروج','copy_tip':'کپی','show_tip':'نمایش',
+  'tab_dashboard':'داشبورد','tab_users':'کاربران','tab_settings':'تنظیمات','total_traffic':'مصرف کل کاربران','sum_of_quotas':'مجموع سهم کاربران محدود','settings_account':'حساب ادمین','settings_account_desc':'نام کاربری و رمز عبور ورود به پنل','cur_password':'رمز فعلی','new_username':'نام کاربری جدید','new_password':'رمز عبور جدید','new_password2':'تکرار رمز عبور جدید','save_btn':'ذخیره تغییرات','creds_note':'بعد از ذخیره، از پنل خارج می‌شوید و باید با اطلاعات جدید وارد شوید.','wrong_cur_password':'رمز فعلی اشتباه است.','password_mismatch':'رمزهای جدید یکسان نیستند.','invalid_password_short':'رمز جدید باید حداقل ۶ کاراکتر باشد.','relogin_note':'اعتبارنامه‌ها تغییر کرد؛ لطفاً با اطلاعات جدید وارد شوید.','settings_vpn':'تنظیمات VPN','change_psk':'تغییر کلید PSK','change_psk_warn':'هشدار: با تغییر PSK همه کاربران باید PSK جدید را در دستگاه خود وارد کنند و کاربران متصل موقتاً قطع می‌شوند.','new_psk':'PSK جدید (حداقل ۸ کاراکتر)','invalid_psk':'PSK نامعتبر است (حداقل ۸ کاراکتر، بدون فاصله).','psk_saved':'PSK جدید ذخیره شد و سرویس IPSec ریستارت شد.','default_dns_title':'DNS پیش‌فرض سرور (کاربران بدون DNS اختصاصی)','dns_saved':'DNS پیش‌فرض ذخیره شد و سرویس L2TP ریستارت شد.','settings_panel':'تنظیمات پنل','cur_port':'پورت فعلی','port_label':'پورت جدید پنل','port_warn':'بعد از تغییر پورت، چند ثانیه بعد به آدرس جدید منتقل می‌شوید. پورت جدید به‌صورت خودکار در فایروال باز می‌شود.','invalid_port':'پورت نامعتبر است (عدد بین ۱۰۲۴ تا ۶۵۵۳۵).','settings_data':'داده‌ها و بکاپ','backup_btn':'📥 دانلود فایل بکاپ','backup_note':'شامل همه کاربران، حجم‌ها، تاریخ انقضا و تنظیمات پنل. در جای امن نگه دارید.','chart_title':'مصرف ۷ روز اخیر','top_users':'مصرف‌کننده‌های برتر','expired_count':'کاربران منقضی','capacity':'ظرفیت سیستم','slots_used':'اسلات IP استفاده‌شده','today':'امروز','no_chart_data':'هنوز داده‌ای ثبت نشده — از فردا نمودار پر می‌شود.','logout_btn':'خروج','copy_tip':'کپی','show_tip':'نمایش',
   'reset_traffic_tip':'صفر کردن حجم مصرفی','regen_key_tip':'تولید کد جدید',
   'status_link_tip':'صفحه وضعیت کاربر','theme_tip':'حالت روشن / تاریک',
   'invalid_username':'نام کاربری نامعتبر است (۳ تا ۳۲ کاراکتر لاتین/عدد).',
@@ -404,7 +404,7 @@ TRANSLATIONS = {
   'updating_msg':'Downloading and installing the new version from GitHub. This takes a few minutes; the page will return automatically and you will need to log in again.',
   'update_confirm':'Update the panel from GitHub? Takes a few minutes and you will need to log in again.',
   'update_failed':'Update failed! Check server connectivity to GitHub.',
-  'logout_btn':'Logout','copy_tip':'Copy','show_tip':'Show',
+  'tab_dashboard':'Dashboard','tab_users':'Users','tab_settings':'Settings','total_traffic':'Total traffic (all users)','sum_of_quotas':'Sum of user quotas','settings_account':'Admin Account','settings_account_desc':'Panel login username and password','cur_password':'Current password','new_username':'New username','new_password':'New password','new_password2':'Repeat new password','save_btn':'Save changes','creds_note':'After saving you will be logged out and must sign in with the new credentials.','wrong_cur_password':'Current password is wrong.','password_mismatch':'New passwords do not match.','invalid_password_short':'New password must be at least 6 characters.','relogin_note':'Credentials changed — please sign in with the new ones.','settings_vpn':'VPN Settings','change_psk':'Change PSK','change_psk_warn':'Warning: after changing the PSK, all users must enter the new PSK on their devices; connected users will be disconnected briefly.','new_psk':'New PSK (min 8 chars)','invalid_psk':'Invalid PSK (min 8 chars, no spaces).','psk_saved':'New PSK saved and IPSec service restarted.','default_dns_title':'Server default DNS (users without custom DNS)','dns_saved':'Default DNS saved and L2TP service restarted.','settings_panel':'Panel Settings','cur_port':'Current port','port_label':'New panel port','port_warn':'After changing the port you will be redirected to the new address in a few seconds. The new port is opened in the firewall automatically.','invalid_port':'Invalid port (number between 1024 and 65535).','settings_data':'Data & Backup','backup_btn':'📥 Download backup','backup_note':'Contains all users, quotas, expiry dates and panel settings. Keep it somewhere safe.','chart_title':'Traffic — last 7 days','top_users':'Top consumers','expired_count':'Expired users','capacity':'System capacity','slots_used':'IP slots used','today':'Today','no_chart_data':'No data yet — the chart fills up day by day.','logout_btn':'Logout','copy_tip':'Copy','show_tip':'Show',
   'reset_traffic_tip':'Reset traffic counter','regen_key_tip':'Regenerate key',
   'status_link_tip':'User status page','theme_tip':'Toggle light / dark mode',
   'invalid_username':'Invalid username (3-32 chars).',
@@ -634,12 +634,66 @@ def login():
             else:
                 recent.append(now); _attempts[ip] = recent
         error = T('err_locked') if locked else T('err_credentials')
-    return render_template('login.html', error=error)
+    return render_template('login.html', error=error, relogin=request.args.get('relogin'))
 
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect(url_for('login'))
+
+
+def _record_daily_stats():
+    # Record today's total usage snapshot (idempotent per day).
+    try:
+        conn = get_db()
+        conn.execute("CREATE TABLE IF NOT EXISTS daily_stats ("
+                     "day TEXT PRIMARY KEY, "
+                     "total_bytes INTEGER NOT NULL DEFAULT 0)")
+        today = datetime.now().strftime('%Y-%m-%d')
+        row = conn.execute('SELECT COALESCE(SUM(used_bytes),0) FROM users').fetchone()
+        total = row[0] if row else 0
+        conn.execute("INSERT INTO daily_stats(day, total_bytes) VALUES(?,?) "
+                     "ON CONFLICT(day) DO UPDATE SET total_bytes=excluded.total_bytes",
+                     (today, total))
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
+
+
+def _get_chart_data():
+    # Return [(label, bytes, pct, gb), ...] for last 7 days + top users.
+    try:
+        conn = get_db()
+        days = []
+        today = datetime.now().date()
+        for i in range(6, -1, -1):
+            d = today - timedelta(days=i)
+            key = d.strftime('%Y-%m-%d')
+            row = conn.execute('SELECT total_bytes FROM daily_stats WHERE day=?',
+                               (key,)).fetchone()
+            total = row['total_bytes'] if row else 0
+            label = ('امروز' if i == 0 else str(i)) if get_lang() == 'fa' \
+                    else ('Today' if i == 0 else str(i))
+            days.append({'label': label, 'bytes': total})
+        top = conn.execute('SELECT username, used_bytes, traffic_limit_mb FROM users '
+                           'WHERE used_bytes > 0 ORDER BY used_bytes DESC LIMIT 5').fetchall()
+        conn.close()
+        peak = max((d['bytes'] for d in days), default=0)
+        for d in days:
+            d['pct'] = int(d['bytes'] * 100 / peak) if peak else 0
+            d['gb'] = round(d['bytes'] / (1024.0 ** 3), 2)
+        top_users = []
+        for r in top:
+            lim = r['traffic_limit_mb'] or 0
+            pct = min(int(r['used_bytes'] * 100 / (lim * 1024 * 1024)), 100) if lim else 100
+            top_users.append({'username': r['username'],
+                              'used': fmt_traffic(r['used_bytes']),
+                              'pct': pct})
+        return days, top_users
+    except Exception:
+        return [], []
+
 
 @app.route('/')
 @login_required
@@ -659,11 +713,25 @@ def index():
         u['online'] = row['username'] in online_users
         if not u['expired'] and not u['quota_exceeded']: active_count += 1
         users.append(u)
+    total_used = sum((row['used_bytes'] or 0) for row in rows)
+    total_limit_mb = sum((row['traffic_limit_mb'] or 0) for row in rows
+                         if row['traffic_limit_mb'])
+    def_dns = _default_dns()
+    _record_daily_stats()
+    chart_days, top_users = _get_chart_data()
+    expired_count = sum(1 for row in rows
+                       if row['expires_at'] <= datetime.now().strftime(DT_FMT))
     svc = {'ipsec': service_active('strongswan-starter') or service_active('ipsec'),
            'xl2tpd': service_active('xl2tpd'), 'nat': service_active('l2tp-nat')}
     return render_template('index.html', users=users, server_ip=SERVER_IP, psk=CFG['psk'],
                            active_count=active_count, total_count=len(users),
-                           online_count=len(online_users), svc=svc)
+                           online_count=len(online_users), svc=svc,
+                           total_used=fmt_traffic(total_used),
+                           total_limit=(fmt_traffic(total_limit_mb * 1024 * 1024) if total_limit_mb else None),
+                           default_dns1=def_dns[0], default_dns2=def_dns[1],
+                           admin_user=CFG['admin_user'], panel_port=_panel_port(),
+                           chart_days=chart_days, top_users=top_users,
+                           expired_count=expired_count)
 
 @app.route('/u/<string:key>')
 def user_status(key):
@@ -871,10 +939,221 @@ def panel_update():
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return render_template('updating.html')
 
+
+def _save_config():
+    try:
+        with open(os.path.join(BASE, 'config.json'), 'w', encoding='utf-8') as fh:
+            json.dump(CFG, fh, ensure_ascii=False, indent=2)
+        os.chmod(os.path.join(BASE, 'config.json'), 0o600)
+    except Exception:
+        pass
+
+
+def _default_dns():
+    vals = []
+    try:
+        with open('/etc/ppp/options.xl2tpd') as fh:
+            for line in fh:
+                if line.strip().startswith('ms-dns'):
+                    parts = line.split()
+                    if len(parts) > 1:
+                        vals.append(parts[1].strip())
+    except OSError:
+        pass
+    return (vals[0] if len(vals) > 0 else '', vals[1] if len(vals) > 1 else '')
+
+
+def _panel_port():
+    try:
+        with open('/etc/systemd/system/l2tp-panel.service') as fh:
+            m = re.search(r'--bind\s+\S+?:(\d+)', fh.read())
+        if m:
+            return m.group(1)
+    except OSError:
+        pass
+    return '8080'
+
+
+@app.route('/settings/credentials', methods=['POST'])
+@login_required
+def settings_credentials():
+    current = request.form.get('current_password', '')
+    new_user = request.form.get('new_username', '').strip()
+    new_pass = request.form.get('new_password', '')
+    new_pass2 = request.form.get('new_password2', '')
+    if current != CFG['admin_pass']:
+        flash(T('wrong_cur_password'))
+        return redirect(url_for('index'))
+    if new_pass or new_pass2:
+        if new_pass != new_pass2:
+            flash(T('password_mismatch'))
+            return redirect(url_for('index'))
+        if BAD_PW_CHARS & set(new_pass):
+            flash(T('bad_pw_chars'))
+            return redirect(url_for('index'))
+        if len(new_pass) < 6:
+            flash(T('invalid_password_short'))
+            return redirect(url_for('index'))
+    if new_user and not USERNAME_RE.match(new_user):
+        flash(T('invalid_username'))
+        return redirect(url_for('index'))
+    if not new_user and not new_pass:
+        flash(T('nothing_changed'))
+        return redirect(url_for('index'))
+    changed = False
+    if new_user and new_user != CFG['admin_user']:
+        CFG['admin_user'] = new_user
+        changed = True
+    if new_pass:
+        CFG['admin_pass'] = new_pass
+        changed = True
+    _save_config()
+    if changed:
+        session.clear()
+        return redirect(url_for('login') + '?relogin=1')
+    flash(T('changes_saved'))
+    return redirect(url_for('index'))
+
+
+@app.route('/settings/psk', methods=['POST'])
+@login_required
+def settings_psk():
+    current = request.form.get('current_password', '')
+    new_psk = request.form.get('new_psk', '').strip()
+    if current != CFG['admin_pass']:
+        flash(T('wrong_cur_password'))
+        return redirect(url_for('index'))
+    if not new_psk or len(new_psk) < 8 or BAD_PW_CHARS & set(new_psk):
+        flash(T('invalid_psk'))
+        return redirect(url_for('index'))
+    CFG['psk'] = new_psk
+    _save_config()
+    try:
+        with open('/etc/ipsec.secrets', 'w') as fh:
+            fh.write('%%any %%any : PSK "%s"\n' % new_psk)
+        os.chmod('/etc/ipsec.secrets', 0o600)
+        subprocess.run(['systemctl', 'restart', 'strongswan-starter'],
+                       capture_output=True, timeout=60)
+    except Exception:
+        pass
+    flash(T('psk_saved'))
+    return redirect(url_for('index'))
+
+
+@app.route('/settings/dns', methods=['POST'])
+@login_required
+def settings_dns():
+    dns1 = request.form.get('dns1', '').strip()
+    dns2 = request.form.get('dns2', '').strip()
+    for d in (dns1, dns2):
+        if d and not IPV4_RE.match(d):
+            flash(T('invalid_dns'))
+            return redirect(url_for('index'))
+    try:
+        path = '/etc/ppp/options.xl2tpd'
+        with open(path) as fh:
+            lines = fh.readlines()
+        kept = [ln for ln in lines if not ln.strip().startswith('ms-dns')]
+        new_lines = []
+        inserted = False
+        for ln in kept:
+            new_lines.append(ln)
+            if not inserted and ln.strip().startswith('ipcp-accept-remote'):
+                if dns1:
+                    new_lines.append('ms-dns %s\n' % dns1)
+                if dns2:
+                    new_lines.append('ms-dns %s\n' % dns2)
+                inserted = True
+        if not inserted:
+            if dns1:
+                new_lines.append('ms-dns %s\n' % dns1)
+            if dns2:
+                new_lines.append('ms-dns %s\n' % dns2)
+        with open(path, 'w') as fh:
+            fh.writelines(new_lines)
+        subprocess.run(['systemctl', 'restart', 'xl2tpd'],
+                       capture_output=True, timeout=60)
+    except Exception:
+        flash(T('vpn_restart_failed'))
+        return redirect(url_for('index'))
+    flash(T('dns_saved'))
+    return redirect(url_for('index'))
+
+
+@app.route('/settings/port', methods=['POST'])
+@login_required
+def settings_port():
+    current = request.form.get('current_password', '')
+    port = request.form.get('port', '').strip()
+    if current != CFG['admin_pass']:
+        flash(T('wrong_cur_password'))
+        return redirect(url_for('index'))
+    if not port.isdigit() or not (1024 <= int(port) <= 65535):
+        flash(T('invalid_port'))
+        return redirect(url_for('index'))
+    if port == _panel_port():
+        flash(T('nothing_changed'))
+        return redirect(url_for('index'))
+    try:
+        svc_path = '/etc/systemd/system/l2tp-panel.service'
+        with open(svc_path) as fh:
+            content = fh.read()
+        content = re.sub(r'--bind\s+\S+?:(\d+)', '--bind 0.0.0.0:' + port, content)
+        with open(svc_path, 'w') as fh:
+            fh.write(content)
+        subprocess.run(['systemctl', 'daemon-reload'], capture_output=True, timeout=30)
+        subprocess.run(['ufw', 'allow', port + '/tcp'], capture_output=True, timeout=30)
+    except Exception:
+        flash(T('vpn_restart_failed'))
+        return redirect(url_for('index'))
+    new_url = 'http://%s:%s/' % (request.host.split(':')[0], port)
+    try:
+        subprocess.run(['systemd-run', '--collect', '--unit=l2tp-portchg',
+                        '/bin/sh', '-c', 'sleep 1; systemctl restart l2tp-panel'],
+                       capture_output=True, timeout=15)
+    except Exception:
+        subprocess.Popen(['/bin/sh', '-c', 'sleep 1; systemctl restart l2tp-panel'],
+                         start_new_session=True,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    html = ('<!doctype html><html><head><meta charset="utf-8">'
+            '<meta http-equiv="refresh" content="4;url=%s"><title>OK</title></head>'
+            '<body style="font-family:Tahoma;background:#020203;color:#f0f0f0;'
+            'display:grid;place-items:center;height:100vh;margin:0">'
+            '<div style="background:rgba(8,8,12,.7);border:1px solid rgba(0,229,255,.2);'
+            'padding:40px 50px;border-radius:20px;text-align:center">'
+            '<div style="font-size:2.4rem">&#10004;</div>'
+            '<h2 style="margin:14px 0 8px">Port changed</h2>'
+            '<p style="color:#7a7a8c;font-size:.85rem">Redirecting...</p>'
+            '<p style="margin-top:10px"><a href="%s" style="color:#00e5ff">%s</a></p>'
+            '</div></body></html>') % (new_url, new_url, new_url)
+    return html
+
+
+@app.route('/backup')
+@login_required
+def backup():
+    import io, zipfile
+    from flask import send_file
+    buf = io.BytesIO()
+    try:
+        with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+            zf.write(DB_FILE, 'users.db')
+            zf.write(os.path.join(BASE, 'config.json'), 'config.json')
+        buf.seek(0)
+        stamp = datetime.now().strftime('%Y%m%d-%H%M%S')
+        return send_file(buf, as_attachment=True,
+                         download_name='3outhboy-backup-%s.zip' % stamp,
+                         mimetype='application/zip')
+    except Exception:
+        flash(T('update_failed'))
+        return redirect(url_for('index'))
+
+
 init_db()
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5000)
+
 
 ZQ1PANEL
 chmod 755 "${PANEL_DIR}/panel.py"
@@ -1053,6 +1332,7 @@ if __name__ == '__main__':
 
 
 
+
 ZQ2SYNC
 chmod 755 "${PANEL_DIR}/sync_users.py"
 
@@ -1100,6 +1380,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
@@ -1162,7 +1443,7 @@ body{font-family:Vazirmatn,'Segoe UI',Tahoma,Arial,sans-serif;color:var(--tx);mi
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--neon-cyan);border-radius:10px}
 [data-theme=light] ::-webkit-scrollbar-thumb{background:#a3c3e0}
-html[dir=ltr] body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif}
+html[dir=ltr] body{font-family:'Inter','SF Pro Display','Segoe UI Variable Display',system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;letter-spacing:.012em}
 html[dir=ltr] .gheading{letter-spacing:3px}
 .container{max-width:1180px;margin:0 auto;padding:0 16px}
 header{background:var(--panel-bg);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
@@ -1269,9 +1550,13 @@ tr.expired{opacity:.45}
 .modal-btns .btn{flex:1;justify-content:center}
 .muted{color:var(--mu);font-size:.76rem}
 .ctrl-cluster{position:fixed;bottom:18px;inset-inline-end:18px;z-index:100;display:flex;gap:9px}
-.ctrl-btn{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;font-size:1.1rem;
-  border:1px solid var(--bd2);background:var(--panel-bg);backdrop-filter:blur(15px);color:var(--tx);
-  cursor:pointer;text-decoration:none;font-family:inherit;font-weight:700;box-shadow:var(--sh2);transition:all .18s}
+.ctrl-btn{height:34px;min-width:52px;padding:0 14px;border-radius:99px;display:inline-grid;place-items:center;
+  font-size:.68rem;letter-spacing:.12em;font-weight:800;
+  border:1px solid var(--bd2);background:var(--panel-bg);backdrop-filter:blur(15px);color:var(--mu);
+  cursor:pointer;text-decoration:none;font-family:inherit;box-shadow:var(--sh2);transition:all .2s}
+.ctrl-btn:hover{color:var(--tx);border-color:var(--neon-cyan);box-shadow:0 0 14px rgba(0,229,255,.22);transform:translateY(-2px)}
+#themeBtn{color:var(--acc)}
+#themeBtn:hover{color:var(--acc);filter:brightness(1.15)}
 .ctrl-btn:hover{transform:translateY(-3px);border-color:var(--neon-cyan);box-shadow:0 0 18px rgba(0,229,255,.25)}
 .bar{height:5px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;margin-top:6px;min-width:95px}
 [data-theme=light] .bar{background:#e2e8f4}
@@ -1326,19 +1611,59 @@ tr.expired{opacity:.45}
   background:var(--card3);border:1px solid var(--bd2);box-shadow:0 0 20px rgba(0,229,255,.22)}
 .restart-logo .logo-svg{width:44px;height:44px}
 
+
+/* ===== neon SVG icon system ===== */
+.ni{width:1.15em;height:1.15em;display:inline-block;vertical-align:-0.18em;flex:none}
+.ni-lg{width:1.5em;height:1.5em;vertical-align:-0.3em}
+.ni-sm{width:1em;height:1em;vertical-align:-0.12em}
+.stat-icon{display:grid;place-items:center;font-size:1.15rem}
+.stat-icon .ni{width:1.35em;height:1.35em;filter:drop-shadow(0 0 5px color-mix(in srgb,var(--neon-cyan) 45%,transparent))}
+[data-theme=light] .stat-icon .ni{filter:drop-shadow(0 0 4px color-mix(in srgb,var(--acc) 30%,transparent))}
+.ni-hover{transition:transform .18s,filter .18s}
+.ni-hover:hover{transform:scale(1.15);filter:drop-shadow(0 0 6px color-mix(in srgb,var(--neon-cyan) 60%,transparent))}
 </style>
 </head>
 <body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" id="icon-defs">
+  <defs>
+    <linearGradient id="niC" x1="0" y1="0" x2="1" y2="1"><stop class="lg-a" offset="0"/><stop class="lg-b" offset="1"/></linearGradient>
+    <linearGradient id="niG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#00ff9d"/><stop offset="1" stop-color="#00e5ff"/></linearGradient>
+    <linearGradient id="niR" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff4d6d"/><stop offset="1" stop-color="#ff9a3d"/></linearGradient>
+    <linearGradient id="niY" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb020"/><stop offset="1" stop-color="#f97316"/></linearGradient>
+    <linearGradient id="niP" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b026ff"/><stop offset="1" stop-color="#7c6bff"/></linearGradient>
+  </defs>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="url(#niC)" stroke-width="1.8"/><ellipse cx="12" cy="12" rx="4" ry="9" fill="none" stroke="url(#niC)" stroke-width="1.4" opacity=".7"/><path d="M3.5 9h17M3.5 15h17" stroke="url(#niC)" stroke-width="1.4" opacity=".7" stroke-linecap="round"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="12" r="4" fill="none" stroke="url(#niY)" stroke-width="1.8"/><path d="M12 12h9M18 12v3.5M15 12v2.5" stroke="url(#niY)" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" fill="none" stroke="url(#niC)" stroke-width="1.8"/><path d="M4.5 20c1.2-3.5 4-5 7.5-5s6.3 1.5 7.5 5" fill="none" stroke="url(#niC)" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8.5" r="3.4" fill="none" stroke="url(#niC)" stroke-width="1.7"/><path d="M2.8 19.5c1-3 3.3-4.3 6.2-4.3s5.2 1.3 6.2 4.3" fill="none" stroke="url(#niC)" stroke-width="1.7" stroke-linecap="round"/><circle cx="17" cy="9.5" r="2.7" fill="none" stroke="url(#niP)" stroke-width="1.5" opacity=".8"/><path d="M15.5 15.5c3 .3 4.9 1.6 5.7 4" fill="none" stroke="url(#niP)" stroke-width="1.5" stroke-linecap="round" opacity=".8"/></symbol>
+  <symbol id="i-signal" viewBox="0 0 24 24"><path d="M4 18v-3M9 18v-6M14 18v-9M19 18V5" stroke="url(#niG)" stroke-width="2.4" stroke-linecap="round"/><path d="M3 21h18" stroke="url(#niG)" stroke-width="1.6" stroke-linecap="round" opacity=".45"/></symbol>
+  <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M4 16a8 8 0 1 1 16 0" fill="none" stroke="url(#niC)" stroke-width="2" stroke-linecap="round"/><path d="M12 16l4-5" stroke="url(#niC)" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="16" r="1.7" fill="url(#niC)"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" fill="none" stroke="url(#niC)" stroke-width="1.8"/><path d="M12 2.8v3M12 18.2v3M2.8 12h3M18.2 12h3M5.5 5.5l2.1 2.1M16.4 16.4l2.1 2.1M18.5 5.5l-2.1 2.1M7.6 16.4l-2.1 2.1" stroke="url(#niC)" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2.5l7.5 3v6c0 5-3.2 8.6-7.5 10.5C7.7 20.1 4.5 16.5 4.5 11.5v-6z" fill="none" stroke="url(#niG)" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.8 12l2.3 2.3 4.1-4.6" fill="none" stroke="url(#niG)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66" fill="none" stroke="url(#niC)" stroke-width="2" stroke-linecap="round"/><path d="M20 3v4.5h-4.5" fill="none" stroke="url(#niC)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-sync" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 13.66-5.66" fill="none" stroke="url(#niC)" stroke-width="2" stroke-linecap="round"/><path d="M4 3v4.5h4.5" fill="none" stroke="url(#niC)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 12a8 8 0 0 1-13.66 5.66" fill="none" stroke="url(#niP)" stroke-width="2" stroke-linecap="round"/><path d="M20 21v-4.5h-4.5" fill="none" stroke="url(#niP)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v11M7.5 10.5L12 15l4.5-4.5" fill="none" stroke="url(#niG)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 17.5V19a1.5 1.5 0 0 0 1.5 1.5h13A1.5 1.5 0 0 0 20 19v-1.5" fill="none" stroke="url(#niG)" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 6.5h16M9.5 6V4.5A1.5 1.5 0 0 1 11 3h2a1.5 1.5 0 0 1 1.5 1.5V6" fill="none" stroke="url(#niR)" stroke-width="1.8" stroke-linecap="round"/><path d="M6.5 6.5l1 13a1.5 1.5 0 0 0 1.5 1.4h6a1.5 1.5 0 0 0 1.5-1.4l1-13" fill="none" stroke="url(#niR)" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 10.5v6.5M14 10.5v6.5" stroke="url(#niR)" stroke-width="1.6" stroke-linecap="round" opacity=".7"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M14.5 5.5l4 4L8 20H4v-4z" fill="none" stroke="url(#niY)" stroke-width="1.8" stroke-linejoin="round"/><path d="M12.5 7.5l4 4" stroke="url(#niY)" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="i-keygen" viewBox="0 0 24 24"><circle cx="8" cy="12" r="4" fill="none" stroke="url(#niP)" stroke-width="1.8"/><path d="M12 12h8.5M17 12v3M20.5 12v2" stroke="url(#niP)" stroke-width="1.8" stroke-linecap="round"/><path d="M6 6.5L7 4.7M10 6.5L9 4.7" stroke="url(#niP)" stroke-width="1.5" stroke-linecap="round" opacity=".6"/></symbol>
+  <symbol id="i-server" viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="6.5" rx="1.8" fill="none" stroke="url(#niC)" stroke-width="1.8"/><rect x="3.5" y="13.5" width="17" height="6.5" rx="1.8" fill="none" stroke="url(#niC)" stroke-width="1.8"/><circle cx="7.3" cy="7.2" r="1.15" fill="url(#niC)"/><circle cx="7.3" cy="16.8" r="1.15" fill="url(#niC)"/><path d="M11 7.2h6M11 16.8h6" stroke="url(#niC)" stroke-width="1.5" stroke-linecap="round" opacity=".6"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V9M9.3 20V4M14.7 20v-8M20 20V7" stroke="url(#niC)" stroke-width="2.2" stroke-linecap="round"/><path d="M3 20h18" stroke="url(#niC)" stroke-width="1.6" stroke-linecap="round" opacity=".4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="url(#niC)" stroke-width="1.8"/><path d="M12 7v5l3.5 2" fill="none" stroke="url(#niC)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2" fill="none" stroke="url(#niC)" stroke-width="1.8"/><path d="M3.5 9.5h17M8 3v4M16 3v4" stroke="url(#niC)" stroke-width="1.8" stroke-linecap="round"/><circle cx="8" cy="13.5" r="1" fill="url(#niC)"/><circle cx="12" cy="13.5" r="1" fill="url(#niC)"/><circle cx="16" cy="13.5" r="1" fill="url(#niC)"/><circle cx="8" cy="17" r="1" fill="url(#niC)"/><circle cx="12" cy="17" r="1" fill="url(#niC)"/></symbol>
+  <symbol id="i-dns" viewBox="0 0 24 24"><path d="M12 3v18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3" stroke="url(#niP)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="5" cy="7" r="2.2" fill="none" stroke="url(#niC)" stroke-width="1.7"/><circle cx="19" cy="7" r="2.2" fill="none" stroke="url(#niC)" stroke-width="1.7"/><circle cx="5" cy="17" r="2.2" fill="none" stroke="url(#niC)" stroke-width="1.7"/><circle cx="19" cy="17" r="2.2" fill="none" stroke="url(#niC)" stroke-width="1.7"/></symbol>
+</svg>
+
 <div class="ctrl-cluster">
-  <button type="button" class="ctrl-btn" id="themeBtn" onclick="toggleTheme()" title="{{ t.theme_tip }}">&#127769;</button>
-  <a class="ctrl-btn" href="/lang/{{ 'en' if lang == 'fa' else 'fa' }}" title="{{ lang|upper }}">{{ 'EN' if lang == 'fa' else 'FA' }}</a>
+  <button type="button" class="ctrl-btn" id="themeBtn" onclick="toggleTheme()" title="{{ t.theme_tip }}">DARK</button>
+  <a class="ctrl-btn ctrl-lang" href="/lang/{{ 'en' if lang == 'fa' else 'fa' }}" title="{{ lang|upper }}">{{ 'EN' if lang == 'fa' else 'FA' }}</a>
 </div>
 {% block body %}{% endblock %}
 <script>
 function applyThemeBtn(){
   var cur=document.documentElement.getAttribute('data-theme')||'dark';
   var b=document.getElementById('themeBtn');
-  if(b){b.textContent = (cur==='dark') ? '\u2600\uFE0F' : '\uD83C\uDF19';}
+  if(b){b.textContent = (cur==='dark') ? 'LIGHT' : 'DARK';}
 }
 function toggleTheme(){
   var cur=document.documentElement.getAttribute('data-theme')||'dark';
@@ -1375,6 +1700,7 @@ function genPass(){var c='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz2345678
 {% block scripts %}{% endblock %}
 </body>
 </html>
+
 ZQ4BASE
 
 cat > "${PANEL_DIR}/templates/login.html" <<'ZQ5LOGIN'
@@ -1447,6 +1773,7 @@ cat > "${PANEL_DIR}/templates/login.html" <<'ZQ5LOGIN'
       </div>
       <div class="gheading">{{ t.brand }}</div>
       <div class="gsub">L2TP / IPSec PSK</div>
+      {% if relogin %}<div class="gerr" style="color:var(--acc);border-color:color-mix(in srgb,var(--acc) 35%%,transparent);background:color-mix(in srgb,var(--acc) 8%%,transparent)">{{ t.relogin_note }}</div>{% endif %}
       {% if error %}<div class="gerr">{{ error }}</div>{% endif %}
       <div class="gfield">
         <svg class="gicon" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
@@ -1463,6 +1790,7 @@ cat > "${PANEL_DIR}/templates/login.html" <<'ZQ5LOGIN'
   </form>
 </div>
 {% endblock %}
+
 
 ZQ5LOGIN
 
@@ -1481,10 +1809,137 @@ cat > "${PANEL_DIR}/templates/index.html" <<'ZQ6INDEX'
 .svc.bad{background:rgba(248,113,113,.13);color:var(--red)}
 [data-theme=light] .svc.ok{background:#dcfce7;color:#15803d}
 [data-theme=light] .svc.bad{background:#fee2e2;color:#b91c1c}
+/* ---- views ---- */
+.view{display:none}
+.view.active{display:block;animation:viewIn .3s ease}
+@keyframes viewIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+/* ---- burger button ---- */
+.menu-fab{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;flex:none;
+  background:linear-gradient(135deg,var(--neon-cyan),var(--neon-purple));
+  border:none;color:var(--btn-tx);font-size:.85rem;cursor:pointer;font-family:inherit;
+  box-shadow:0 0 14px rgba(0,229,255,.28);transition:all .2s;overflow:hidden}
+.menu-fab:hover{box-shadow:0 0 30px rgba(0,229,255,.55);transform:translateY(-2px) scale(1.04)}
+.burger{display:inline-grid;place-items:center;position:relative;width:16px;height:16px}
+.burger-lines,.burger-x{grid-area:1/1;transition:all .35s cubic-bezier(.68,-.55,.27,1.55)}
+.burger-lines{display:flex;flex-direction:column;justify-content:space-between;height:11px;width:15px}
+.burger-lines i{display:block;height:1.9px;width:100%;border-radius:99px;background:currentColor}
+.burger-x{font-size:1.2rem;font-weight:800;line-height:1;opacity:0;transform:rotate(-90deg) scale(.5)}
+.menu-fab.open .burger-lines{opacity:0;transform:rotate(90deg) scale(.4)}
+.menu-fab.open .burger-x{opacity:1;transform:rotate(0) scale(1)}
+/* ---- sidebar ---- */
+.sb-overlay{position:fixed;inset:0;background:rgba(2,2,3,.55);backdrop-filter:blur(3px);
+  z-index:130;opacity:0;visibility:hidden;transition:all .3s}
+.sb-overlay.show{opacity:1;visibility:visible}
+.sidebar{position:fixed;top:0;bottom:0;inset-inline-start:0;width:272px;z-index:140;
+  background:var(--panel-bg);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  border-inline-end:1px solid var(--border-neon);box-shadow:10px 0 40px rgba(0,0,0,.5);
+  transform:translateX(-105%);transition:transform .35s cubic-bezier(.22,1,.36,1);
+  display:flex;flex-direction:column;padding:22px 16px;overflow-y:auto}
+html[dir=rtl] .sidebar{transform:translateX(105%)}
+.sidebar.open{transform:translateX(0) !important}
+.sb-brand{display:flex;align-items:center;gap:12px;padding:6px 8px 20px}
+.sb-badge{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;flex:none;
+  background:linear-gradient(45deg,var(--neon-cyan),var(--neon-purple));
+  box-shadow:0 0 15px rgba(0,229,255,.3)}
+.sb-badge .logo-svg{width:29px;height:29px}
+.sb-brand h1{font-size:.92rem;line-height:1.5}
+.sb-close{margin-inline-start:auto;background:none;border:none;color:var(--mu);
+  font-size:1.35rem;cursor:pointer;padding:4px 8px;border-radius:8px;transition:all .2s}
+.sb-close:hover{color:var(--tx);background:var(--card3)}
+.sb-label{color:var(--mu);font-size:.68rem;font-weight:700;letter-spacing:2px;
+  text-transform:uppercase;padding:10px 12px 8px}
+.sb-item{display:flex;align-items:center;gap:13px;padding:13px 14px;margin-bottom:6px;
+  border-radius:13px;border:1px solid transparent;background:rgba(255,255,255,.015);
+  color:var(--mu);font-weight:600;font-size:.92rem;cursor:pointer;font-family:inherit;
+  width:100%;text-align:start;transition:all .3s cubic-bezier(.22,1,.36,1);position:relative}
+.sb-item:hover{color:var(--tx);border-color:var(--border-neon)}
+.sb-item.active{color:var(--tx);border-color:rgba(0,229,255,.35);
+  background:linear-gradient(90deg,rgba(0,229,255,.07),transparent);
+  box-shadow:inset 3px 0 0 var(--neon-cyan),0 0 18px rgba(0,229,255,.12) inset}
+html[dir=rtl] .sb-item.active{box-shadow:inset -3px 0 0 var(--neon-cyan),0 0 18px rgba(0,229,255,.12) inset}
+.sb-item .sb-ic{font-size:1.15rem;width:24px;text-align:center;flex:none}
+.sb-item.active .sb-ic{filter:drop-shadow(0 0 6px var(--neon-cyan))}
+.sb-foot{margin-top:auto;padding:14px 12px 6px;border-top:1px solid var(--bd)}
+.sb-ver{font-size:.68rem;color:var(--mu);text-align:center;letter-spacing:1px}
+@media(max-width:600px){.sidebar{width:min(285px,86vw)}}
+/* ---- total traffic ---- */
+.stat-total{font-size:1.55rem;font-weight:800;line-height:1.35;
+  background:linear-gradient(90deg,var(--neon-cyan),var(--neon-purple));
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.stat-sub{font-size:.72rem;color:var(--mu);margin-top:4px}
+/* ---- settings ---- */
+.set-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;align-items:end}
+.set-grid .full{grid-column:1/-1;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.set-sep{border:none;height:1px;margin:22px 0;
+  background:linear-gradient(90deg,transparent,var(--bd2),transparent)}
+.warn-box{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:12px;
+  background:rgba(255,176,32,.08);border:1px solid rgba(255,176,32,.3);
+  color:var(--org);font-size:.78rem;line-height:1.8}
+[data-theme=light] .warn-box{background:#fffbeb;border-color:#fde68a;color:#b45309}
+.note-box{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:12px;
+  background:rgba(0,229,255,.06);border:1px solid rgba(0,229,255,.22);
+  color:var(--mu);font-size:.78rem;line-height:1.8}
+[data-theme=light] .note-box{background:#eff6ff;border-color:#bfdbfe;color:#475569}
+.actions{flex-wrap:wrap;justify-content:flex-end}
+@media(max-width:600px){.header-in{gap:8px}.actions{justify-content:flex-start;width:100%}}
+
+/* ===== rich dashboard ===== */
+.chart-card h2, .top-card h2 {margin-bottom:14px}
+.chart-wrap{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;
+  height:150px;padding-top:10px}
+.chart-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0}
+.chart-bar{width:100%;max-width:44px;border-radius:8px 8px 4px 4px;min-height:4px;
+  background:linear-gradient(180deg,var(--neon-cyan),var(--neon-purple));
+  box-shadow:0 0 10px rgba(0,229,255,.25);
+  transition:height .8s cubic-bezier(.22,1,.36,1);position:relative}
+.chart-bar.empty{background:var(--card3);box-shadow:none}
+.chart-bar .chart-tip{position:absolute;top:-24px;left:50%;transform:translateX(-50%);
+  font-size:.62rem;color:var(--mu);white-space:nowrap;opacity:0;transition:opacity .2s;
+  pointer-events:none;background:var(--panel-bg);padding:2px 7px;border-radius:6px;
+  border:1px solid var(--bd)}
+.chart-bar:hover .chart-tip{opacity:1}
+.chart-lbl{font-size:.65rem;color:var(--mu);white-space:nowrap}
+.top-row{display:flex;align-items:center;gap:12px;padding:10px 4px;border-bottom:1px dashed var(--bd)}
+.top-row:last-child{border-bottom:none}
+.top-rank{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;flex:none;
+  font-size:.72rem;font-weight:800;background:var(--card3);color:var(--mu)}
+.top-row:nth-child(1) .top-rank{background:linear-gradient(135deg,#ffd700,#ff9500);color:#1a1a00}
+.top-row:nth-child(2) .top-rank{background:linear-gradient(135deg,#c0c8d8,#8a94a8);color:#111}
+.top-row:nth-child(3) .top-rank{background:linear-gradient(135deg,#cd7f32,#a05a2c);color:#fff}
+.top-info{flex:1;min-width:0}
+.top-name{font-size:.85rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.top-bar{height:5px;background:var(--card3);border-radius:99px;overflow:hidden;margin-top:5px}
+.top-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--neon-cyan),var(--neon-purple))}
+.top-val{font-size:.75rem;color:var(--mu);font-family:ui-monospace,monospace;flex:none}
+.cap-wrap{margin-top:6px}
+.cap-bar{height:8px;border-radius:99px;background:var(--card3);overflow:hidden}
+.cap-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--neon-cyan),var(--neon-purple));
+  box-shadow:0 0 10px rgba(0,229,255,.35);transition:width 1s ease}
+.cap-text{display:flex;justify-content:space-between;font-size:.68rem;color:var(--mu);margin-top:6px}
+@media(max-width:600px){.chart-wrap{height:120px;gap:5px}.chart-bar{max-width:30px}}
 </style>
+
+<!-- sidebar -->
+<div class="sb-overlay" id="sbOverlay"></div>
+<aside class="sidebar" id="sidebar">
+  <div class="sb-brand">
+    <div class="sb-badge"><svg class="logo-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="lgsb" x1="10" y1="6" x2="54" y2="58" gradientUnits="userSpaceOnUse"><stop class="lg-a" offset="0"/><stop class="lg-b" offset="1"/></linearGradient></defs><path d="M32 4 L55.5 12.5 V28 C55.5 42.5 46 52.5 32 59.5 C18 52.5 8.5 42.5 8.5 28 V12.5 Z" stroke="url(#lgsb)" stroke-width="3.4" stroke-linejoin="round" fill="url(#lgsb)" fill-opacity="0.08"/><path d="M22 46.5 V29 C22 21.8 26.4 16 32 16 C37.6 16 42 21.8 42 29 V46.5" stroke="url(#lgsb)" stroke-width="2.6" stroke-linecap="round"/><path d="M28 46.5 V31.5 C28 27 29.7 23.5 32 23.5 C34.3 23.5 36 27 36 31.5 V46.5" stroke="url(#lgsb)" stroke-width="2" stroke-linecap="round" opacity="0.6"/><circle cx="32" cy="36.5" r="3" fill="url(#lgsb)"/></svg></div>
+    <h1>{{ t.header_title }}<br><span class="ver-badge" style="margin:4px 0 0">v{{ panel_version }}</span></h1>
+    <button type="button" class="sb-close" id="sbClose">&times;</button>
+  </div>
+  <div class="sb-label">{{ t.brand }}</div>
+  <button type="button" class="sb-item" data-tab="dashboard"><span class="sb-ic"><svg class="ni"><use href="#i-chart"/></svg></span> {{ t.tab_dashboard }}</button>
+  <button type="button" class="sb-item" data-tab="users"><span class="sb-ic"><svg class="ni"><use href="#i-users"/></svg></span> {{ t.tab_users }}</button>
+  <button type="button" class="sb-item" data-tab="settings"><span class="sb-ic"><svg class="ni"><use href="#i-gear"/></svg></span> {{ t.tab_settings }}</button>
+  <div class="sb-foot"><div class="sb-ver">3OUTHBOY PANEL &middot; v{{ panel_version }}</div></div>
+</aside>
+
 <header>
   <div class="container header-in">
     <div class="brand">
+      <button type="button" class="menu-fab" id="menuFab" aria-label="Menu">
+        <span class="burger"><span class="burger-lines"><i></i><i></i><i></i></span><span class="burger-x">&times;</span></span>
+      </button>
       <div class="brand-badge"><svg class="logo-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="L2TP"><defs><linearGradient id="lgh" x1="10" y1="6" x2="54" y2="58" gradientUnits="userSpaceOnUse"><stop class="lg-a" offset="0"/><stop class="lg-b" offset="1"/></linearGradient></defs><path d="M32 4 L55.5 12.5 V28 C55.5 42.5 46 52.5 32 59.5 C18 52.5 8.5 42.5 8.5 28 V12.5 Z" stroke="url(#lgh)" stroke-width="3.4" stroke-linejoin="round" fill="url(#lgh)" fill-opacity="0.08"/><path d="M22 46.5 V29 C22 21.8 26.4 16 32 16 C37.6 16 42 21.8 42 29 V46.5" stroke="url(#lgh)" stroke-width="2.6" stroke-linecap="round"/><path d="M28 46.5 V31.5 C28 27 29.7 23.5 32 23.5 C34.3 23.5 36 27 36 31.5 V46.5" stroke="url(#lgh)" stroke-width="2" stroke-linecap="round" opacity="0.6"/><circle cx="32" cy="36.5" r="3" fill="url(#lgh)"/></svg></div>
       <h1>{{ t.header_title }} <span class="ver-badge">v{{ panel_version }}</span></h1>
     </div>
@@ -1509,161 +1964,303 @@ cat > "${PANEL_DIR}/templates/index.html" <<'ZQ6INDEX'
     {% for m in msgs %}<div class="alert ok">{{ m }}</div>{% endfor %}
   {% endwith %}
 
-  <section class="cards">
-    <div class="card stat">
-      <div class="stat-head"><span class="stat-icon">🌐</span><span class="stat-label">{{ t.server_address }}</span></div>
-      <div class="secret-row"><b class="pw">{{ server_ip }}</b>
-        <button type="button" class="icon-btn copy-btn" data-copy="{{ server_ip }}" title="{{ t.copy_tip }}">📋</button></div>
-    </div>
-    <div class="card stat">
-      <div class="stat-head"><span class="stat-icon">🔑</span><span class="stat-label">{{ t.psk_label }}</span></div>
-      <div class="secret-row">
-        <span class="pw" data-pw="{{ psk }}" data-shown="0">••••••••</span>
-        <button type="button" class="icon-btn reveal" title="{{ t.show_tip }}">👁</button>
-        <button type="button" class="icon-btn copy-btn" data-copy="{{ psk }}" title="{{ t.copy_tip }}">📋</button>
+  <!-- ==================== DASHBOARD ==================== -->
+  <section class="view" id="view-dashboard">
+    <section class="cards">
+      <div class="card stat">
+        <div class="stat-head"><span class="stat-icon"><svg class="ni"><use href="#i-globe"/></svg></span><span class="stat-label">{{ t.server_address }}</span></div>
+        <div class="secret-row"><b class="pw">{{ server_ip }}</b>
+          <button type="button" class="icon-btn copy-btn" data-copy="{{ server_ip }}" title="{{ t.copy_tip }}">📋</button></div>
       </div>
-    </div>
-    <div class="card stat">
-      <div class="stat-head"><span class="stat-icon">👤</span><span class="stat-label">{{ t.active_users }}</span></div>
-      <b>{{ active_count }} {{ t.of_word }} {{ total_count }}</b>
-    </div>
-    <div class="card stat">
-      <div class="stat-head"><span class="stat-icon">📡</span><span class="stat-label">{{ t.online_sessions }}</span></div>
-      <b>{{ online_count }}</b>
-    </div>
-    <div class="card stat">
-      <div class="stat-head"><span class="stat-icon">⚙️</span><span class="stat-label">{{ t.services_status }}</span></div>
-      <div class="svc-row">
-        <span class="svc {{ 'ok' if svc.ipsec else 'bad' }}">IPSec</span>
-        <span class="svc {{ 'ok' if svc.xl2tpd else 'bad' }}">L2TP</span>
-        <span class="svc {{ 'ok' if svc.nat else 'bad' }}">NAT</span>
-      </div>
-    </div>
-  </section>
-
-  <section class="card">
-    <h2>{{ t.add_user_title }}</h2>
-    <form method="post" action="/add" class="add-form">
-      <div>
-        <label>{{ t.username }}</label>
-        <input name="username" required pattern="[A-Za-z0-9_.\-]{3,32}" placeholder="user01">
-      </div>
-      <div>
-        <label>{{ t.password_auto }}</label>
-        <div class="secret-row" style="width:100%">
-          <input name="password" id="pw-input" placeholder="{{ t.auto_placeholder }}" style="flex:1">
-          <button type="button" class="btn small" onclick="genPass()">🎲</button>
+      <div class="card stat">
+        <div class="stat-head"><span class="stat-icon"><svg class="ni"><use href="#i-key"/></svg></span><span class="stat-label">{{ t.psk_label }}</span></div>
+        <div class="secret-row">
+          <span class="pw" data-pw="{{ psk }}" data-shown="0">••••••••</span>
+          <button type="button" class="icon-btn reveal" title="{{ t.show_tip }}">👁</button>
+          <button type="button" class="icon-btn copy-btn" data-copy="{{ psk }}" title="{{ t.copy_tip }}">📋</button>
         </div>
       </div>
-      <div>
-        <label>{{ t.days_label }}</label>
-        <input type="number" name="days" value="30" min="1" max="3650">
+      <div class="card stat">
+        <div class="stat-head"><span class="stat-icon"><svg class="ni"><use href="#i-user"/></svg></span><span class="stat-label">{{ t.active_users }}</span></div>
+        <b>{{ active_count }} {{ t.of_word }} {{ total_count }}</b>
       </div>
-      <div>
-        <label>{{ t.traffic_label }}</label>
-        <input type="number" name="traffic" min="0" step="0.1" placeholder="{{ t.traffic_ph }}">
+      <div class="card stat">
+        <div class="stat-head"><span class="stat-icon"><svg class="ni"><use href="#i-signal"/></svg></span><span class="stat-label">{{ t.online_sessions }}</span></div>
+        <b>{{ online_count }}</b>
       </div>
-      <div>
-        <label>{{ t.dns1_label }}</label>
-        <input name="dns1" placeholder="8.8.8.8" inputmode="numeric">
+      <div class="card stat">
+        <div class="stat-head"><span class="stat-icon"><svg class="ni"><use href="#i-gauge"/></svg></span><span class="stat-label">{{ t.total_traffic }}</span></div>
+        <div class="stat-total">{{ total_used }}</div>
+        {% if total_limit %}<div class="stat-sub">{{ t.sum_of_quotas }}: {{ total_limit }}</div>{% endif %}
       </div>
-      <div>
-        <label>{{ t.dns2_label }}</label>
-        <input name="dns2" placeholder="1.1.1.1" inputmode="numeric">
+      <div class="card stat">
+        <div class="stat-head"><span class="stat-icon"><svg class="ni"><use href="#i-gear"/></svg></span><span class="stat-label">{{ t.services_status }}</span></div>
+        <div class="svc-row">
+          <span class="svc {{ 'ok' if svc.ipsec else 'bad' }}">IPSec</span>
+          <span class="svc {{ 'ok' if svc.xl2tpd else 'bad' }}">L2TP</span>
+          <span class="svc {{ 'ok' if svc.nat else 'bad' }}">NAT</span>
+        </div>
       </div>
-      <div>
-        <label>{{ t.exact_expiry }}</label>
-        <input type="datetime-local" name="expires_at">
+    </section>
+    <section class="cards">
+      <div class="card chart-card">
+        <h2>{{ t.chart_title }}</h2>
+        {% if chart_days %}
+        <div class="chart-wrap">
+          {% for d in chart_days %}
+          <div class="chart-col">
+            <div class="chart-bar {{ 'empty' if d.pct == 0 else '' }}" style="height: {{ d.pct if d.pct > 0 else 3 }}%">
+              <span class="chart-tip">{{ d.gb }} GB</span>
+            </div>
+            <span class="chart-lbl">{{ d.label }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="muted" style="padding:20px 0;text-align:center">{{ t.no_chart_data }}</p>
+        {% endif %}
       </div>
-      <div class="full">
-        <button class="btn primary">＋ {{ t.add_btn }}</button>
-        <span class="muted">{{ t.exact_note }}</span>
+
+      <div class="card top-card">
+        <h2>{{ t.top_users }}</h2>
+        {% if top_users %}
+          {% for u in top_users %}
+          <div class="top-row">
+            <div class="top-rank">{{ loop.index }}</div>
+            <div class="top-info">
+              <div class="top-name">{{ u.username }}</div>
+              <div class="top-bar"><div class="top-fill" style="width: {{ u.pct }}%"></div></div>
+            </div>
+            <span class="top-val">{{ u.used }}</span>
+          </div>
+          {% endfor %}
+        {% else %}
+          <p class="muted" style="padding:12px 0;text-align:center">—</p>
+        {% endif %}
       </div>
-    </form>
+
+      <div class="card">
+        <h2>{{ t.capacity }}</h2>
+        <div class="cap-wrap">
+          <div class="cap-bar"><div class="cap-fill" style="width: {{ ((total_count / 241) * 100) | round(1) }}%"></div></div>
+          <div class="cap-text"><span>{{ total_count }} / 240</span><span>{{ t.slots_used }}</span></div>
+        </div>
+      </div>
+    </section>
+
   </section>
 
-  <section class="card">
-    <h2>{{ t.users_title }}</h2>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>#</th><th>{{ t.th_username }}</th><th>{{ t.th_password }}</th><th>{{ t.th_expiry }}</th>
-            <th>{{ t.th_remaining }}</th><th>{{ t.th_traffic }}</th><th>{{ t.th_dns }}</th><th>{{ t.th_key }}</th>
-            <th>{{ t.th_status }}</th><th>{{ t.th_actions }}</th>
-          </tr>
-        </thead>
-        <tbody>
-        {% for u in users %}
-          <tr class="{{ 'expired' if (u.expired or u.quota_exceeded) else '' }}">
-            <td>{{ loop.index }}</td>
-            <td><b>{{ u.username }}</b>{% if u.online %}<span class="dot" title="{{ t.online_tip }}"></span>{% endif %}</td>
-            <td>
-              <span class="secret-row">
-                <span class="pw" data-pw="{{ u.password }}" data-shown="0">••••••••</span>
-                <button type="button" class="icon-btn reveal" title="{{ t.show_tip }}">👁</button>
-                <button type="button" class="icon-btn copy-btn" data-copy="{{ u.password }}" title="{{ t.copy_tip }}">📋</button>
-              </span>
-            </td>
-            <td>{{ u.expires }}</td>
-            <td>{{ u.remaining }}</td>
-            <td>
-              <div class="traffic-cell">
-                <span>{{ u.traffic }}</span>
-                {% if u.limit_gb > 0 %}
-                <div class="bar"><div class="bar-fill {{ 'danger' if u.traffic_pct >= 90 else ('warn' if u.traffic_pct >= 70 else '') }}" style="width: {{ u.traffic_pct }}%"></div></div>
+  <!-- ==================== USERS ==================== -->
+  <section class="view" id="view-users">
+    <section class="card">
+      <h2>{{ t.add_user_title }}</h2>
+      <form method="post" action="/add" class="add-form">
+        <div>
+          <label>{{ t.username }}</label>
+          <input name="username" required pattern="[A-Za-z0-9_.\-]{3,32}" placeholder="user01">
+        </div>
+        <div>
+          <label>{{ t.password_auto }}</label>
+          <div class="secret-row" style="width:100%">
+            <input name="password" id="pw-input" placeholder="{{ t.auto_placeholder }}" style="flex:1">
+            <button type="button" class="btn small" onclick="genPass()">🎲</button>
+          </div>
+        </div>
+        <div>
+          <label>{{ t.days_label }}</label>
+          <input type="number" name="days" value="30" min="1" max="3650">
+        </div>
+        <div>
+          <label>{{ t.traffic_label }}</label>
+          <input type="number" name="traffic" min="0" step="0.1" placeholder="{{ t.traffic_ph }}">
+        </div>
+        <div>
+          <label>{{ t.dns1_label }}</label>
+          <input name="dns1" placeholder="8.8.8.8" inputmode="numeric">
+        </div>
+        <div>
+          <label>{{ t.dns2_label }}</label>
+          <input name="dns2" placeholder="1.1.1.1" inputmode="numeric">
+        </div>
+        <div>
+          <label>{{ t.exact_expiry }}</label>
+          <input type="datetime-local" name="expires_at">
+        </div>
+        <div class="full">
+          <button class="btn primary">＋ {{ t.add_btn }}</button>
+          <span class="muted">{{ t.exact_note }}</span>
+        </div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>{{ t.users_title }}</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>{{ t.th_username }}</th><th>{{ t.th_password }}</th><th>{{ t.th_expiry }}</th>
+              <th>{{ t.th_remaining }}</th><th>{{ t.th_traffic }}</th><th>{{ t.th_dns }}</th><th>{{ t.th_key }}</th>
+              <th>{{ t.th_status }}</th><th>{{ t.th_actions }}</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for u in users %}
+            <tr class="{{ 'expired' if (u.expired or u.quota_exceeded) else '' }}">
+              <td>{{ loop.index }}</td>
+              <td><b>{{ u.username }}</b>{% if u.online %}<span class="dot" title="{{ t.online_tip }}"></span>{% endif %}</td>
+              <td>
+                <span class="secret-row">
+                  <span class="pw" data-pw="{{ u.password }}" data-shown="0">••••••••</span>
+                  <button type="button" class="icon-btn reveal" title="{{ t.show_tip }}">👁</button>
+                  <button type="button" class="icon-btn copy-btn" data-copy="{{ u.password }}" title="{{ t.copy_tip }}">📋</button>
+                </span>
+              </td>
+              <td>{{ u.expires }}</td>
+              <td>{{ u.remaining }}</td>
+              <td>
+                <div class="traffic-cell">
+                  <span>{{ u.traffic }}</span>
+                  {% if u.limit_gb > 0 %}
+                  <div class="bar"><div class="bar-fill {{ 'danger' if u.traffic_pct >= 90 else ('warn' if u.traffic_pct >= 70 else '') }}" style="width: {{ u.traffic_pct }}%"></div></div>
+                  {% endif %}
+                </div>
+              </td>
+              <td>
+                {% if u.dns1 or u.dns2 %}
+                  <span class="pw">{{ u.dns1 or '—' }} / {{ u.dns2 or '—' }}</span>
+                {% else %}
+                  <span class="muted">{{ t.default_dns }}</span>
                 {% endif %}
-              </div>
-            </td>
-            <td>
-              {% if u.dns1 or u.dns2 %}
-                <span class="pw">{{ u.dns1 or '—' }} / {{ u.dns2 or '—' }}</span>
-              {% else %}
-                <span class="muted">{{ t.default_dns }}</span>
-              {% endif %}
-            </td>
-            <td>
-              <span class="secret-row">
-                <span class="pw">{{ u.key }}</span>
-                <button type="button" class="icon-btn copy-btn" data-copy="{{ u.key }}" title="{{ t.copy_tip }}">📋</button>
-                <a class="icon-btn" href="/u/{{ u.key }}" target="_blank" title="{{ t.status_link_tip }}">🔗</a>
-              </span>
-            </td>
-            <td>
-              {% if u.expired %}<span class="badge red">{{ t.badge_expired }}</span>
-              {% elif u.quota_exceeded %}<span class="badge red">{{ t.badge_quota }}</span>
-              {% elif u.soon %}<span class="badge orange">{{ t.badge_soon }}</span>
-              {% else %}<span class="badge green">{{ t.badge_active }}</span>{% endif %}
-            </td>
-            <td>
-              <form method="post" action="/renew/{{ u.id }}" class="inline">
-                <input class="mini" type="number" name="days" value="30" min="1" max="3650">
-                <button class="btn small">{{ t.renew_btn }}</button>
-              </form>
-              <button class="btn small" onclick="openEdit({{ u.id }}, '{{ u.expires_input }}', '{{ u.dns1 }}', '{{ u.dns2 }}', '{{ u.key }}')">✏️</button>
-              <form method="post" action="/reset-traffic/{{ u.id }}" class="inline">
-                <button class="btn small" title="{{ t.reset_traffic_tip }}">♻️</button>
-              </form>
-              <form method="post" action="/regen-key/{{ u.id }}" class="inline">
-                <button class="btn small" title="{{ t.regen_key_tip }}">🔑</button>
-              </form>
-              <form method="post" action="/delete/{{ u.id }}" class="inline" onsubmit="return confirm('{{ t.delete_confirm }}')">
-                <button class="btn small danger">🗑</button>
-              </form>
-            </td>
-          </tr>
-        {% else %}
-          <tr><td colspan="10" class="empty">{{ t.no_users }}</td></tr>
-        {% endfor %}
-        </tbody>
-      </table>
-    </div>
+              </td>
+              <td>
+                <span class="secret-row">
+                  <span class="pw">{{ u.key }}</span>
+                  <button type="button" class="icon-btn copy-btn" data-copy="{{ u.key }}" title="{{ t.copy_tip }}">📋</button>
+                  <a class="icon-btn" href="/u/{{ u.key }}" target="_blank" title="{{ t.status_link_tip }}">🔗</a>
+                </span>
+              </td>
+              <td>
+                {% if u.expired %}<span class="badge red">{{ t.badge_expired }}</span>
+                {% elif u.quota_exceeded %}<span class="badge red">{{ t.badge_quota }}</span>
+                {% elif u.soon %}<span class="badge orange">{{ t.badge_soon }}</span>
+                {% else %}<span class="badge green">{{ t.badge_active }}</span>{% endif %}
+              </td>
+              <td>
+                <form method="post" action="/renew/{{ u.id }}" class="inline">
+                  <input class="mini" type="number" name="days" value="30" min="1" max="3650">
+                  <button class="btn small">{{ t.renew_btn }}</button>
+                </form>
+                <button class="btn small" onclick="openEdit({{ u.id }}, '{{ u.expires_input }}', '{{ u.dns1 }}', '{{ u.dns2 }}', '{{ u.key }}')"><svg class="ni ni-sm ni-hover"><use href="#i-edit"/></svg></button>
+                <form method="post" action="/reset-traffic/{{ u.id }}" class="inline">
+                  <button class="btn small" title="{{ t.reset_traffic_tip }}"><svg class="ni ni-sm ni-hover"><use href="#i-refresh"/></svg></button>
+                </form>
+                <form method="post" action="/regen-key/{{ u.id }}" class="inline">
+                  <button class="btn small" title="{{ t.regen_key_tip }}"><svg class="ni"><use href="#i-key"/></svg></button>
+                </form>
+                <form method="post" action="/delete/{{ u.id }}" class="inline" onsubmit="return confirm('{{ t.delete_confirm }}')">
+                  <button class="btn small danger"><svg class="ni ni-sm"><use href="#i-trash"/></svg></button>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="10" class="empty">{{ t.no_users }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </section>
+
+  <!-- ==================== SETTINGS ==================== -->
+  <section class="view" id="view-settings">
+    <section class="card">
+      <h2><svg class="ni"><use href="#i-user"/></svg> {{ t.settings_account }}</h2>
+      <p class="muted" style="margin:-6px 0 14px">{{ t.settings_account_desc }}</p>
+      <form method="post" action="/settings/credentials" class="set-grid">
+        <div>
+          <label>{{ t.cur_password }}</label>
+          <input type="password" name="current_password" required autocomplete="current-password">
+        </div>
+        <div>
+          <label>{{ t.new_username }}</label>
+          <input name="new_username" value="{{ admin_user }}" pattern="[A-Za-z0-9_.\-]{3,32}">
+        </div>
+        <div>
+          <label>{{ t.new_password }}</label>
+          <input type="password" name="new_password" autocomplete="new-password" placeholder="••••••">
+        </div>
+        <div>
+          <label>{{ t.new_password2 }}</label>
+          <input type="password" name="new_password2" autocomplete="new-password" placeholder="••••••">
+        </div>
+        <div class="full">
+          <button class="btn primary"><svg class="ni ni-lg"><use href="#i-download"/></svg> {{ t.save_btn }}</button>
+          <span class="muted">{{ t.creds_note }}</span>
+        </div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2><svg class="ni ni-lg"><use href="#i-shield"/></svg> {{ t.settings_vpn }}</h2>
+      <form method="post" action="/settings/psk" class="set-grid">
+        <div class="full warn-box">⚠️ {{ t.change_psk_warn }}</div>
+        <div>
+          <label>{{ t.cur_password }}</label>
+          <input type="password" name="current_password" required autocomplete="current-password">
+        </div>
+        <div>
+          <label>{{ t.new_psk }}</label>
+          <input name="new_psk" required minlength="8">
+        </div>
+        <div class="full"><button class="btn primary">{{ t.change_psk }}</button></div>
+      </form>
+      <hr class="set-sep">
+      <h2><svg class="ni"><use href="#i-globe"/></svg> {{ t.default_dns_title }}</h2>
+      <form method="post" action="/settings/dns" class="set-grid">
+        <div>
+          <label>DNS 1</label>
+          <input name="dns1" value="{{ default_dns1 }}" placeholder="8.8.8.8" inputmode="numeric">
+        </div>
+        <div>
+          <label>DNS 2</label>
+          <input name="dns2" value="{{ default_dns2 }}" placeholder="1.1.1.1" inputmode="numeric">
+        </div>
+        <div class="full"><button class="btn primary"><svg class="ni ni-lg"><use href="#i-download"/></svg> {{ t.save_btn }}</button></div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2><svg class="ni ni-lg"><use href="#i-server"/></svg> {{ t.settings_panel }}</h2>
+      <form method="post" action="/settings/port" class="set-grid">
+        <div class="full note-box">ℹ️ {{ t.port_warn }}</div>
+        <div>
+          <label>{{ t.cur_password }}</label>
+          <input type="password" name="current_password" required autocomplete="current-password">
+        </div>
+        <div>
+          <label>{{ t.cur_port }}</label>
+          <input value="{{ panel_port }}" disabled style="opacity:.55">
+        </div>
+        <div>
+          <label>{{ t.port_label }}</label>
+          <input name="port" required inputmode="numeric" placeholder="8080">
+        </div>
+        <div class="full"><button class="btn primary"><svg class="ni ni-lg"><use href="#i-download"/></svg> {{ t.save_btn }}</button></div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2><svg class="ni ni-lg"><use href="#i-download"/></svg> {{ t.settings_data }}</h2>
+      <div class="note-box">📋 {{ t.backup_note }}</div>
+      <a href="/backup" class="btn primary">{{ t.backup_btn }}</a>
+    </section>
   </section>
 </main>
 
 <div class="modal" id="editModal">
   <form method="post" id="editForm" class="modal-card">
-    <h3>✏️ {{ t.edit_title }}</h3>
+    <h3><svg class="ni ni-sm ni-hover"><use href="#i-edit"/></svg> {{ t.edit_title }}</h3>
     <label>{{ t.new_password }}</label>
     <input name="password" id="editPass">
     <label>{{ t.new_expiry }}</label>
@@ -1686,6 +2283,47 @@ cat > "${PANEL_DIR}/templates/index.html" <<'ZQ6INDEX'
 
 {% block scripts %}
 <script>
+(function(){
+  var sb = document.getElementById('sidebar');
+  var ov = document.getElementById('sbOverlay');
+  var fab = document.getElementById('menuFab');
+  var items = Array.prototype.slice.call(sb.querySelectorAll('.sb-item'));
+  var views = Array.prototype.slice.call(document.querySelectorAll('.view'));
+  var valid = ['dashboard','users','settings'];
+
+  function show(name){
+    items.forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-tab') === name); });
+    views.forEach(function(v){
+      v.classList.toggle('active', v.id === 'view-' + name);
+      v.style.display = (v.id === 'view-' + name) ? 'block' : 'none';
+    });
+    try{ localStorage.setItem('l2tp-tab', name); }catch(e){}
+    if (history.replaceState) { history.replaceState(null, '', '#' + name); }
+  }
+  function open(){ sb.classList.add('open'); ov.classList.add('show'); fab.classList.add('open'); document.body.style.overflow='hidden'; }
+  function close(){ sb.classList.remove('open'); ov.classList.remove('show'); fab.classList.remove('open'); document.body.style.overflow=''; }
+
+  fab.addEventListener('click', function(){ (sb.classList.contains('open')) ? close() : open(); });
+  ov.addEventListener('click', close);
+  document.getElementById('sbClose').addEventListener('click', close);
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape') close(); });
+
+  sb.addEventListener('click', function(ev){
+    var item = ev.target.closest('.sb-item');
+    if(!item) return;
+    var name = item.getAttribute('data-tab');
+    if(!name || valid.indexOf(name) === -1) return;
+    ev.preventDefault();
+    show(name); close();
+  });
+
+  var initial = (location.hash || '').replace('#','');
+  var saved = null;
+  try{ saved = localStorage.getItem('l2tp-tab'); }catch(e){}
+  var start = valid.indexOf(initial) >= 0 ? initial : (valid.indexOf(saved) >= 0 ? saved : 'dashboard');
+  show(start);
+})();
+
 function openEdit(id, exp, dns1, dns2, key){
   document.getElementById('editForm').action = '/edit/' + id;
   document.getElementById('editExp').value = exp;
@@ -1927,6 +2565,7 @@ cat > "${PANEL_DIR}/templates/user.html" <<'ZQ7USER'
 </script>
 {% endblock %}
 
+
 ZQ7USER
 
 cat > "${PANEL_DIR}/templates/restarting.html" <<'ZQ8RST'
@@ -1942,6 +2581,7 @@ cat > "${PANEL_DIR}/templates/restarting.html" <<'ZQ8RST'
   </div>
 </div>
 {% endblock %}
+
 
 
 
@@ -1983,6 +2623,7 @@ cat > "${PANEL_DIR}/templates/updating.html" <<'ZQ9UPD'
   </div>
 </div>
 {% endblock %}
+
 
 ZQ9UPD
 
