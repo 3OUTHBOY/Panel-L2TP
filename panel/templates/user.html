@@ -50,10 +50,10 @@
 .mini-stat .ms-value{font-size:1.02rem;font-weight:700;word-break:break-word}
 .mini-stat .ms-value.pw{font-weight:400}
 
-/* ---- countdown (compact single row) ---- */
-.countdown{display:flex;flex-wrap:nowrap;gap:4px;margin-top:2px;align-items:stretch}
+/* ---- countdown ---- */
+.countdown{display:flex;flex-wrap:nowrap;gap:6px;margin-top:2px;align-items:stretch}
 .cd-box{flex:1 1 0;min-width:0;background:var(--bg-deep);
-  border:1px solid var(--bd);border-radius:9px;padding:6px 2px;text-align:center}
+  border:1px solid var(--bd);border-radius:9px;padding:7px 4px;text-align:center}
 [data-theme=light] .cd-box{background:var(--card2)}
 .cd-box b{display:block;font-size:.84rem;font-weight:800;font-variant-numeric:tabular-nums;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.2}
@@ -65,13 +65,18 @@
   background:linear-gradient(90deg,transparent,var(--bd2),transparent)}
 .sub-divider span{font-size:.72rem;color:var(--mu);letter-spacing:1.5px;font-weight:700}
 
-/* ---- info rows ---- */
-.sub-info{padding:4px 24px 10px}
+/* ---- info rows (dashboard-style icons) ---- */
 .info-row{display:flex;justify-content:space-between;align-items:center;gap:12px;
-  padding:12px 0;border-bottom:1px dashed var(--bd)}
+  padding:12px 0;padding-inline-start:48px;border-bottom:1px dashed var(--bd);position:relative}
 .info-row:last-child{border-bottom:none}
-.info-row>span{color:var(--mu);font-size:.82rem;font-weight:600;flex:none}
-.info-row>div,.info-row>b{word-break:break-all;text-align:end;font-size:.9rem;min-width:0}
+.info-row>span.lbl{color:var(--mu);font-size:.82rem;font-weight:600;flex:none}
+.info-row>div,.info-row>b.val{word-break:break-all;text-align:end;font-size:.9rem;min-width:0}
+.stat-icon{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;
+  font-size:1rem;background:var(--card3);border:1px solid var(--bd);flex:none;
+  transition:all .25s}
+.info-row .stat-icon{position:absolute;inset-inline-start:0;top:50%;margin-top:-18px}
+.info-row:hover .stat-icon{transform:scale(1.1);border-color:rgba(0,229,255,.45);
+  box-shadow:0 0 14px rgba(0,229,255,.25)}
 
 .sub-footer{padding:12px 24px 20px;text-align:center}
 .sub-footer .muted{font-size:.72rem}
@@ -82,9 +87,54 @@
   .gauge-zone{flex-direction:column}
   .gauge-side{width:100%}
 }
+
+/* ===== sub-glow: neon life for sub page icons ===== */
+/* info-row icon boxes (emoji inside) — glow + hover pop */
+.info-row .stat-icon{
+  filter:drop-shadow(0 0 4px color-mix(in srgb,var(--neon-cyan) 42%,transparent));
+  transition:all .25s cubic-bezier(.22,1,.36,1)}
+.info-row:hover .stat-icon{
+  transform:scale(1.16);
+  border-color:rgba(0,229,255,.55);
+  box-shadow:0 0 16px rgba(0,229,255,.3),inset 0 0 8px rgba(0,229,255,.08);
+  filter:drop-shadow(0 0 8px color-mix(in srgb,var(--neon-cyan) 72%,transparent))}
+
+/* light theme: softer blue glow */
+[data-theme=light] .info-row .stat-icon{
+  filter:drop-shadow(0 0 3px color-mix(in srgb,var(--acc) 30%,transparent))}
+[data-theme=light] .info-row:hover .stat-icon{
+  filter:drop-shadow(0 0 6px color-mix(in srgb,var(--acc) 55%,transparent));
+  box-shadow:0 0 12px color-mix(in srgb,var(--acc) 22%,transparent)}
+
+/* mini-stat labels (⏱ 📅) — subtle glow */
+.mini-stat .ms-label{
+  filter:drop-shadow(0 0 3px color-mix(in srgb,var(--neon-cyan) 30%,transparent))}
+
+/* countdown boxes — top edge neon line */
+.cd-box{position:relative}
+.cd-box::before{content:'';position:absolute;inset-inline:6px;top:0;height:2px;
+  border-radius:99px;background:linear-gradient(90deg,transparent,var(--neon-cyan),transparent);
+  opacity:.55;transition:opacity .3s}
+.cd-box:hover::before{opacity:1}
+#cdS::before{opacity:.9;animation:cdPulse 2s ease-in-out infinite}
+@keyframes cdPulse{0%,100%{opacity:.45}50%{opacity:1}}
+
+/* banner logo — breathing glow */
+.sub-logo{animation:subGlow 3s ease-in-out infinite}
+@keyframes subGlow{
+  0%,100%{box-shadow:0 0 14px rgba(0,229,255,.2)}
+  50%{box-shadow:0 0 24px rgba(0,229,255,.4)}}
+
+/* dns row icon gets purple tint glow (🔀) */
+.info-row:last-child .stat-icon{
+  filter:drop-shadow(0 0 4px color-mix(in srgb,var(--neon-purple) 45%,transparent))}
+.info-row:last-child:hover .stat-icon{
+  filter:drop-shadow(0 0 8px color-mix(in srgb,var(--neon-purple) 72%,transparent));
+  border-color:rgba(176,38,255,.55);
+  box-shadow:0 0 16px rgba(176,38,255,.3)}
 </style>
 
-<!-- shared gradient defs -->
+<!-- shared gradients -->
 <svg width="0" height="0" style="position:absolute">
   <defs>
     <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -161,35 +211,45 @@
     <div class="sub-divider"><span>{{ t.st_type }}</span></div>
 
     <div class="sub-info">
-      <div class="info-row"><span>{{ t.st_server }}</span>
-        <div class="secret-row"><b class="pw">{{ server_ip }}</b>
+      <div class="info-row">
+        <span class="stat-icon">🌐</span>
+        <span class="lbl">{{ t.st_server }}</span>
+        <div class="secret-row"><b class="pw val">{{ server_ip }}</b>
           <button type="button" class="icon-btn copy-btn" data-copy="{{ server_ip }}" title="{{ t.copy_tip }}">📋</button></div>
       </div>
-      <div class="info-row"><span>{{ t.st_psk }}</span>
+      <div class="info-row">
+        <span class="stat-icon">🔑</span>
+        <span class="lbl">{{ t.st_psk }}</span>
         <div class="secret-row">
           <span class="pw" data-pw="{{ psk }}" data-shown="0">••••••••</span>
           <button type="button" class="icon-btn reveal" title="{{ t.show_tip }}">👁</button>
           <button type="button" class="icon-btn copy-btn" data-copy="{{ psk }}" title="{{ t.copy_tip }}">📋</button>
         </div>
       </div>
-      <div class="info-row"><span>{{ t.username }}</span>
-        <div class="secret-row"><b class="pw">{{ u.username }}</b>
+      <div class="info-row">
+        <span class="stat-icon">👤</span>
+        <span class="lbl">{{ t.username }}</span>
+        <div class="secret-row"><b class="pw val">{{ u.username }}</b>
           <button type="button" class="icon-btn copy-btn" data-copy="{{ u.username }}" title="{{ t.copy_tip }}">📋</button></div>
       </div>
-      <div class="info-row"><span>{{ t.password }}</span>
+      <div class="info-row">
+        <span class="stat-icon">🔒</span>
+        <span class="lbl">{{ t.password }}</span>
         <div class="secret-row">
           <span class="pw" data-pw="{{ u.password }}" data-shown="0">••••••••</span>
           <button type="button" class="icon-btn reveal" title="{{ t.show_tip }}">👁</button>
           <button type="button" class="icon-btn copy-btn" data-copy="{{ u.password }}" title="{{ t.copy_tip }}">📋</button>
         </div>
       </div>
-      <div class="info-row"><span>{{ t.st_dns }}</span>
-        <b class="pw">{% if u.dns1 or u.dns2 %}{{ u.dns1 or '—' }} / {{ u.dns2 or '—' }}{% else %}{{ t.st_dns_default }}{% endif %}</b>
+      <div class="info-row">
+        <span class="stat-icon">🔀</span>
+        <span class="lbl">{{ t.st_dns }}</span>
+        <b class="pw val">{% if u.dns1 or u.dns2 %}{{ u.dns1 or '—' }} / {{ u.dns2 or '—' }}{% else %}{{ t.st_dns_default }}{% endif %}</b>
       </div>
     </div>
 
     <div class="sub-footer">
-      <span class="muted">{{ t.brand }}</span>
+      <span class="muted">{{ t.brand }} · v{{ panel_version }}</span>
     </div>
   </div>
 </div>
@@ -219,4 +279,3 @@
 })();
 </script>
 {% endblock %}
-

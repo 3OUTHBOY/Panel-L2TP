@@ -1403,17 +1403,12 @@ cat > "${PANEL_DIR}/templates/base.html" <<'ZQ4BASE'
 })();
 </script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.0.0/Vazirmatn-font-face.css" crossorigin="anonymous">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%2064%2064%27%3E%3Cdefs%3E%3ClinearGradient%20id%3D%27g%27%20x1%3D%2710%27%20y1%3D%276%27%20x2%3D%2754%27%20y2%3D%2758%27%20gradientUnits%3D%27userSpaceOnUse%27%3E%3Cstop%20stop-color%3D%27%2300e5ff%27/%3E%3Cstop%20offset%3D%271%27%20stop-color%3D%27%23b026ff%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath%20d%3D%27M32%204%20L55.5%2012.5%20V28%20C55.5%2042.5%2046%2052.5%2032%2059.5%20C18%2052.5%208.5%2042.5%208.5%2028%20V12.5%20Z%27%20fill%3D%27url%28%23g%29%27%20fill-opacity%3D%270.15%27/%3E%3Cpath%20d%3D%27M32%204%20L55.5%2012.5%20V28%20C55.5%2042.5%2046%2052.5%2032%2059.5%20C18%2052.5%208.5%2042.5%208.5%2028%20V12.5%20Z%27%20stroke%3D%27url%28%23g%29%27%20stroke-width%3D%273.4%27%20stroke-linejoin%3D%27round%27%20fill%3D%27none%27/%3E%3Cpath%20d%3D%27M22%2046.5%20V29%20C22%2021.8%2026.4%2016%2032%2016%20C37.6%2016%2042%2021.8%2042%2029%20V46.5%27%20stroke%3D%27url%28%23g%29%27%20stroke-width%3D%272.6%27%20stroke-linecap%3D%27round%27%20fill%3D%27none%27/%3E%3Cpath%20d%3D%27M28%2046.5%20V31.5%20C28%2027%2029.7%2023.5%2032%2023.5%20C34.3%2023.5%2036%2027%2036%2031.5%20V46.5%27%20stroke%3D%27url%28%23g%29%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20fill%3D%27none%27%20opacity%3D%270.6%27/%3E%3Ccircle%20cx%3D%2732%27%20cy%3D%2736.5%27%20r%3D%273%27%20fill%3D%27url%28%23g%29%27/%3E%3C/svg%3E">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%2064%2064%27%3E%3Cdefs%3E%3ClinearGradient%20id%3D%27g%27%20x1%3D%2710%27%20y1%3D%276%27%20x2%3D%2754%27%20y2%3D%2758%27%20gradientUnits%3D%27userSpaceOnUse%27%3E%3Cstop%20stop-color%3D%27%2300e5ff%27/%3E%3Cstop%20offset%3D%271%27%20stop-color%3D%27%23b026ff%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath%20d%3D%27M32%204%20L55.5%2012.5%20V28%20C55.5%2042.5%2046%2052.5%2032%2059.5%20C18%2052.5%208.5%2042.5%208.5%2028%20V12.5%20Z%27%20fill%3D%27url%28%23g%29%27%20fill-opacity%3D%270.15%27/%3E%3Cpath%20d%3D%27M32%204%20L55.5%2012.5%20V28%20C55.5%2042.5%2046%2052.5%2032%2059.5%20C18%2052.5%208.5%2042.5%208.5%2028%20V12.5%20Z%27%20stroke%3D%27url%28%23g%29%27%20stroke-width%3D%273.4%27%20stroke-linejoin%3D%27round%27%20fill%3D%27none%27/%3E%3Cpath%20d%3D%27M22%2046.5%20V29%20C22%2021.8%2026.4%2016%2032%2016%20C37.6%2016%2042%2021.8%2042%2029%20V46.5%27%20stroke%3D%27url%28%23g%29%27%20stroke-width%3D%272.6%27%20stroke-linecap%3D%27round%27%20fill%3D%27none%27/%3E%3Cpath%20d%3D%27M28%2046.5%20V31.5%20C28%2027%2029.7%2023.5%2032%2023.5%20C34.3%2023.5%2036%2027%2036%2031.5%20V46.5%27%20stroke%3D%27url%28%23g%29%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20fill%3D%27none%27%20opacity%3D%270.6%27/%3E%3Ccircle%20cx%3D%2732%27%20cy%3D%2736.5%27%20r%3D%273%27%20fill%3D%27url%28%23g%29%27/%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%2064%2064%27%3E%3Cdefs%3E%3ClinearGradient%20id%3D%27g%27%20x1%3D%2710%27%20y1%3D%276%27%20x2%3D%2754%27%20y2%3D%2758%27%20gradientUnits%3D%27userSpaceOnUse%27%3E%3Cstop%20stop-color%3D%27%2300e5ff%27/%3E%3Cstop%20offset%3D%271%27%20stop-color%3D%27%23b026ff%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath%20d%3D%27M32%204%20L55.5%2012.5%20V28%20C55.5%2042.5%2046%2052.5%2032%2059.5%20C18%2052.5%208.5%2042.5%208.5%2028%20V12.5%20Z%27%20fill%3D%27url%28%23g%29%27%20fill-opacity%3D%270.15%27/%3E%3Cpath%20d%3D%27M32%204%20L55.5%2012.5%20V28%20C55.5%2042.5%2046%2052.5%2032%2059.5%20C18%2052.5%208.5%2042.5%208.5%2028%20V12.5%20Z%27%20stroke%3D%27url%28%23g%29%27%20stroke-width%3D%273.4%27%20fill%3D%27none%27/%3E%3Cpath%20d%3D%27M22%2046.5%20V29%20C22%2021.8%2026.4%2016%2032%2016%20C37.6%2016%2042%2021.8%2042%2029%20V46.5%27%20stroke%3D%27url%28%23g%29%27%20stroke-width%3D%272.6%27%20fill%3D%27none%27/%3E%3Cpath%20d%3D%27M28%2046.5%20V31.5%20C28%2027%2029.7%2023.5%2032%2023.5%20C34.3%2023.5%2036%2027%2036%2031.5%20V46.5%27%20stroke%3D%27url%28%23g%29%27%20stroke-width%3D%272%27%20fill%3D%27none%27%20opacity%3D%270.6%27/%3E%3Ccircle%20cx%3D%2732%27%20cy%3D%2736.5%27%20r%3D%273%27%20fill%3D%27url%28%23g%29%27/%3E%3C/svg%3E">
 <title>{% block title %}{{ t.brand }}{% endblock %}</title>
 <style>
 :root{
-  --bg-deep:#020203;
-  --panel-bg:rgba(8,8,12,.7);
-  --border-neon:rgba(0,229,255,.15);
-  --neon-cyan:#00e5ff;
-  --neon-purple:#b026ff;
-  --btn-tx:#020203;
+  --bg-deep:#020203;--panel-bg:rgba(8,8,12,.7);--border-neon:rgba(0,229,255,.15);
+  --neon-cyan:#00e5ff;--neon-purple:#b026ff;--btn-tx:#020203;
   --bg:#020203;--card:rgba(8,8,12,.7);--card2:rgba(255,255,255,.03);--card3:rgba(255,255,255,.06);
   --bd:rgba(0,229,255,.12);--bd2:rgba(0,229,255,.28);
   --tx:#f0f0f0;--mu:#7a7a8c;
@@ -1443,7 +1438,7 @@ body{font-family:Vazirmatn,'Segoe UI',Tahoma,Arial,sans-serif;color:var(--tx);mi
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--neon-cyan);border-radius:10px}
 [data-theme=light] ::-webkit-scrollbar-thumb{background:#a3c3e0}
-html[dir=ltr] body{font-family:'Inter','SF Pro Display','Segoe UI Variable Display',system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;letter-spacing:.012em}
+html[dir=ltr] body{font-family:'Inter','SF Pro Display','Segoe UI Variable Display',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;letter-spacing:.012em}
 html[dir=ltr] .gheading{letter-spacing:3px}
 .container{max-width:1180px;margin:0 auto;padding:0 16px}
 header{background:var(--panel-bg);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
@@ -1476,7 +1471,7 @@ h2::before{content:'';width:4px;height:18px;border-radius:99px;
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
 .stat-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .stat-icon{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;font-size:1rem;
-  background:var(--card3);border:1px solid var(--bd);flex:none}
+  background:var(--card3);border:1px solid var(--bd);flex:none;transition:all .25s}
 .stat-label{color:var(--mu);font-size:.82rem;font-weight:600}
 .stat b{font-size:1.05rem;word-break:break-all}
 .btn{border:1px solid rgba(255,255,255,.08);background:var(--card2);color:var(--tx);
@@ -1523,9 +1518,10 @@ tr.expired{opacity:.45}
 .mini{width:62px;padding:5px 8px;font-size:.8rem;border-radius:8px}
 .pw{font-family:ui-monospace,'Cascadia Code',Consolas,monospace;color:var(--mu);letter-spacing:.3px}
 .secret-row{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap}
-.icon-btn{background:none;border:none;cursor:pointer;font-size:.92rem;padding:3px 5px;opacity:.75;
-  transition:all .15s;border-radius:6px}
+.icon-btn{background:none;border:none;cursor:pointer;font-size:.92rem;padding:3px 5px;opacity:.85;
+  transition:all .15s;border-radius:6px;font-family:inherit}
 .icon-btn:hover{opacity:1;transform:scale(1.12)}
+.icon-btn .ni{width:1.05em;height:1.05em;vertical-align:-0.15em}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--grn);
   margin-inline-start:7px;box-shadow:0 0 0 3px rgba(0,255,157,.22);animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(0,255,157,.22)}50%{box-shadow:0 0 0 6px rgba(0,255,157,.05)}}
@@ -1557,7 +1553,6 @@ tr.expired{opacity:.45}
 .ctrl-btn:hover{color:var(--tx);border-color:var(--neon-cyan);box-shadow:0 0 14px rgba(0,229,255,.22);transform:translateY(-2px)}
 #themeBtn{color:var(--acc)}
 #themeBtn:hover{color:var(--acc);filter:brightness(1.15)}
-.ctrl-btn:hover{transform:translateY(-3px);border-color:var(--neon-cyan);box-shadow:0 0 18px rgba(0,229,255,.25)}
 .bar{height:5px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;margin-top:6px;min-width:95px}
 [data-theme=light] .bar{background:#e2e8f4}
 .bar-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--neon-cyan),var(--neon-purple));
@@ -1565,7 +1560,6 @@ tr.expired{opacity:.45}
 .bar-fill.warn{background:linear-gradient(90deg,#f59e0b,#f97316);box-shadow:0 0 12px rgba(245,158,11,.4)}
 .bar-fill.danger{background:linear-gradient(90deg,#ef4444,#dc2626);box-shadow:0 0 12px rgba(239,68,68,.4)}
 .traffic-cell{display:flex;flex-direction:column;min-width:110px}
-/* ===== logo (L2TP tunnel shield) ===== */
 .lg-a{stop-color:var(--neon-cyan)}
 .lg-b{stop-color:var(--neon-purple)}
 .logo-svg{display:block;filter:drop-shadow(0 0 6px color-mix(in srgb,var(--neon-cyan) 45%,transparent))}
@@ -1575,8 +1569,10 @@ tr.expired{opacity:.45}
 .login-logo{width:66px;height:66px;border-radius:19px;display:grid;place-items:center;margin:0 auto 12px;
   background:var(--card3);border:1px solid var(--bd2);box-shadow:0 0 20px rgba(0,229,255,.22)}
 .login-logo .logo-svg{width:44px;height:44px}
+.ni{width:1.15em;height:1.15em;display:inline-block;vertical-align:-0.18em}
+.reveal .ni{filter:drop-shadow(0 0 4px color-mix(in srgb,var(--neon-cyan) 45%,transparent))}
+[data-theme=light] .reveal .ni{filter:drop-shadow(0 0 3px color-mix(in srgb,var(--acc) 30%,transparent))}
 @media(max-width:600px){h1{font-size:.95rem}.card{padding:16px}}
-/* ===== aura cursor ===== */
 @media (hover:hover) and (pointer:fine){
   *,*::before,*::after{cursor:none !important}
   .cursor-orb{position:fixed;top:0;left:0;width:34px;height:34px;border-radius:50%;
@@ -1594,45 +1590,58 @@ tr.expired{opacity:.45}
   .cursor-orb.click{opacity:.55}
 }
 
-/* ===== logo-update: L2TP tunnel shield ===== */
-.lg-a{stop-color:var(--neon-cyan)}
-.lg-b{stop-color:var(--neon-purple)}
-.logo-svg{display:block;filter:drop-shadow(0 0 6px color-mix(in srgb,var(--neon-cyan) 45%,transparent))}
-[data-theme=light] .logo-svg{filter:drop-shadow(0 0 5px color-mix(in srgb,var(--acc) 30%,transparent))}
-.logo-svg circle{animation:lgpulse 2.6s ease-in-out infinite}
-@keyframes lgpulse{0%,100%{opacity:1}50%{opacity:.4}}
-.brand-badge{width:46px;height:46px;border-radius:14px;font-size:0;
-  background:var(--card3);border:1px solid var(--bd2);box-shadow:0 0 16px rgba(0,229,255,.18)}
-.brand-badge .logo-svg{width:31px;height:31px}
-.login-logo{width:66px;height:66px;border-radius:19px;display:grid;place-items:center;margin:0 auto 12px;
-  background:var(--card3);border:1px solid var(--bd2);box-shadow:0 0 20px rgba(0,229,255,.22)}
-.login-logo .logo-svg{width:44px;height:44px}
-.restart-logo{width:66px;height:66px;border-radius:19px;display:grid;place-items:center;margin:0 auto 12px;
-  background:var(--card3);border:1px solid var(--bd2);box-shadow:0 0 20px rgba(0,229,255,.22)}
-.restart-logo .logo-svg{width:44px;height:44px}
+/* ===== icons-glow: neon life for all icons ===== */
+/* glow layer for every icon */
+.ni{filter:drop-shadow(0 0 3px color-mix(in srgb,var(--neon-cyan) 38%,transparent));
+    transition:filter .25s,transform .25s}
+[data-theme=light] .ni{filter:drop-shadow(0 0 2px color-mix(in srgb,var(--acc) 30%,transparent))}
 
+/* dashboard stat cards: stronger glow + pulse on the icon box */
+.stat-icon .ni{width:1.35em;height:1.35em;
+  filter:drop-shadow(0 0 5px color-mix(in srgb,var(--neon-cyan) 55%,transparent))}
+.stat-icon:hover .ni{transform:scale(1.18);
+  filter:drop-shadow(0 0 9px color-mix(in srgb,var(--neon-cyan) 75%,transparent))}
+.stat-icon:hover{border-color:rgba(0,229,255,.5);box-shadow:0 0 14px rgba(0,229,255,.18)}
 
-/* ===== neon SVG icon system ===== */
-.ni{width:1.15em;height:1.15em;display:inline-block;vertical-align:-0.18em;flex:none}
-.ni-lg{width:1.5em;height:1.5em;vertical-align:-0.3em}
-.ni-sm{width:1em;height:1em;vertical-align:-0.12em}
-.stat-icon{display:grid;place-items:center;font-size:1.15rem}
-.stat-icon .ni{width:1.35em;height:1.35em;filter:drop-shadow(0 0 5px color-mix(in srgb,var(--neon-cyan) 45%,transparent))}
-[data-theme=light] .stat-icon .ni{filter:drop-shadow(0 0 4px color-mix(in srgb,var(--acc) 30%,transparent))}
-.ni-hover{transition:transform .18s,filter .18s}
-.ni-hover:hover{transform:scale(1.15);filter:drop-shadow(0 0 6px color-mix(in srgb,var(--neon-cyan) 60%,transparent))}
+/* action icons (edit/trash/reset/key): grow + colored glow on hover */
+.icon-btn .ni{width:1.15em;height:1.15em}
+.icon-btn:hover .ni{transform:scale(1.28)}
+.icon-btn:hover .ni{filter:drop-shadow(0 0 7px color-mix(in srgb,var(--neon-cyan) 70%,transparent))}
+
+/* trash gets its red glow */
+.icon-btn.danger .ni,.icon-btn:hover .danger-glow .ni{filter:drop-shadow(0 0 4px rgba(255,77,109,.4))}
+.icon-btn.danger:hover .ni{transform:scale(1.28);
+  filter:drop-shadow(0 0 8px rgba(255,77,109,.75))}
+
+/* sidebar items: icon shines when active/hover */
+.sb-item .ni{width:1.3em;height:1.3em;transition:all .3s}
+.sb-item:hover .ni{transform:translateY(-1px) scale(1.1);
+  filter:drop-shadow(0 0 7px color-mix(in srgb,var(--neon-cyan) 65%,transparent))}
+.sb-item.active .ni{filter:drop-shadow(0 0 9px color-mix(in srgb,var(--neon-cyan) 85%,transparent));
+  animation:iconPulse 2.6s ease-in-out infinite}
+@keyframes iconPulse{
+  0%,100%{filter:drop-shadow(0 0 5px color-mix(in srgb,var(--neon-cyan) 55%,transparent))}
+  50%{filter:drop-shadow(0 0 12px color-mix(in srgb,var(--neon-cyan) 95%,transparent))}
+}
+
+/* section h2 icons + settings headers */
+h2 .ni,.ni-lg{filter:drop-shadow(0 0 6px color-mix(in srgb,var(--neon-cyan) 50%,transparent))}
+
+/* buttons with inline icons */
+.btn .ni{width:1.05em;height:1.05em}
+.btn:hover .ni{transform:scale(1.15);filter:drop-shadow(0 0 6px color-mix(in srgb,var(--neon-cyan) 65%,transparent))}
 </style>
 </head>
 <body>
-
-<svg width="0" height="0" style="position:absolute" aria-hidden="true" id="icon-defs">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
     <linearGradient id="niC" x1="0" y1="0" x2="1" y2="1"><stop class="lg-a" offset="0"/><stop class="lg-b" offset="1"/></linearGradient>
     <linearGradient id="niG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#00ff9d"/><stop offset="1" stop-color="#00e5ff"/></linearGradient>
     <linearGradient id="niR" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff4d6d"/><stop offset="1" stop-color="#ff9a3d"/></linearGradient>
     <linearGradient id="niY" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb020"/><stop offset="1" stop-color="#f97316"/></linearGradient>
     <linearGradient id="niP" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b026ff"/><stop offset="1" stop-color="#7c6bff"/></linearGradient>
-  </defs>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" fill="none" stroke="url(#niC)" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" fill="url(#niC)"/></symbol>
+  <symbol id="i-eyeoff" viewBox="0 0 24 24"><path d="M4.5 4.5l15 15" stroke="url(#niR)" stroke-width="2" stroke-linecap="round"/><path d="M9.9 5.9c.7-.2 1.4-.4 2.1-.4 6 0 9.5 6.5 9.5 6.5a17.3 17.3 0 0 1-3.3 4M6.6 6.7A16.7 16.7 0 0 0 2.5 12S6 18.5 12 18.5c1.2 0 2.3-.2 3.3-.6" fill="none" stroke="url(#niR)" stroke-width="1.8" stroke-linecap="round"/></symbol>
   <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="url(#niC)" stroke-width="1.8"/><ellipse cx="12" cy="12" rx="4" ry="9" fill="none" stroke="url(#niC)" stroke-width="1.4" opacity=".7"/><path d="M3.5 9h17M3.5 15h17" stroke="url(#niC)" stroke-width="1.4" opacity=".7" stroke-linecap="round"/></symbol>
   <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="12" r="4" fill="none" stroke="url(#niY)" stroke-width="1.8"/><path d="M12 12h9M18 12v3.5M15 12v2.5" stroke="url(#niY)" stroke-width="1.8" stroke-linecap="round"/></symbol>
   <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" fill="none" stroke="url(#niC)" stroke-width="1.8"/><path d="M4.5 20c1.2-3.5 4-5 7.5-5s6.3 1.5 7.5 5" fill="none" stroke="url(#niC)" stroke-width="1.8" stroke-linecap="round"/></symbol>
@@ -1652,18 +1661,18 @@ tr.expired{opacity:.45}
   <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="url(#niC)" stroke-width="1.8"/><path d="M12 7v5l3.5 2" fill="none" stroke="url(#niC)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2" fill="none" stroke="url(#niC)" stroke-width="1.8"/><path d="M3.5 9.5h17M8 3v4M16 3v4" stroke="url(#niC)" stroke-width="1.8" stroke-linecap="round"/><circle cx="8" cy="13.5" r="1" fill="url(#niC)"/><circle cx="12" cy="13.5" r="1" fill="url(#niC)"/><circle cx="16" cy="13.5" r="1" fill="url(#niC)"/><circle cx="8" cy="17" r="1" fill="url(#niC)"/><circle cx="12" cy="17" r="1" fill="url(#niC)"/></symbol>
   <symbol id="i-dns" viewBox="0 0 24 24"><path d="M12 3v18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3" stroke="url(#niP)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="5" cy="7" r="2.2" fill="none" stroke="url(#niC)" stroke-width="1.7"/><circle cx="19" cy="7" r="2.2" fill="none" stroke="url(#niC)" stroke-width="1.7"/><circle cx="5" cy="17" r="2.2" fill="none" stroke="url(#niC)" stroke-width="1.7"/><circle cx="19" cy="17" r="2.2" fill="none" stroke="url(#niC)" stroke-width="1.7"/></symbol>
+</defs>
 </svg>
-
 <div class="ctrl-cluster">
   <button type="button" class="ctrl-btn" id="themeBtn" onclick="toggleTheme()" title="{{ t.theme_tip }}">DARK</button>
-  <a class="ctrl-btn ctrl-lang" href="/lang/{{ 'en' if lang == 'fa' else 'fa' }}" title="{{ lang|upper }}">{{ 'EN' if lang == 'fa' else 'FA' }}</a>
+  <a class="ctrl-btn" href="/lang/{{ 'en' if lang == 'fa' else 'fa' }}" title="{{ lang|upper }}">{{ 'EN' if lang == 'fa' else 'FA' }}</a>
 </div>
 {% block body %}{% endblock %}
 <script>
 function applyThemeBtn(){
   var cur=document.documentElement.getAttribute('data-theme')||'dark';
   var b=document.getElementById('themeBtn');
-  if(b){b.textContent = (cur==='dark') ? 'LIGHT' : 'DARK';}
+  if(b){b.textContent=(cur==='dark')?'LIGHT':'DARK';}
 }
 function toggleTheme(){
   var cur=document.documentElement.getAttribute('data-theme')||'dark';
@@ -1675,7 +1684,20 @@ function toggleTheme(){
 applyThemeBtn();
 function copyText(t,b){var d=function(){var o=b.innerHTML;b.innerHTML='\u2713';setTimeout(function(){b.innerHTML=o;},1200);};if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(t).then(d);}else{var a=document.createElement('textarea');a.value=t;a.style.position='fixed';a.style.opacity='0';document.body.appendChild(a);a.select();document.execCommand('copy');a.remove();d();}}
 document.querySelectorAll('.copy-btn').forEach(function(b){b.addEventListener('click',function(){copyText(b.getAttribute('data-copy'),b);});});
-document.querySelectorAll('.reveal').forEach(function(b){b.addEventListener('click',function(){var s=b.parentElement.querySelector('.pw');if(s.getAttribute('data-shown')==='1'){s.textContent='\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';s.setAttribute('data-shown','0');b.textContent='\uD83D\uDC41';}else{s.textContent=s.getAttribute('data-pw');s.setAttribute('data-shown','1');b.textContent='\uD83D\uDE48';}});});
+var __E1='<svg class="ni"><use href="#i-eye"/></svg>',__E2='<svg class="ni"><use href="#i-eyeoff"/></svg>';
+document.querySelectorAll('.reveal').forEach(function(b){
+  b.innerHTML=__E1;
+  b.addEventListener('click',function(){
+    var s=b.parentElement.querySelector('.pw');
+    if(s.getAttribute('data-shown')==='1'){
+      s.textContent='\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
+      s.setAttribute('data-shown','0');b.innerHTML=__E1;
+    }else{
+      s.textContent=s.getAttribute('data-pw');
+      s.setAttribute('data-shown','1');b.innerHTML=__E2;
+    }
+  });
+});
 function genPass(){var c='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789',a=new Uint32Array(12);window.crypto.getRandomValues(a);var p='';for(var i=0;i<12;i++){p+=c[a[i]%c.length];}document.getElementById('pw-input').value=p;}
 </script>
 <script>
@@ -1700,7 +1722,6 @@ function genPass(){var c='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz2345678
 {% block scripts %}{% endblock %}
 </body>
 </html>
-
 ZQ4BASE
 
 cat > "${PANEL_DIR}/templates/login.html" <<'ZQ5LOGIN'
@@ -2395,10 +2416,10 @@ cat > "${PANEL_DIR}/templates/user.html" <<'ZQ7USER'
 .mini-stat .ms-value{font-size:1.02rem;font-weight:700;word-break:break-word}
 .mini-stat .ms-value.pw{font-weight:400}
 
-/* ---- countdown (compact single row) ---- */
-.countdown{display:flex;flex-wrap:nowrap;gap:4px;margin-top:2px;align-items:stretch}
+/* ---- countdown ---- */
+.countdown{display:flex;flex-wrap:nowrap;gap:6px;margin-top:2px;align-items:stretch}
 .cd-box{flex:1 1 0;min-width:0;background:var(--bg-deep);
-  border:1px solid var(--bd);border-radius:9px;padding:6px 2px;text-align:center}
+  border:1px solid var(--bd);border-radius:9px;padding:7px 4px;text-align:center}
 [data-theme=light] .cd-box{background:var(--card2)}
 .cd-box b{display:block;font-size:.84rem;font-weight:800;font-variant-numeric:tabular-nums;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.2}
@@ -2410,13 +2431,18 @@ cat > "${PANEL_DIR}/templates/user.html" <<'ZQ7USER'
   background:linear-gradient(90deg,transparent,var(--bd2),transparent)}
 .sub-divider span{font-size:.72rem;color:var(--mu);letter-spacing:1.5px;font-weight:700}
 
-/* ---- info rows ---- */
-.sub-info{padding:4px 24px 10px}
+/* ---- info rows (dashboard-style icons) ---- */
 .info-row{display:flex;justify-content:space-between;align-items:center;gap:12px;
-  padding:12px 0;border-bottom:1px dashed var(--bd)}
+  padding:12px 0;padding-inline-start:48px;border-bottom:1px dashed var(--bd);position:relative}
 .info-row:last-child{border-bottom:none}
-.info-row>span{color:var(--mu);font-size:.82rem;font-weight:600;flex:none}
-.info-row>div,.info-row>b{word-break:break-all;text-align:end;font-size:.9rem;min-width:0}
+.info-row>span.lbl{color:var(--mu);font-size:.82rem;font-weight:600;flex:none}
+.info-row>div,.info-row>b.val{word-break:break-all;text-align:end;font-size:.9rem;min-width:0}
+.stat-icon{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;
+  font-size:1rem;background:var(--card3);border:1px solid var(--bd);flex:none;
+  transition:all .25s}
+.info-row .stat-icon{position:absolute;inset-inline-start:0;top:50%;margin-top:-18px}
+.info-row:hover .stat-icon{transform:scale(1.1);border-color:rgba(0,229,255,.45);
+  box-shadow:0 0 14px rgba(0,229,255,.25)}
 
 .sub-footer{padding:12px 24px 20px;text-align:center}
 .sub-footer .muted{font-size:.72rem}
@@ -2427,9 +2453,54 @@ cat > "${PANEL_DIR}/templates/user.html" <<'ZQ7USER'
   .gauge-zone{flex-direction:column}
   .gauge-side{width:100%}
 }
+
+/* ===== sub-glow: neon life for sub page icons ===== */
+/* info-row icon boxes (emoji inside) — glow + hover pop */
+.info-row .stat-icon{
+  filter:drop-shadow(0 0 4px color-mix(in srgb,var(--neon-cyan) 42%,transparent));
+  transition:all .25s cubic-bezier(.22,1,.36,1)}
+.info-row:hover .stat-icon{
+  transform:scale(1.16);
+  border-color:rgba(0,229,255,.55);
+  box-shadow:0 0 16px rgba(0,229,255,.3),inset 0 0 8px rgba(0,229,255,.08);
+  filter:drop-shadow(0 0 8px color-mix(in srgb,var(--neon-cyan) 72%,transparent))}
+
+/* light theme: softer blue glow */
+[data-theme=light] .info-row .stat-icon{
+  filter:drop-shadow(0 0 3px color-mix(in srgb,var(--acc) 30%,transparent))}
+[data-theme=light] .info-row:hover .stat-icon{
+  filter:drop-shadow(0 0 6px color-mix(in srgb,var(--acc) 55%,transparent));
+  box-shadow:0 0 12px color-mix(in srgb,var(--acc) 22%,transparent)}
+
+/* mini-stat labels (⏱ 📅) — subtle glow */
+.mini-stat .ms-label{
+  filter:drop-shadow(0 0 3px color-mix(in srgb,var(--neon-cyan) 30%,transparent))}
+
+/* countdown boxes — top edge neon line */
+.cd-box{position:relative}
+.cd-box::before{content:'';position:absolute;inset-inline:6px;top:0;height:2px;
+  border-radius:99px;background:linear-gradient(90deg,transparent,var(--neon-cyan),transparent);
+  opacity:.55;transition:opacity .3s}
+.cd-box:hover::before{opacity:1}
+#cdS::before{opacity:.9;animation:cdPulse 2s ease-in-out infinite}
+@keyframes cdPulse{0%,100%{opacity:.45}50%{opacity:1}}
+
+/* banner logo — breathing glow */
+.sub-logo{animation:subGlow 3s ease-in-out infinite}
+@keyframes subGlow{
+  0%,100%{box-shadow:0 0 14px rgba(0,229,255,.2)}
+  50%{box-shadow:0 0 24px rgba(0,229,255,.4)}}
+
+/* dns row icon gets purple tint glow (🔀) */
+.info-row:last-child .stat-icon{
+  filter:drop-shadow(0 0 4px color-mix(in srgb,var(--neon-purple) 45%,transparent))}
+.info-row:last-child:hover .stat-icon{
+  filter:drop-shadow(0 0 8px color-mix(in srgb,var(--neon-purple) 72%,transparent));
+  border-color:rgba(176,38,255,.55);
+  box-shadow:0 0 16px rgba(176,38,255,.3)}
 </style>
 
-<!-- shared gradient defs -->
+<!-- shared gradients -->
 <svg width="0" height="0" style="position:absolute">
   <defs>
     <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -2506,35 +2577,45 @@ cat > "${PANEL_DIR}/templates/user.html" <<'ZQ7USER'
     <div class="sub-divider"><span>{{ t.st_type }}</span></div>
 
     <div class="sub-info">
-      <div class="info-row"><span>{{ t.st_server }}</span>
-        <div class="secret-row"><b class="pw">{{ server_ip }}</b>
+      <div class="info-row">
+        <span class="stat-icon">🌐</span>
+        <span class="lbl">{{ t.st_server }}</span>
+        <div class="secret-row"><b class="pw val">{{ server_ip }}</b>
           <button type="button" class="icon-btn copy-btn" data-copy="{{ server_ip }}" title="{{ t.copy_tip }}">📋</button></div>
       </div>
-      <div class="info-row"><span>{{ t.st_psk }}</span>
+      <div class="info-row">
+        <span class="stat-icon">🔑</span>
+        <span class="lbl">{{ t.st_psk }}</span>
         <div class="secret-row">
           <span class="pw" data-pw="{{ psk }}" data-shown="0">••••••••</span>
           <button type="button" class="icon-btn reveal" title="{{ t.show_tip }}">👁</button>
           <button type="button" class="icon-btn copy-btn" data-copy="{{ psk }}" title="{{ t.copy_tip }}">📋</button>
         </div>
       </div>
-      <div class="info-row"><span>{{ t.username }}</span>
-        <div class="secret-row"><b class="pw">{{ u.username }}</b>
+      <div class="info-row">
+        <span class="stat-icon">👤</span>
+        <span class="lbl">{{ t.username }}</span>
+        <div class="secret-row"><b class="pw val">{{ u.username }}</b>
           <button type="button" class="icon-btn copy-btn" data-copy="{{ u.username }}" title="{{ t.copy_tip }}">📋</button></div>
       </div>
-      <div class="info-row"><span>{{ t.password }}</span>
+      <div class="info-row">
+        <span class="stat-icon">🔒</span>
+        <span class="lbl">{{ t.password }}</span>
         <div class="secret-row">
           <span class="pw" data-pw="{{ u.password }}" data-shown="0">••••••••</span>
           <button type="button" class="icon-btn reveal" title="{{ t.show_tip }}">👁</button>
           <button type="button" class="icon-btn copy-btn" data-copy="{{ u.password }}" title="{{ t.copy_tip }}">📋</button>
         </div>
       </div>
-      <div class="info-row"><span>{{ t.st_dns }}</span>
-        <b class="pw">{% if u.dns1 or u.dns2 %}{{ u.dns1 or '—' }} / {{ u.dns2 or '—' }}{% else %}{{ t.st_dns_default }}{% endif %}</b>
+      <div class="info-row">
+        <span class="stat-icon">🔀</span>
+        <span class="lbl">{{ t.st_dns }}</span>
+        <b class="pw val">{% if u.dns1 or u.dns2 %}{{ u.dns1 or '—' }} / {{ u.dns2 or '—' }}{% else %}{{ t.st_dns_default }}{% endif %}</b>
       </div>
     </div>
 
     <div class="sub-footer">
-      <span class="muted">{{ t.brand }}</span>
+      <span class="muted">{{ t.brand }} · v{{ panel_version }}</span>
     </div>
   </div>
 </div>
@@ -2564,7 +2645,6 @@ cat > "${PANEL_DIR}/templates/user.html" <<'ZQ7USER'
 })();
 </script>
 {% endblock %}
-
 
 ZQ7USER
 
