@@ -2,7 +2,7 @@
 
 <h1>
   <img src="assets/logo.svg" width="40" alt="logo" style="vertical-align:middle">
-   3OUTHBOY PANEL
+    3OUTHBOY PANEL
 </h1>
 
 **English** | [فارسی](README.fa.md)
