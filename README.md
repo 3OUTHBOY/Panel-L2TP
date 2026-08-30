@@ -1,9 +1,9 @@
 <div align="center">
 
-<h1>
-  <img src="assets/logo.svg" width="40" alt="logo" style="vertical-align:-4px">
-  3OUTHBOY PANEL
-</h1>
+<table><tr>
+<td><img src="assets/logo.svg" width="48" alt="logo"></td>
+<td><h1>3OUTHBOY PANEL</h1></td>
+</tr></table>
 **English** | [فارسی](README.fa.md)
 
 L2TP/IPSec VPN server with a modern web management panel
