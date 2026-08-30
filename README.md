@@ -1,8 +1,9 @@
 <div align="center">
 
-<img src="assets/logo.svg" width="180" alt="3OUTHBOY PANEL">
-
-# 3OUTHBOY PANEL
+<h1>
+  <img src="assets/logo.svg" width="62" alt="logo" style="vertical-align:middle">
+  3OUTHBOY PANEL
+</h1>
 
 **English** | [فارسی](README.fa.md)
 
