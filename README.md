@@ -25,7 +25,6 @@
 ## Table of Contents
 - [Features](#features)
 - [Quick Install](#quick-install)
-- [Installation Guide](#installation-guide)
 - [Connecting Users](#connecting-users)
 - [Panel Management](#panel-management)
 - [System Architecture](#system-architecture)
