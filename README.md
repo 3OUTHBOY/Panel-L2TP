@@ -1,7 +1,7 @@
 <div align="center">
 
 <h1>
-  <img src="assets/logo.svg" width="48" alt="logo" style="vertical-align:-6px">
+  <img src="assets/logo.svg" width="30" alt="logo" style="vertical-align:-6px">
   3OUTHBOY PANEL
 </h1>
 
