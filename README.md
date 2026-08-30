@@ -1,13 +1,19 @@
 <div align="center">
 
-<h1>
-  <img src="assets/logo.svg" width="62" alt="logo" style="vertical-align:middle">
-  3OUTHBOY PANEL
-</h1>
+<table>
+  <tr>
+    <td width="110" align="center">
+      <img src="assets/logo.svg" width="92" alt="logo">
+    </td>
+    <td align="center">
+      <h1>3OUTHBOY PANEL</h1>
+      <b>English</b> | <a href="README.fa.md">فارسی</a><br><br>
+      L2TP/IPSec VPN server with a modern web management panel
+    </td>
+  </tr>
+</table>
 
-**English** | [فارسی](README.fa.md)
-
-**L2TP/IPSec VPN server with a modern web management panel — one-line install**
+</div>
 
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-20.04%20%7C%2022.04%20%7C%2024.04-E95420?style=flat-square&logo=ubuntu&logoColor=white)](https://ubuntu.com)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
