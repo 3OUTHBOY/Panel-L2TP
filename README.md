@@ -1,8 +1,8 @@
 <div align="center">
 
-<h1 style="display:flex;align-items:center;gap:12px;justify-content:center">
-  <img src="assets/logo.svg" width="48" alt="logo">
-  <span>3OUTHBOY PANEL</span>
+<h1>
+  <img src="assets/logo.svg" width="48" alt="logo" style="vertical-align:-8px">
+  3OUTHBOY PANEL
 </h1>
 **English** | [فارسی](README.fa.md)
 
