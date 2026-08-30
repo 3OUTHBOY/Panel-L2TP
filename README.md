@@ -15,8 +15,8 @@
 
 **Panel Dashboard** | **User Status Page**
 
-<img src="screenshots/panel.png" width="780" alt="Panel Dashboard">
-<img src="screenshots/user-page.png" width="360" alt="User status page">
+<img src="assets/panel.png" width="780" alt="Panel Dashboard">
+<img src="assets/user-page.png" width="360" alt="User status page">
 
 </div>
 
