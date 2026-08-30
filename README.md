@@ -6,6 +6,7 @@
 </h1>
 
 **English** | [فارسی](README.fa.md)
+L2TP/IPSec VPN server with a modern web management panel
 
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-20.04%20%7C%2022.04%20%7C%2024.04-E95420?style=flat-square&logo=ubuntu&logoColor=white)](https://ubuntu.com)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
