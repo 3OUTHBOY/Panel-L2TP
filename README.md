@@ -16,18 +16,8 @@ L2TP/IPSec VPN server with a modern web management panel
 
 **Panel Dashboard** | **User Status Page**
 
-<table>
-  <tr>
-    <td width="50%" align="center">
-      <img src="assets/panel.png" width="440" alt="Panel Dashboard — admin panel">
-      <br><sub><b>Panel Dashboard</b></sub>
-    </td>
-    <td width="50%" align="center">
-      <img src="assets/user-page.png" width="440" alt="User status page">
-      <br><sub><b>User Status Page</b></sub>
-    </td>
-  </tr>
-</table>
+<img src="assets/panel.png" width="780" alt="Panel Dashboard">
+<img src="assets/user-page.png" width="360" alt="User status page">
 
 </div>
 
