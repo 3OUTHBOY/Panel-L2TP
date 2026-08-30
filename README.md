@@ -1,4 +1,4 @@
-
+<div align="center">
 3OUTHBOY PANEL
 3OUTHBOY PANEL
 English | فارسی
