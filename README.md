@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/logo.svg" width="110" alt="3OUTHBOY PANEL">
+<img src="assets/logo.svg" width="180" alt="3OUTHBOY PANEL">
 
 # 3OUTHBOY PANEL
 
