@@ -22,7 +22,7 @@
 
 ---
 
-## 📖 Table of Contents
+## Table of Contents
 - [Features](#features)
 - [Quick Install](#quick-install)
 - [Installation Guide](#installation-guide)
@@ -34,9 +34,9 @@
 
 ---
 
-## ✨ Features
+## Features
 
-### 🔐 VPN Server
+### VPN Server
 | Feature | Details |
 |---------|---------|
 | **L2TP/IPSec PSK** | Works with Windows, Android, iOS and macOS — no extra app needed |
@@ -45,7 +45,7 @@
 | **XAuth (optional)** | Cisco IPsec config for legacy clients |
 | **NAT + MSS Clamp** | Full internet access with optimized MTU |
 
-### 👥 User Management
+### User Management
 | Feature | Details |
 |---------|---------|
 | **Auto-expiry** | Exact date & time + automatic disconnection of expired users |
@@ -54,7 +54,7 @@
 | **User key** | Personal status page per user — no login required |
 | **Instant kick** | Password change or user deletion = immediate disconnect |
 
-### 🖥️ Web Panel
+### Web Panel
 | Feature | Details |
 |---------|---------|
 | **Bilingual** | Persian (RTL) / English (LTR) with one click |
@@ -68,7 +68,7 @@
 
 ---
 
-## 🚀 Quick Install
+## Quick Install
 
 ### Interactive mode (recommended)
 
@@ -118,11 +118,11 @@ bash <(curl -Ls https://raw.githubusercontent.com/3OUTHBOY/Panel-L2TP/main/insta
 | `--admin-ip` | empty | Allowed IP for panel (empty = no restriction) |
 | `--no-ufw` | enabled | Skip UFW firewall setup |
 
-> 💡 We use `bash <(curl ...)` instead of `curl | bash` so interactive prompts work correctly.
+> We use `bash <(curl ...)` instead of `curl | bash` so interactive prompts work correctly.
 
 ---
 
-## 📱 Connecting Users
+## Connecting Users
 
 ### Windows
 1. **Settings → Network & Internet → VPN → Add a VPN connection**
@@ -198,7 +198,7 @@ http://SERVER_IP:PORT/u/USER_KEY
 
 The user sees (no login): connection info, circular traffic gauge, **live countdown**, status.
 
-> ⚠️ This link contains the VPN password — only share it with the user themself!
+> This link contains the VPN password — only share it with the user themself!
 
 ### Settings
 
@@ -295,7 +295,7 @@ tar czf l2tp-backup-$(date +%F).tar.gz /opt/l2tp-panel/users.db /opt/l2tp-panel/
 
 ---
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### Panel won't load
 
@@ -352,7 +352,7 @@ systemctl daemon-reload
 
 ---
 
-## ❓ FAQ
+## FAQ
 
 **Are any passwords stored in the repo?**
 No — admin password and PSK are randomly generated on each server during install.
@@ -368,13 +368,13 @@ Up to 240 (pool 192.168.43.10–250).
 
 ---
 
-## 📄 License
+## License
 
 MIT License — free to use, modify and distribute.
 
 ---
 
-## 🙏 Acknowledgements
+## Acknowledgements
 
 - [strongSwan](https://www.strongswan.org/) — IPSec daemon
 - [xl2tpd](https://github.com/xelerance/xl2tpd) — L2TP daemon
