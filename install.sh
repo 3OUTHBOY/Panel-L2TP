@@ -1155,6 +1155,7 @@ if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5000)
 
 
+
 ZQ1PANEL
 chmod 755 "${PANEL_DIR}/panel.py"
 
@@ -1333,6 +1334,7 @@ if __name__ == '__main__':
 
 
 
+
 ZQ2SYNC
 chmod 755 "${PANEL_DIR}/sync_users.py"
 
@@ -1385,6 +1387,7 @@ if __name__ == '__main__':
 
 
 
+
 ZQ3IFD
 chmod 755 "${PANEL_DIR}/iface_down.py"
 
@@ -1431,7 +1434,7 @@ body{font-family:Vazirmatn,'Segoe UI',Tahoma,Arial,sans-serif;color:var(--tx);mi
   background-color:var(--bg-deep);
   background-image:radial-gradient(circle at 15% 50%,rgba(0,229,255,.035),transparent 30%),
                    radial-gradient(circle at 85% 30%,rgba(176,38,255,.035),transparent 30%);
-  background-attachment:fixed;transition:background-color .25s,color .25s}
+  background-attachment:scroll;transition:background-color .25s,color .25s}
 [data-theme=light] body{background-color:#eef2f9;
   background-image:linear-gradient(to bottom right,#e3f0ff,#f6f9ff)}
 ::-webkit-scrollbar{width:6px;height:6px}
@@ -1441,7 +1444,7 @@ body{font-family:Vazirmatn,'Segoe UI',Tahoma,Arial,sans-serif;color:var(--tx);mi
 html[dir=ltr] body{font-family:'Inter','SF Pro Display','Segoe UI Variable Display',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;letter-spacing:.012em}
 html[dir=ltr] .gheading{letter-spacing:3px}
 .container{max-width:1180px;margin:0 auto;padding:0 16px}
-header{background:var(--panel-bg);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+header{will-change:transform;background:var(--panel-bg);
   border-bottom:1px solid var(--border-neon);padding:15px 0;margin-bottom:24px;
   position:sticky;top:0;z-index:40;box-shadow:0 10px 30px rgba(0,0,0,.35)}
 [data-theme=light] header{box-shadow:var(--sh2)}
@@ -1456,8 +1459,8 @@ h2{font-size:.98rem;margin-bottom:16px;font-weight:700;display:flex;align-items:
 h2::before{content:'';width:4px;height:18px;border-radius:99px;
   background:linear-gradient(180deg,var(--neon-cyan),var(--neon-purple));
   box-shadow:0 0 8px rgba(0,229,255,.5)}
-.card{background:var(--panel-bg);border:1px solid var(--border-neon);border-radius:20px;
-  padding:20px;margin-bottom:16px;backdrop-filter:blur(15px);-webkit-backdrop-filter:blur(15px);
+.card{background:var(--panel-bg);backface-visibility:hidden;border:1px solid var(--border-neon);border-radius:20px;
+  padding:20px;margin-bottom:16px;
   box-shadow:var(--sh2);transition:border-color .35s,box-shadow .35s,transform .35s;
   position:relative;overflow:hidden}
 .card::before{content:'';position:absolute;top:0;left:-100%;width:50%;height:100%;
@@ -1471,12 +1474,12 @@ h2::before{content:'';width:4px;height:18px;border-radius:99px;
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
 .stat-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .stat-icon{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;font-size:1rem;
-  background:var(--card3);border:1px solid var(--bd);flex:none;transition:all .25s}
+  background:var(--card3);border:1px solid var(--bd);flex:none;transition:transform .25s,opacity .25s,border-color .25s,box-shadow .25s}
 .stat-label{color:var(--mu);font-size:.82rem;font-weight:600}
 .stat b{font-size:1.05rem;word-break:break-all}
 .btn{border:1px solid rgba(255,255,255,.08);background:var(--card2);color:var(--tx);
   border-radius:10px;padding:9px 16px;cursor:pointer;font-family:inherit;font-size:.87rem;
-  font-weight:600;transition:all .18s;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+  font-weight:600;transition:transform .25s,opacity .25s,border-color .25s,box-shadow .25s;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
 .btn:hover{border-color:var(--border-neon);color:var(--acc);background:var(--card3);
   box-shadow:0 0 15px rgba(0,229,255,.12)}
 .btn.primary{background:linear-gradient(135deg,var(--neon-cyan),var(--neon-purple));
@@ -1519,7 +1522,7 @@ tr.expired{opacity:.45}
 .pw{font-family:ui-monospace,'Cascadia Code',Consolas,monospace;color:var(--mu);letter-spacing:.3px}
 .secret-row{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap}
 .icon-btn{background:none;border:none;cursor:pointer;font-size:.92rem;padding:3px 5px;opacity:.85;
-  transition:all .15s;border-radius:6px;font-family:inherit}
+  transition:transform .25s,opacity .25s,border-color .25s,box-shadow .25s;border-radius:6px;font-family:inherit}
 .icon-btn:hover{opacity:1;transform:scale(1.12)}
 .icon-btn .ni{width:1.05em;height:1.05em;vertical-align:-0.15em}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--grn);
@@ -1545,11 +1548,11 @@ tr.expired{opacity:.45}
 .modal-btns{display:flex;gap:9px;margin-top:20px}
 .modal-btns .btn{flex:1;justify-content:center}
 .muted{color:var(--mu);font-size:.76rem}
-.ctrl-cluster{position:fixed;bottom:18px;inset-inline-end:18px;z-index:100;display:flex;gap:9px}
+.ctrl-cluster{position:fixed;will-change:transform;bottom:18px;inset-inline-end:18px;z-index:100;display:flex;gap:9px}
 .ctrl-btn{height:34px;min-width:52px;padding:0 14px;border-radius:99px;display:inline-grid;place-items:center;
   font-size:.68rem;letter-spacing:.12em;font-weight:800;
   border:1px solid var(--bd2);background:var(--panel-bg);backdrop-filter:blur(15px);color:var(--mu);
-  cursor:pointer;text-decoration:none;font-family:inherit;box-shadow:var(--sh2);transition:all .2s}
+  cursor:pointer;text-decoration:none;font-family:inherit;box-shadow:var(--sh2);transition:transform .25s,opacity .25s,border-color .25s,box-shadow .25s}
 .ctrl-btn:hover{color:var(--tx);border-color:var(--neon-cyan);box-shadow:0 0 14px rgba(0,229,255,.22);transform:translateY(-2px)}
 #themeBtn{color:var(--acc)}
 #themeBtn:hover{color:var(--acc);filter:brightness(1.15)}
@@ -1614,7 +1617,7 @@ tr.expired{opacity:.45}
   filter:drop-shadow(0 0 8px rgba(255,77,109,.75))}
 
 /* sidebar items: icon shines when active/hover */
-.sb-item .ni{width:1.3em;height:1.3em;transition:all .3s}
+.sb-item .ni{width:1.3em;height:1.3em;transition:transform .25s,opacity .25s,border-color .25s,box-shadow .25s}
 .sb-item:hover .ni{transform:translateY(-1px) scale(1.1);
   filter:drop-shadow(0 0 7px color-mix(in srgb,var(--neon-cyan) 65%,transparent))}
 .sb-item.active .ni{filter:drop-shadow(0 0 9px color-mix(in srgb,var(--neon-cyan) 85%,transparent));
@@ -1722,6 +1725,7 @@ function genPass(){var c='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz2345678
 {% block scripts %}{% endblock %}
 </body>
 </html>
+
 ZQ4BASE
 
 cat > "${PANEL_DIR}/templates/login.html" <<'ZQ5LOGIN'
@@ -1813,6 +1817,7 @@ cat > "${PANEL_DIR}/templates/login.html" <<'ZQ5LOGIN'
 {% endblock %}
 
 
+
 ZQ5LOGIN
 
 cat > "${PANEL_DIR}/templates/index.html" <<'ZQ6INDEX'
@@ -1832,16 +1837,16 @@ cat > "${PANEL_DIR}/templates/index.html" <<'ZQ6INDEX'
 [data-theme=light] .svc.bad{background:#fee2e2;color:#b91c1c}
 /* ---- views ---- */
 .view{display:none}
-.view.active{display:block;animation:viewIn .3s ease}
+.view.active{display:block}
 @keyframes viewIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 /* ---- burger button ---- */
 .menu-fab{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;flex:none;
   background:linear-gradient(135deg,var(--neon-cyan),var(--neon-purple));
   border:none;color:var(--btn-tx);font-size:.85rem;cursor:pointer;font-family:inherit;
-  box-shadow:0 0 14px rgba(0,229,255,.28);transition:all .2s;overflow:hidden}
+  box-shadow:0 0 14px rgba(0,229,255,.28);transition:transform .25s,opacity .25s,border-color .25s,box-shadow .25s;overflow:hidden}
 .menu-fab:hover{box-shadow:0 0 30px rgba(0,229,255,.55);transform:translateY(-2px) scale(1.04)}
 .burger{display:inline-grid;place-items:center;position:relative;width:16px;height:16px}
-.burger-lines,.burger-x{grid-area:1/1;transition:all .35s cubic-bezier(.68,-.55,.27,1.55)}
+.burger-lines,.burger-x{grid-area:1/1;transition:transform .25s,opacity .25s,border-color .25s,box-shadow .25s cubic-bezier(.68,-.55,.27,1.55)}
 .burger-lines{display:flex;flex-direction:column;justify-content:space-between;height:11px;width:15px}
 .burger-lines i{display:block;height:1.9px;width:100%;border-radius:99px;background:currentColor}
 .burger-x{font-size:1.2rem;font-weight:800;line-height:1;opacity:0;transform:rotate(-90deg) scale(.5)}
@@ -1849,9 +1854,9 @@ cat > "${PANEL_DIR}/templates/index.html" <<'ZQ6INDEX'
 .menu-fab.open .burger-x{opacity:1;transform:rotate(0) scale(1)}
 /* ---- sidebar ---- */
 .sb-overlay{position:fixed;inset:0;background:rgba(2,2,3,.55);backdrop-filter:blur(3px);
-  z-index:130;opacity:0;visibility:hidden;transition:all .3s}
+  z-index:130;opacity:0;visibility:hidden;transition:transform .25s,opacity .25s,border-color .25s,box-shadow .25s}
 .sb-overlay.show{opacity:1;visibility:visible}
-.sidebar{position:fixed;top:0;bottom:0;inset-inline-start:0;width:272px;z-index:140;
+.sidebar{position:fixed;will-change:transform;top:0;bottom:0;inset-inline-start:0;width:272px;z-index:140;
   background:var(--panel-bg);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
   border-inline-end:1px solid var(--border-neon);box-shadow:10px 0 40px rgba(0,0,0,.5);
   transform:translateX(-105%);transition:transform .35s cubic-bezier(.22,1,.36,1);
@@ -1865,14 +1870,14 @@ html[dir=rtl] .sidebar{transform:translateX(105%)}
 .sb-badge .logo-svg{width:29px;height:29px}
 .sb-brand h1{font-size:.92rem;line-height:1.5}
 .sb-close{margin-inline-start:auto;background:none;border:none;color:var(--mu);
-  font-size:1.35rem;cursor:pointer;padding:4px 8px;border-radius:8px;transition:all .2s}
+  font-size:1.35rem;cursor:pointer;padding:4px 8px;border-radius:8px;transition:transform .25s,opacity .25s,border-color .25s,box-shadow .25s}
 .sb-close:hover{color:var(--tx);background:var(--card3)}
 .sb-label{color:var(--mu);font-size:.68rem;font-weight:700;letter-spacing:2px;
   text-transform:uppercase;padding:10px 12px 8px}
 .sb-item{display:flex;align-items:center;gap:13px;padding:13px 14px;margin-bottom:6px;
   border-radius:13px;border:1px solid transparent;background:rgba(255,255,255,.015);
   color:var(--mu);font-weight:600;font-size:.92rem;cursor:pointer;font-family:inherit;
-  width:100%;text-align:start;transition:all .3s cubic-bezier(.22,1,.36,1);position:relative}
+  width:100%;text-align:start;transition:transform .25s,opacity .25s,border-color .25s,box-shadow .25s cubic-bezier(.22,1,.36,1);position:relative}
 .sb-item:hover{color:var(--tx);border-color:var(--border-neon)}
 .sb-item.active{color:var(--tx);border-color:rgba(0,229,255,.35);
   background:linear-gradient(90deg,rgba(0,229,255,.07),transparent);
@@ -1889,17 +1894,17 @@ html[dir=rtl] .sb-item.active{box-shadow:inset -3px 0 0 var(--neon-cyan),0 0 18p
   -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 .stat-sub{font-size:.72rem;color:var(--mu);margin-top:4px}
 /* ---- settings ---- */
-.set-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;align-items:end}
+.set-grid{display:grid;contain:layout;contain:layout;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;align-items:end}
 .set-grid .full{grid-column:1/-1;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .set-sep{border:none;height:1px;margin:22px 0;
   background:linear-gradient(90deg,transparent,var(--bd2),transparent)}
 .warn-box{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:12px;
   background:rgba(255,176,32,.08);border:1px solid rgba(255,176,32,.3);
-  color:var(--org);font-size:.78rem;line-height:1.8}
+  color:var(--org);font-size:.78rem;line-height:1.8;}
 [data-theme=light] .warn-box{background:#fffbeb;border-color:#fde68a;color:#b45309}
 .note-box{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:12px;
   background:rgba(0,229,255,.06);border:1px solid rgba(0,229,255,.22);
-  color:var(--mu);font-size:.78rem;line-height:1.8}
+  color:var(--mu);font-size:.78rem;line-height:1.8;}
 [data-theme=light] .note-box{background:#eff6ff;border-color:#bfdbfe;color:#475569}
 .actions{flex-wrap:wrap;justify-content:flex-end}
 @media(max-width:600px){.header-in{gap:8px}.actions{justify-content:flex-start;width:100%}}
@@ -1938,6 +1943,57 @@ html[dir=rtl] .sb-item.active{box-shadow:inset -3px 0 0 var(--neon-cyan),0 0 18p
   box-shadow:0 0 10px rgba(0,229,255,.35);transition:width 1s ease}
 .cap-text{display:flex;justify-content:space-between;font-size:.68rem;color:var(--mu);margin-top:6px}
 @media(max-width:600px){.chart-wrap{height:120px;gap:5px}.chart-bar{max-width:30px}}
+
+/* ===== save-btn style: dark & elegant ===== */
+#view-settings .btn.primary{
+  background:#0a0a12;
+  border:1px solid rgba(0,229,255,.4);
+  color:#e8e8f0;
+  box-shadow:0 0 12px rgba(0,229,255,.15);
+}
+#view-settings .btn.primary:hover{
+  background:#111119;
+  border-color:rgba(0,229,255,.7);
+  color:#fff;
+  box-shadow:0 0 18px rgba(0,229,255,.3);
+}
+[data-theme=light] #view-settings .btn.primary{
+  background:#16161f;
+  color:#fff;
+  border:1px solid #2563eb;
+  box-shadow:0 4px 12px rgba(22,22,31,.25);
+}
+[data-theme=light] #view-settings .btn.primary:hover{
+  background:#22222e;
+  box-shadow:0 6px 16px rgba(22,22,31,.35);
+}
+
+/* ===== settings icon dark: monochrome icons in buttons ===== */
+#view-settings .btn .ni,
+#view-settings .btn.primary .ni{
+  filter:none !important;
+  color:#e8e8f0}
+/* force all gradient strokes to solid light color inside settings buttons */
+#view-settings .btn .ni use,
+#view-settings .btn .ni *{
+  color:inherit}
+/* SVG strokes that use url(#...) can't be overridden directly,
+   so we apply a brightness filter to make them near-black:
+   grayscale(1) kills the hue, brightness(.25) darkens */
+#view-settings .btn .ni{
+  filter:grayscale(1) brightness(2.2) !important;
+  opacity:.95}
+#view-settings .btn:hover .ni{
+  filter:grayscale(1) brightness(2.6) !important;
+  opacity:1}
+[data-theme=light] #view-settings .btn .ni{
+  filter:grayscale(1) brightness(2.4) !important}
+
+/* psk-random */
+.psk-random{transition:transform .2s}
+.psk-random:active{transform:rotate(180deg) scale(1.1)}
+.psk-random:hover{box-shadow:0 0 12px rgba(0,229,255,.25)}
+#pskInput{font-family:ui-monospace,monospace}
 </style>
 
 <!-- sidebar -->
@@ -2232,7 +2288,10 @@ html[dir=rtl] .sb-item.active{box-shadow:inset -3px 0 0 var(--neon-cyan),0 0 18p
         </div>
         <div>
           <label>{{ t.new_psk }}</label>
-          <input name="new_psk" required minlength="8">
+          <div class="secret-row" style="width:100%">
+            <input name="new_psk" id="pskInput" required minlength="8" placeholder="..." style="flex:1">
+            <button type="button" class="btn small psk-random" onclick="genPSK()" title="Generate">🎲</button>
+          </div>
         </div>
         <div class="full"><button class="btn primary">{{ t.change_psk }}</button></div>
       </form>
@@ -2358,8 +2417,21 @@ function openEdit(id, exp, dns1, dns2, key){
 function closeEdit(){ document.getElementById('editModal').classList.remove('show'); }
 document.getElementById('editModal').addEventListener('click', function(e){ if(e.target === this) closeEdit(); });
 document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeEdit(); });
+
+function genPSK(){
+  var c='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  var a=new Uint32Array(20);window.crypto.getRandomValues(a);
+  var p='';for(var i=0;i<20;i++){p+=c[a[i]%c.length];}
+  var el=document.getElementById('pskInput');
+  el.value=p;
+  el.style.borderColor='var(--neon-cyan)';
+  el.style.boxShadow='0 0 12px rgba(0,229,255,.25)';
+  setTimeout(function(){el.style.boxShadow='';},1200);
+}
+
 </script>
 {% endblock %}
+
 
 ZQ6INDEX
 
@@ -2439,7 +2511,7 @@ cat > "${PANEL_DIR}/templates/user.html" <<'ZQ7USER'
 .info-row>div,.info-row>b.val{word-break:break-all;text-align:end;font-size:.9rem;min-width:0}
 .stat-icon{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;
   font-size:1rem;background:var(--card3);border:1px solid var(--bd);flex:none;
-  transition:all .25s}
+  transition:transform .25s,opacity .25s,border-color .25s,box-shadow .25s}
 .info-row .stat-icon{position:absolute;inset-inline-start:0;top:50%;margin-top:-18px}
 .info-row:hover .stat-icon{transform:scale(1.1);border-color:rgba(0,229,255,.45);
   box-shadow:0 0 14px rgba(0,229,255,.25)}
@@ -2458,7 +2530,7 @@ cat > "${PANEL_DIR}/templates/user.html" <<'ZQ7USER'
 /* info-row icon boxes (emoji inside) — glow + hover pop */
 .info-row .stat-icon{
   filter:drop-shadow(0 0 4px color-mix(in srgb,var(--neon-cyan) 42%,transparent));
-  transition:all .25s cubic-bezier(.22,1,.36,1)}
+  transition:transform .25s,opacity .25s,border-color .25s,box-shadow .25s cubic-bezier(.22,1,.36,1)}
 .info-row:hover .stat-icon{
   transform:scale(1.16);
   border-color:rgba(0,229,255,.55);
@@ -2646,6 +2718,7 @@ cat > "${PANEL_DIR}/templates/user.html" <<'ZQ7USER'
 </script>
 {% endblock %}
 
+
 ZQ7USER
 
 cat > "${PANEL_DIR}/templates/restarting.html" <<'ZQ8RST'
@@ -2661,6 +2734,7 @@ cat > "${PANEL_DIR}/templates/restarting.html" <<'ZQ8RST'
   </div>
 </div>
 {% endblock %}
+
 
 
 
@@ -2703,6 +2777,7 @@ cat > "${PANEL_DIR}/templates/updating.html" <<'ZQ9UPD'
   </div>
 </div>
 {% endblock %}
+
 
 
 ZQ9UPD

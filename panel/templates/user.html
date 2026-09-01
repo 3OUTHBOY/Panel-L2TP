@@ -73,7 +73,7 @@
 .info-row>div,.info-row>b.val{word-break:break-all;text-align:end;font-size:.9rem;min-width:0}
 .stat-icon{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;
   font-size:1rem;background:var(--card3);border:1px solid var(--bd);flex:none;
-  transition:all .25s}
+  transition:transform .25s,opacity .25s,border-color .25s,box-shadow .25s}
 .info-row .stat-icon{position:absolute;inset-inline-start:0;top:50%;margin-top:-18px}
 .info-row:hover .stat-icon{transform:scale(1.1);border-color:rgba(0,229,255,.45);
   box-shadow:0 0 14px rgba(0,229,255,.25)}
@@ -92,7 +92,7 @@
 /* info-row icon boxes (emoji inside) — glow + hover pop */
 .info-row .stat-icon{
   filter:drop-shadow(0 0 4px color-mix(in srgb,var(--neon-cyan) 42%,transparent));
-  transition:all .25s cubic-bezier(.22,1,.36,1)}
+  transition:transform .25s,opacity .25s,border-color .25s,box-shadow .25s cubic-bezier(.22,1,.36,1)}
 .info-row:hover .stat-icon{
   transform:scale(1.16);
   border-color:rgba(0,229,255,.55);
@@ -279,3 +279,4 @@
 })();
 </script>
 {% endblock %}
+
