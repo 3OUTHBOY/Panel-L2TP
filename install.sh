@@ -303,7 +303,7 @@ KEY_RE = re.compile(r'^[A-Za-z0-9]{8,32}$')
 IPV4_RE = re.compile(r'^(\d{1,3}\.){3}\d{1,3}$')
 BAD_PW_CHARS = set(' \t\n\r"\'\\*:;#')
 DEFAULT_LANG = 'fa'
-PANEL_VERSION = '2.0.1'
+PANEL_VERSION = '2.2.0'
 UPDATE_URL = 'https://raw.githubusercontent.com/3OUTHBOY/Panel-L2TP/main/install.sh'
 UPDATE_LOG = '/var/log/l2tp-panel-update.log'
 
