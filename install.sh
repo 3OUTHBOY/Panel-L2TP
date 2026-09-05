@@ -1225,6 +1225,7 @@ if __name__ == '__main__':
 
 
 
+
 ZQ1PANEL
 chmod 755 "${PANEL_DIR}/panel.py"
 
@@ -1405,6 +1406,7 @@ if __name__ == '__main__':
 
 
 
+
 ZQ2SYNC
 chmod 755 "${PANEL_DIR}/sync_users.py"
 
@@ -1452,6 +1454,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
@@ -1798,6 +1801,7 @@ function genPass(){var c='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz2345678
 </html>
 
 
+
 ZQ4BASE
 
 cat > "${PANEL_DIR}/templates/login.html" <<'ZQ5LOGIN'
@@ -1887,6 +1891,7 @@ cat > "${PANEL_DIR}/templates/login.html" <<'ZQ5LOGIN'
   </form>
 </div>
 {% endblock %}
+
 
 
 
@@ -2526,6 +2531,7 @@ function onRestorePick(inp){
 
 
 
+
 ZQ6INDEX
 
 cat > "${PANEL_DIR}/templates/user.html" <<'ZQ7USER'
@@ -2813,6 +2819,7 @@ cat > "${PANEL_DIR}/templates/user.html" <<'ZQ7USER'
 
 
 
+
 ZQ7USER
 
 cat > "${PANEL_DIR}/templates/restarting.html" <<'ZQ8RST'
@@ -2828,6 +2835,7 @@ cat > "${PANEL_DIR}/templates/restarting.html" <<'ZQ8RST'
   </div>
 </div>
 {% endblock %}
+
 
 
 
@@ -2872,6 +2880,7 @@ cat > "${PANEL_DIR}/templates/updating.html" <<'ZQ9UPD'
   </div>
 </div>
 {% endblock %}
+
 
 
 
