@@ -510,8 +510,16 @@ html[dir=rtl] .sb-item.active{box-shadow:inset -3px 0 0 var(--neon-cyan),0 0 18p
     <section class="card">
       <h2><svg class="ni ni-lg"><use href="#i-download"/></svg> {{ t.settings_data }}</h2>
       <div class="note-box">📋 {{ t.backup_note }}</div>
-      <a href="/backup" class="btn primary">{{ t.backup_btn }}</a>
-    </section>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+        <a href="/backup" class="btn primary">{{ t.backup_btn }}</a>
+        <button type="button" class="btn" id="restoreBtn"
+                onclick="document.getElementById('restoreFile').click()">{{ t.restore_btn }}</button>
+      </div>
+      <form method="post" action="/settings/restore" enctype="multipart/form-data" id="restoreForm">
+        <input type="file" name="backup_file" id="restoreFile" accept=".zip" required
+               style="display:none" onchange="onRestorePick(this)">
+      </form>
+      </section>
   </section>
 </main>
 
@@ -606,6 +614,18 @@ function genPSK(){
   setTimeout(function(){el.style.boxShadow='';},1200);
 }
 
+
+function onRestorePick(inp){
+  if(!inp.files || !inp.files[0]) return;
+  var name = inp.files[0].name;
+  if(!confirm('{{ t.restore_confirm }}' + "\n" + name)) {
+    inp.value = '';
+    return;
+  }
+  document.getElementById('restoreForm').submit();
+}
+
 </script>
 {% endblock %}
+
 

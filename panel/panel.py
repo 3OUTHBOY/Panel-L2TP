@@ -17,7 +17,7 @@ KEY_RE = re.compile(r'^[A-Za-z0-9]{8,32}$')
 IPV4_RE = re.compile(r'^(\d{1,3}\.){3}\d{1,3}$')
 BAD_PW_CHARS = set(' \t\n\r"\'\\*:;#')
 DEFAULT_LANG = 'fa'
-PANEL_VERSION = '2.0.1'
+PANEL_VERSION = '2.2.0'
 UPDATE_URL = 'https://raw.githubusercontent.com/3OUTHBOY/Panel-L2TP/main/install.sh'
 UPDATE_LOG = '/var/log/l2tp-panel-update.log'
 
@@ -60,7 +60,7 @@ TRANSLATIONS = {
   'updating_msg':'نسخه جدید از گیت‌هاب در حال دانلود و نصب است. چند دقیقه صبر کنید؛ صفحه خودکار بازمی‌گردد و باید دوباره وارد شوید.',
   'update_confirm':'پنل از گیت‌هاب آپدیت شود؟ چند دقیقه طول می‌کشد و بعدش باید دوباره لاگین کنید.',
   'update_failed':'آپدیت ناموفق بود! اتصال سرور به گیت‌هاب را بررسی کنید.',
-  'tab_dashboard':'داشبورد','tab_users':'کاربران','tab_settings':'تنظیمات','total_traffic':'مصرف کل کاربران','sum_of_quotas':'مجموع سهم کاربران محدود','settings_account':'حساب ادمین','settings_account_desc':'نام کاربری و رمز عبور ورود به پنل','cur_password':'رمز فعلی','new_username':'نام کاربری جدید','new_password':'رمز عبور جدید','new_password2':'تکرار رمز عبور جدید','save_btn':'ذخیره تغییرات','creds_note':'بعد از ذخیره، از پنل خارج می‌شوید و باید با اطلاعات جدید وارد شوید.','wrong_cur_password':'رمز فعلی اشتباه است.','password_mismatch':'رمزهای جدید یکسان نیستند.','invalid_password_short':'رمز جدید باید حداقل ۶ کاراکتر باشد.','relogin_note':'اعتبارنامه‌ها تغییر کرد؛ لطفاً با اطلاعات جدید وارد شوید.','settings_vpn':'تنظیمات VPN','change_psk':'تغییر کلید PSK','change_psk_warn':'هشدار: با تغییر PSK همه کاربران باید PSK جدید را در دستگاه خود وارد کنند و کاربران متصل موقتاً قطع می‌شوند.','new_psk':'PSK جدید (حداقل ۸ کاراکتر)','invalid_psk':'PSK نامعتبر است (حداقل ۸ کاراکتر، بدون فاصله).','psk_saved':'PSK جدید ذخیره شد و سرویس IPSec ریستارت شد.','default_dns_title':'DNS پیش‌فرض سرور (کاربران بدون DNS اختصاصی)','dns_saved':'DNS پیش‌فرض ذخیره شد و سرویس L2TP ریستارت شد.','settings_panel':'تنظیمات پنل','cur_port':'پورت فعلی','port_label':'پورت جدید پنل','port_warn':'بعد از تغییر پورت، چند ثانیه بعد به آدرس جدید منتقل می‌شوید. پورت جدید به‌صورت خودکار در فایروال باز می‌شود.','invalid_port':'پورت نامعتبر است (عدد بین ۱۰۲۴ تا ۶۵۵۳۵).','settings_data':'داده‌ها و بکاپ','backup_btn':'📥 دانلود فایل بکاپ','backup_note':'شامل همه کاربران، حجم‌ها، تاریخ انقضا و تنظیمات پنل. در جای امن نگه دارید.','chart_title':'مصرف ۷ روز اخیر','top_users':'مصرف‌کننده‌های برتر','expired_count':'کاربران منقضی','capacity':'ظرفیت سیستم','slots_used':'اسلات IP استفاده‌شده','today':'امروز','no_chart_data':'هنوز داده‌ای ثبت نشده — از فردا نمودار پر می‌شود.','logout_btn':'خروج','copy_tip':'کپی','show_tip':'نمایش',
+  'tab_dashboard':'داشبورد','tab_users':'کاربران','tab_settings':'تنظیمات','total_traffic':'مصرف کل کاربران','sum_of_quotas':'مجموع سهم کاربران محدود','settings_account':'حساب ادمین','settings_account_desc':'نام کاربری و رمز عبور ورود به پنل','cur_password':'رمز فعلی','new_username':'نام کاربری جدید','new_password':'رمز عبور جدید','new_password2':'تکرار رمز عبور جدید','save_btn':'ذخیره تغییرات','creds_note':'بعد از ذخیره، از پنل خارج می‌شوید و باید با اطلاعات جدید وارد شوید.','wrong_cur_password':'رمز فعلی اشتباه است.','password_mismatch':'رمزهای جدید یکسان نیستند.','invalid_password_short':'رمز جدید باید حداقل ۶ کاراکتر باشد.','relogin_note':'اعتبارنامه‌ها تغییر کرد؛ لطفاً با اطلاعات جدید وارد شوید.','settings_vpn':'تنظیمات VPN','change_psk':'تغییر کلید PSK','change_psk_warn':'هشدار: با تغییر PSK همه کاربران باید PSK جدید را در دستگاه خود وارد کنند و کاربران متصل موقتاً قطع می‌شوند.','new_psk':'PSK جدید (حداقل ۸ کاراکتر)','invalid_psk':'PSK نامعتبر است (حداقل ۸ کاراکتر، بدون فاصله).','psk_saved':'PSK جدید ذخیره شد و سرویس IPSec ریستارت شد.','default_dns_title':'DNS پیش‌فرض سرور (کاربران بدون DNS اختصاصی)','dns_saved':'DNS پیش‌فرض ذخیره شد و سرویس L2TP ریستارت شد.','settings_panel':'تنظیمات پنل','cur_port':'پورت فعلی','port_label':'پورت جدید پنل','port_warn':'بعد از تغییر پورت، چند ثانیه بعد به آدرس جدید منتقل می‌شوید. پورت جدید به‌صورت خودکار در فایروال باز می‌شود.','invalid_port':'پورت نامعتبر است (عدد بین ۱۰۲۴ تا ۶۵۵۳۵).','settings_data':'داده‌ها و بکاپ','backup_btn':'📥 دانلود فایل بکاپ','backup_note':'شامل همه کاربران، حجم‌ها، تاریخ انقضا و تنظیمات پنل. در جای امن نگه دارید.','chart_title':'مصرف ۷ روز اخیر','top_users':'مصرف‌کننده‌های برتر','expired_count':'کاربران منقضی','capacity':'ظرفیت سیستم','slots_used':'اسلات IP استفاده‌شده','today':'امروز','no_chart_data':'هنوز داده‌ای ثبت نشده — از فردا نمودار پر می‌شود.','restore_title':'بازگردانی بکاپ','restore_btn':'📤 بازگردانی از بکاپ','restore_note':'فایل بکاپ (zip) را انتخاب کنید — همه کاربران و تنظیمات جایگزین وضعیت فعلی می‌شوند. قبل از بازگردانی، از وضعیت فعلی بکاپ خودکار گرفته می‌شود.','restore_confirm':'بازگردانی انجام شود؟ داده‌های فعلی کاربران جایگزین می‌شوند!','restore_no_file':'فایلی انتخاب نشده است.','restore_bad_file':'فایل بکاپ معتبر نیست.','restore_done':'بکاپ با موفقیت بازگردانی شد.','logout_btn':'خروج','copy_tip':'کپی','show_tip':'نمایش',
   'reset_traffic_tip':'صفر کردن حجم مصرفی','regen_key_tip':'تولید کد جدید',
   'status_link_tip':'صفحه وضعیت کاربر','theme_tip':'حالت روشن / تاریک',
   'invalid_username':'نام کاربری نامعتبر است (۳ تا ۳۲ کاراکتر لاتین/عدد).',
@@ -118,7 +118,7 @@ TRANSLATIONS = {
   'updating_msg':'Downloading and installing the new version from GitHub. This takes a few minutes; the page will return automatically and you will need to log in again.',
   'update_confirm':'Update the panel from GitHub? Takes a few minutes and you will need to log in again.',
   'update_failed':'Update failed! Check server connectivity to GitHub.',
-  'tab_dashboard':'Dashboard','tab_users':'Users','tab_settings':'Settings','total_traffic':'Total traffic (all users)','sum_of_quotas':'Sum of user quotas','settings_account':'Admin Account','settings_account_desc':'Panel login username and password','cur_password':'Current password','new_username':'New username','new_password':'New password','new_password2':'Repeat new password','save_btn':'Save changes','creds_note':'After saving you will be logged out and must sign in with the new credentials.','wrong_cur_password':'Current password is wrong.','password_mismatch':'New passwords do not match.','invalid_password_short':'New password must be at least 6 characters.','relogin_note':'Credentials changed — please sign in with the new ones.','settings_vpn':'VPN Settings','change_psk':'Change PSK','change_psk_warn':'Warning: after changing the PSK, all users must enter the new PSK on their devices; connected users will be disconnected briefly.','new_psk':'New PSK (min 8 chars)','invalid_psk':'Invalid PSK (min 8 chars, no spaces).','psk_saved':'New PSK saved and IPSec service restarted.','default_dns_title':'Server default DNS (users without custom DNS)','dns_saved':'Default DNS saved and L2TP service restarted.','settings_panel':'Panel Settings','cur_port':'Current port','port_label':'New panel port','port_warn':'After changing the port you will be redirected to the new address in a few seconds. The new port is opened in the firewall automatically.','invalid_port':'Invalid port (number between 1024 and 65535).','settings_data':'Data & Backup','backup_btn':'📥 Download backup','backup_note':'Contains all users, quotas, expiry dates and panel settings. Keep it somewhere safe.','chart_title':'Traffic — last 7 days','top_users':'Top consumers','expired_count':'Expired users','capacity':'System capacity','slots_used':'IP slots used','today':'Today','no_chart_data':'No data yet — the chart fills up day by day.','logout_btn':'Logout','copy_tip':'Copy','show_tip':'Show',
+  'tab_dashboard':'Dashboard','tab_users':'Users','tab_settings':'Settings','total_traffic':'Total traffic (all users)','sum_of_quotas':'Sum of user quotas','settings_account':'Admin Account','settings_account_desc':'Panel login username and password','cur_password':'Current password','new_username':'New username','new_password':'New password','new_password2':'Repeat new password','save_btn':'Save changes','creds_note':'After saving you will be logged out and must sign in with the new credentials.','wrong_cur_password':'Current password is wrong.','password_mismatch':'New passwords do not match.','invalid_password_short':'New password must be at least 6 characters.','relogin_note':'Credentials changed — please sign in with the new ones.','settings_vpn':'VPN Settings','change_psk':'Change PSK','change_psk_warn':'Warning: after changing the PSK, all users must enter the new PSK on their devices; connected users will be disconnected briefly.','new_psk':'New PSK (min 8 chars)','invalid_psk':'Invalid PSK (min 8 chars, no spaces).','psk_saved':'New PSK saved and IPSec service restarted.','default_dns_title':'Server default DNS (users without custom DNS)','dns_saved':'Default DNS saved and L2TP service restarted.','settings_panel':'Panel Settings','cur_port':'Current port','port_label':'New panel port','port_warn':'After changing the port you will be redirected to the new address in a few seconds. The new port is opened in the firewall automatically.','invalid_port':'Invalid port (number between 1024 and 65535).','settings_data':'Data & Backup','backup_btn':'📥 Download backup','backup_note':'Contains all users, quotas, expiry dates and panel settings. Keep it somewhere safe.','chart_title':'Traffic — last 7 days','top_users':'Top consumers','expired_count':'Expired users','capacity':'System capacity','slots_used':'IP slots used','today':'Today','no_chart_data':'No data yet — the chart fills up day by day.','restore_title':'Restore Backup','restore_btn':'📤 Restore from backup','restore_note':'Select a backup zip — all users and settings replace the current state. A safety backup of the current state is taken automatically before restoring.','restore_confirm':'Restore now? Current user data will be replaced!','restore_no_file':'No file selected.','restore_bad_file':'Invalid backup file.','restore_done':'Backup restored successfully.','logout_btn':'Logout','copy_tip':'Copy','show_tip':'Show',
   'reset_traffic_tip':'Reset traffic counter','regen_key_tip':'Regenerate key',
   'status_link_tip':'User status page','theme_tip':'Toggle light / dark mode',
   'invalid_username':'Invalid username (3-32 chars).',
@@ -863,9 +863,78 @@ def backup():
         return redirect(url_for('index'))
 
 
+
+@app.route('/settings/restore', methods=['POST'])
+@login_required
+def restore_backup():
+    import io as _io, zipfile as _zip
+    current = request.form.get('current_password', '')
+    if current != CFG['admin_pass']:
+        flash(T('wrong_cur_password'))
+        return redirect(url_for('index'))
+    f = request.files.get('backup_file')
+    if not f or not f.filename:
+        flash(T('restore_no_file'))
+        return redirect(url_for('index'))
+    data = f.read()
+    if len(data) > 50 * 1024 * 1024:
+        flash(T('restore_bad_file'))
+        return redirect(url_for('index'))
+    try:
+        zf = _zip.ZipFile(_io.BytesIO(data))
+        names = zf.namelist()
+        if 'users.db' not in names:
+            flash(T('restore_bad_file'))
+            return redirect(url_for('index'))
+    except Exception:
+        flash(T('restore_bad_file'))
+        return redirect(url_for('index'))
+    # safety: backup current state first
+    stamp = datetime.now().strftime('%Y%m%d-%H%M%S')
+    try:
+        os.rename(DB_FILE, DB_FILE + '.pre-restore-' + stamp)
+    except OSError:
+        pass
+    # restore database
+    with open(DB_FILE, 'wb') as out:
+        out.write(zf.read('users.db'))
+    # restore config if present (admin + psk)
+    new_user = new_pass = new_psk = None
+    if 'config.json' in names:
+        try:
+            cfg = json.loads(zf.read('config.json').decode('utf-8'))
+            new_user = cfg.get('admin_user')
+            new_pass = cfg.get('admin_pass')
+            new_psk = cfg.get('psk')
+            for k in ('admin_user', 'admin_pass', 'psk'):
+                if cfg.get(k):
+                    CFG[k] = cfg[k]
+            _save_config()
+        except Exception:
+            pass
+    # restore PSK into ipsec.secrets
+    if new_psk:
+        try:
+            with open('/etc/ipsec.secrets', 'w') as fh:
+                fh.write('%%any %%any : PSK "%s"\n' % new_psk)
+            os.chmod('/etc/ipsec.secrets', 0o600)
+            subprocess.run(['systemctl', 'restart', 'strongswan-starter'],
+                           capture_output=True, timeout=60)
+        except Exception:
+            pass
+    run_sync()
+    if new_user and new_user != CFG.get('admin_user'):
+        pass
+    flash(T('restore_done'))
+    if new_pass and new_pass != current:
+        session.clear()
+        return redirect(url_for('login') + '?relogin=1')
+    return redirect(url_for('index'))
+
 init_db()
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5000)
+
 
 
