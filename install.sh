@@ -1,11 +1,9 @@
 #!/bin/bash
 # =====================================================================
-#   3OUTHBOY PANEL — L2TP/IPSec VPN + Web Management Panel
-#   Ubuntu 20.04 / 22.04 / 24.04
+#   3OUTHBOY PANEL — Multi-Protocol VPN (L2TP+IKEv2+OpenConnect)
+#   Ubuntu 20.04/22.04/24.04
 #   Interactive:  sudo bash install.sh
 #   Unattended:   sudo bash install.sh --user admin --pass X --port 8080 --psk Y
-#   After install: use "Update Panel" button to sync latest files
-#                  from GitHub (panel/ folder in this repo)
 # =====================================================================
 set -euo pipefail
 
@@ -15,7 +13,7 @@ ok(){   echo -e "${GREEN}[OK]${NC} $1"; }
 warn(){ echo -e "${YELLOW}[!]${NC} $1"; }
 die(){  echo -e "${RED}[X]${NC} $1"; exit 1; }
 
-[ "$EUID" -eq 0 ] || die "This script must be run with sudo."
+[ "$EUID" -eq 0 ] || die "Run with sudo."
 
 PANEL_DIR="/opt/l2tp-panel"
 
@@ -30,74 +28,64 @@ sanitize(){ printf '%s' "$1" | LC_ALL=C tr -d '\042\047\134\052\072\073\040\011\
 
 ADMIN_USER="admin"; ADMIN_PASS="$(rand_str 12)"; PANEL_PORT="8080"
 PSK="$(rand_str 20)"; ADMIN_IP=""; SET_TZ="y"; ENABLE_UFW="y"
+OCSERV_PORT="555"
 while [ $# -gt 0 ]; do
   case "$1" in
-    --user)     ADMIN_USER="$2"; shift 2 ;;
-    --pass)     ADMIN_PASS="$2"; shift 2 ;;
-    --port)     PANEL_PORT="$2"; shift 2 ;;
-    --psk)      PSK="$2"; shift 2 ;;
+    --user) ADMIN_USER="$2"; shift 2 ;;
+    --pass) ADMIN_PASS="$2"; shift 2 ;;
+    --port) PANEL_PORT="$2"; shift 2 ;;
+    --psk) PSK="$2"; shift 2 ;;
     --admin-ip) ADMIN_IP="$2"; shift 2 ;;
-    --tz)       SET_TZ="$2"; shift 2 ;;
-    --no-ufw)   ENABLE_UFW="n"; shift ;;
+    --tz) SET_TZ="$2"; shift 2 ;;
+    --no-ufw) ENABLE_UFW="n"; shift ;;
     *) shift ;;
   esac
 done
 
 if [ -t 0 ]; then
-  echo -e "${CYAN}============ 3OUTHBOY PANEL Installer ============${NC}"
+  echo -e "${CYAN}===== 3OUTHBOY PANEL (Multi-Protocol) =====${NC}"
   read -rp "Admin username [${ADMIN_USER}]: " v; ADMIN_USER="${v:-$ADMIN_USER}"
   read -rp "Admin password [${ADMIN_PASS}]: " v; ADMIN_PASS="${v:-$ADMIN_PASS}"
   read -rp "Panel port [${PANEL_PORT}]: " v; PANEL_PORT="${v:-$PANEL_PORT}"
   read -rp "IPSec PSK [${PSK}]: " v; PSK="${v:-$PSK}"
-  read -rp "Admin IP for panel (empty = no restriction): " v; ADMIN_IP="${v:-$ADMIN_IP}"
-  read -rp "Set timezone Asia/Tehran? [Y/n]: " v; SET_TZ="${v:-y}"
-  read -rp "Enable UFW firewall? [Y/n]: " v; ENABLE_UFW="${v:-y}"
+  read -rp "Admin IP (empty=all): " v; ADMIN_IP="${v:-$ADMIN_IP}"
+  read -rp "Timezone Asia/Tehran? [Y/n]: " v; SET_TZ="${v:-y}"
+  read -rp "Enable UFW? [Y/n]: " v; ENABLE_UFW="${v:-y}"
+  read -rp "OpenConnect port [${OCSERV_PORT}]: " v; OCSERV_PORT="${v:-$OCSERV_PORT}"
 fi
 
 ADMIN_USER="$(sanitize "$ADMIN_USER" | tr -cd 'A-Za-z0-9_.-')"
 ADMIN_PASS="$(sanitize "$ADMIN_PASS")"; PSK="$(sanitize "$PSK")"
 ADMIN_USER="${ADMIN_USER:-admin}"; ADMIN_PASS="${ADMIN_PASS:-$(rand_str 12)}"; PSK="${PSK:-$(rand_str 20)}"
 [[ "$PANEL_PORT" =~ ^[1-9][0-9]{1,4}$ ]] || PANEL_PORT="8080"
-if [ -n "$ADMIN_IP" ] && ! [[ "$ADMIN_IP" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}(/[0-9]{1,2})?$ ]]; then
-  warn "Invalid admin IP; panel will not be restricted."; ADMIN_IP=""
-fi
 
-info "Installing packages (this may take a few minutes)..."
+info "Installing packages..."
 export DEBIAN_FRONTEND=noninteractive
-systemctl disable --now strongswan-starter strongswan-swanctl >/dev/null 2>&1 || true
-apt-get remove -y strongswan-starter strongswan-swanctl libreswan >/dev/null 2>&1 || true
 apt-get update -y -qq
 apt-get install -y -qq xl2tpd strongswan strongswan-starter \
   libcharon-extra-plugins libstrongswan-extra-plugins \
-  ppp python3 python3-flask gunicorn ufw iptables curl >/dev/null
+  ppp python3 python3-flask gunicorn ufw iptables curl \
+  ocserv gnutls-bin net-tools sqlite3 cron >/dev/null 2>&1
 ok "Packages installed."
 
-[ "${SET_TZ,,}" != "n" ] && timedatectl set-timezone Asia/Tehran >/dev/null 2>&1 && ok "Timezone: Asia/Tehran" || true
+[ "${SET_TZ,,}" != "n" ] && timedatectl set-timezone Asia/Tehran >/dev/null 2>&1 || true
 
-DEF_IF="$(ip -4 route show default 2>/dev/null | awk '{print $5; exit}')"
-[ -n "$DEF_IF" ] || die "Could not find the default network interface."
+DEF_IF="$(ip -4 route show default | awk '{print $5; exit}')"
+[ -n "$DEF_IF" ] || die "No default interface."
 
-info "Detecting public IPv4 address..."
+info "Detecting IPv4..."
 PUB_IP="$(curl -4 -s --max-time 6 https://api.ipify.org || true)"
 [ -n "$PUB_IP" ] || PUB_IP="$(curl -4 -s --max-time 6 http://ipv4.icanhazip.com || true)"
-[ -n "$PUB_IP" ] || PUB_IP="$(curl -4 -s --max-time 6 http://checkip.amazonaws.com || true)"
-[[ "$PUB_IP" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || die "Could not detect public IPv4 address."
-ok "Public IPv4: ${PUB_IP}"
+[[ "$PUB_IP" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || die "No IPv4 detected."
+ok "IPv4: ${PUB_IP}"
 
 grep -q '^precedence ::ffff:0:0/96  100' /etc/gai.conf 2>/dev/null || \
   echo 'precedence ::ffff:0:0/96  100' >> /etc/gai.conf
 
-TS="$(date +%Y%m%d%H%M%S)"
-for f in /etc/ipsec.conf /etc/ipsec.secrets /etc/xl2tpd/xl2tpd.conf \
-         /etc/ppp/options.xl2tpd /etc/ppp/chap-secrets; do
-  [ -f "$f" ] && cp -a "$f" "${f}.bak-${TS}"
-done
-
-info "Configuring IPSec (strongSwan)..."
-LEFTID=""; [[ "$PUB_IP" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] && LEFTID="    leftid=${PUB_IP}"
-
+# ---------- IPSec (L2TP + IKEv2) ----------
+info "Configuring IPSec (L2TP + IKEv2)..."
+LEFTID="    leftid=${PUB_IP}"
 cat > /etc/ipsec.conf <<IPSECEOF
-# 3OUTHBOY PANEL (strongSwan)
 config setup
     uniqueids=no
 
@@ -114,7 +102,7 @@ conn shared
     dpdaction=clear
     ikelifetime=24h
     lifetime=24h
-    ike=aes256-sha2_256-modp2048,aes128-sha2_256-modp2048,aes256-sha1-modp2048,aes128-sha1-modp2048,aes256-sha2_256-curve25519,aes128-sha2_256-curve25519,aes256-sha1-curve25519,aes128-sha1-curve25519,aes256-sha2_256-ecp256,aes128-sha2_256-ecp256,aes256-sha2_256-modp1024,aes128-sha2_256-modp1024,aes256-sha1-modp1024,aes128-sha1-modp1024
+    ike=aes256-sha2_256-modp2048,aes128-sha2_256-modp2048,aes256-sha1-modp2048,aes128-sha1-modp2048,aes256-sha2_256-curve25519,aes128-sha2_256-curve25519,aes256-sha2_256-ecp256,aes128-sha2_256-ecp256,aes256-sha2_256-modp1024,aes128-sha2_256-modp1024,aes256-sha1-modp1024,aes128-sha1-modp1024
     esp=aes256-sha2_256,aes128-sha2_256,aes256-sha2_512,aes256-sha1,aes128-sha1,aes128gcm16,aes256gcm16
 
 conn l2tp-psk
@@ -124,22 +112,34 @@ conn l2tp-psk
     rightprotoport=17/%any
     type=transport
 
-conn xauth-psk
-    also=shared
-    auto=add
+conn ikev2-eap
+    keyexchange=ikev2
+    left=%defaultroute
+    leftauth=psk
     leftsubnet=0.0.0.0/0
-    rightaddresspool=192.168.44.10-192.168.44.250
-    modecfgdns="8.8.8.8 8.8.4.4"
-    xauth=server
-    modeconfig=push
-    cisco_unity=yes
+    right=%any
+    rightauth=eap-mschapv2
+    rightsourceip=192.168.44.10-192.168.44.250
+    fragmentation=yes
+    mobike=yes
+    auto=add
+    ikelifetime=24h
+    lifetime=24h
+    ike=aes256-sha2_256-modp2048,aes128-sha2_256-modp2048,aes256-sha2_256-curve25519
+    esp=aes256-sha2_256,aes128-sha2_256
 IPSECEOF
 
 printf '%%any %%any : PSK "%s"\n' "$PSK" > /etc/ipsec.secrets
 chmod 600 /etc/ipsec.secrets
-touch /etc/ipsec.d/passwd && chmod 600 /etc/ipsec.d/passwd
 
-info "Configuring xl2tpd and PPP..."
+cat > /etc/strongswan.d/charon/eap-mschapv2.conf <<'EAPCONF'
+eap-mschapv2 {
+    load = yes
+}
+EAPCONF
+
+# ---------- xl2tpd ----------
+info "Configuring xl2tpd..."
 cat > /etc/xl2tpd/xl2tpd.conf <<'XL2TPDEOF'
 [global]
 port = 1701
@@ -172,6 +172,9 @@ connect-delay 5000
 lcp-echo-interval 30
 lcp-echo-failure 5
 PPPOPT
+
+# ---------- PPP hooks ----------
+mkdir -p /etc/ppp/ip-up.d /etc/ppp/ip-down.d
 
 cat > /etc/ppp/ip-up.d/90l2tp-panel <<'IPUPEOF'
 #!/bin/sh
@@ -230,14 +233,15 @@ chmod 755 /etc/ppp/ip-down.d/90l2tp-panel
 mkdir -p /run/l2tp-sessions /run/l2tp-ifaces /run/l2tp-peerip /etc/ppp/dns-map
 chmod 700 /run/l2tp-sessions /run/l2tp-ifaces /run/l2tp-peerip /etc/ppp/dns-map
 
-info "Enabling IP forwarding and NAT..."
+# ---------- NAT ----------
+info "Configuring NAT..."
 sed -i '/^#\?net.ipv4.ip_forward/d' /etc/sysctl.conf
 echo "net.ipv4.ip_forward = 1" >> /etc/sysctl.conf
 sysctl -w net.ipv4.ip_forward=1 >/dev/null
 
-cat > /usr/local/sbin/l2tp-nat.sh <<'NATEOF'
+cat > /usr/local/sbin/l2tp-nat.sh <<NATEOF
 #!/bin/sh
-IF="__DEF_IF__"
+IF="\${DEF_IF:-$(ip -4 route show default | awk '{print \$5; exit}')}"
 add(){ /sbin/iptables -t nat -C POSTROUTING -s "\$1" -o "\$IF" -j MASQUERADE 2>/dev/null || /sbin/iptables -t nat -A POSTROUTING -s "\$1" -o "\$IF" -j MASQUERADE; }
 del(){ /sbin/iptables -t nat -D POSTROUTING -s "\$1" -o "\$IF" -j MASQUERADE 2>/dev/null || true; }
 chain(){
@@ -246,18 +250,27 @@ chain(){
 }
 mss(){ /sbin/iptables -t mangle -C FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || /sbin/iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu; }
 case "\$1" in
-  start) add 192.168.43.0/24; add 192.168.44.0/24; chain; mss ;;
-  stop)  del 192.168.43.0/24; del 192.168.44.0/24; /sbin/iptables -t nat -F L2TP_DNS 2>/dev/null || true ;;
+  start) add 192.168.43.0/24; add 192.168.44.0/24; add 192.168.45.0/24; chain; mss ;;
+  stop)  del 192.168.43.0/24; del 192.168.44.0/24; del 192.168.45.0/24; /sbin/iptables -t nat -F L2TP_DNS 2>/dev/null || true ;;
 esac
 NATEOF
 chmod 755 /usr/local/sbin/l2tp-nat.sh
-sed -i "s|__DEF_IF__|${DEF_IF}|" /usr/local/sbin/l2tp-nat.sh
+
+# kernel speed tuning (ocserv)
+cat > /etc/sysctl.d/99-vpn-speed.conf <<'SYSEOF'
+net.core.rmem_max = 16777216
+net.core.wmem_max = 16777216
+net.ipv4.tcp_rmem = 4096 87380 16777216
+net.ipv4.tcp_wmem = 4096 65536 16777216
+net.core.default_qdisc = fq
+net.ipv4.tcp_congestion_control = bbr
+SYSEOF
+sysctl -p /etc/sysctl.d/99-vpn-speed.conf >/dev/null 2>&1 || true
 
 cat > /etc/systemd/system/l2tp-nat.service <<'NATSVC'
 [Unit]
-Description=3OUTHBOY PANEL - NAT for VPN clients
+Description=3OUTHBOY PANEL - NAT
 After=network-online.target
-Wants=network-online.target
 
 [Service]
 Type=oneshot
@@ -269,6 +282,47 @@ ExecStop=/usr/local/sbin/l2tp-nat.sh stop
 WantedBy=multi-user.target
 NATSVC
 
+# ---------- ocserv (OpenConnect/AnyConnect) ----------
+info "Configuring OpenConnect (AnyConnect)..."
+mkdir -p /etc/ocserv/certs
+cd /etc/ocserv
+if [ ! -f certs/server-key.pem ]; then
+  printf 'cn = 3OUTHBOY CA\n' > ca.tmpl
+  certtool --generate-privkey --outfile certs/ca-key.pem 2>/dev/null
+  certtool --generate-self-signed --load-privkey certs/ca-key.pem --template ca.tmpl --outfile certs/ca-cert.pem 2>/dev/null
+  printf 'cn = %s\n' "$PUB_IP" > server.tmpl
+  certtool --generate-privkey --outfile certs/server-key.pem 2>/dev/null
+  certtool --generate-certificate --load-privkey certs/server-key.pem --load-ca-certificate certs/ca-cert.pem --load-ca-privkey certs/ca-key.pem --template server.tmpl --outfile certs/server-cert.pem 2>/dev/null
+  ok "certs generated"
+fi
+
+cat > /etc/ocserv/ocserv.conf <<OCCONF
+auth = "plain[/etc/ocserv/ocpasswd]"
+tcp-port = ${OCSERV_PORT}
+udp-port = ${OCSERV_PORT}
+run-as-user = nobody
+run-as-group = nogroup
+device = vpns
+ipv4-network = 192.168.45.0/24
+dns = 8.8.8.8
+server-cert = /etc/ocserv/certs/server-cert.pem
+server-key = /etc/ocserv/certs/server-key.pem
+ca-cert = /etc/ocserv/certs/ca-cert.pem
+max-clients = 16
+max-same-clients = 2
+keepalive = 30
+compression = no
+mtu = 1420
+try-mtu-discovery = true
+log-level = 1
+dpd = 60
+mobile-dpd = 1800
+route = 0.0.0.0/0
+OCCONF
+
+touch /etc/ocserv/ocpasswd
+
+# ---------- panel config ----------
 info "Installing panel..."
 mkdir -p "${PANEL_DIR}/templates"
 
@@ -283,7 +337,7 @@ cat > "${PANEL_DIR}/config.json" <<CONFJSON
 CONFJSON
 chmod 600 "${PANEL_DIR}/config.json"
 
-cat > "${PANEL_DIR}/panel.py" <<'ZQ1PANEL'
+cat > "${PANEL_DIR}/panel.py" <<'ZQ_panel_py'
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """3OUTHBOY PANEL (fa/en) — expiry, quotas, DNS, keys, restart, self-update."""
@@ -1211,10 +1265,10 @@ if __name__ == '__main__':
 
 
 
-ZQ1PANEL
+ZQ_panel_py
 chmod 755 "${PANEL_DIR}/panel.py"
 
-cat > "${PANEL_DIR}/sync_users.py" <<'ZQ2SYNC'
+cat > "${PANEL_DIR}/sync_users.py" <<'ZQ_sync_users_py'
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Sync users to chap-secrets, per-user DNS, traffic tracking, expiry."""
@@ -1392,10 +1446,10 @@ if __name__ == '__main__':
 
 
 
-ZQ2SYNC
+ZQ_sync_users_py
 chmod 755 "${PANEL_DIR}/sync_users.py"
 
-cat > "${PANEL_DIR}/iface_down.py" <<'ZQ3IFD'
+cat > "${PANEL_DIR}/iface_down.py" <<'ZQ_iface_down_py'
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Final traffic tally when a PPP interface goes down."""
@@ -1448,10 +1502,208 @@ if __name__ == '__main__':
 
 
 
-ZQ3IFD
+ZQ_iface_down_py
 chmod 755 "${PANEL_DIR}/iface_down.py"
 
-cat > "${PANEL_DIR}/templates/base.html" <<'ZQ4BASE'
+cat > "${PANEL_DIR}/ocserv_online.py" <<'ZQ_ocserv_online_py'
+#!/usr/bin/env python3
+import subprocess
+import os
+import re
+
+SESSION_DIR = "/run/l2tp-sessions"
+
+def get_online_users():
+    online = set()
+    try:
+        result = subprocess.run(
+            ["journalctl", "-u", "ocserv", "--since", "10 minutes ago", "--no-pager"],
+            capture_output=True, text=True, timeout=10
+        )
+        lines = result.stdout.split("\n")
+        # find connect AND disconnect events
+        connected = set()
+        disconnected = set()
+        for line in lines:
+            m = re.search(r"worker\[(\w+)\]", line)
+            if m:
+                username = m.group(1)
+                connected.add(username)
+            # ocserv logs "user disconnected" when leaving
+            if "disconnected" in line or "logout" in line or "removed" in line:
+                m2 = re.search(r"worker\[(\w+)\]", line)
+                if m2:
+                    disconnected.add(m2.group(1))
+        online = connected - disconnected
+    except Exception:
+        pass
+    return online
+
+def write_sessions(online):
+    if not os.path.exists(SESSION_DIR):
+        os.makedirs(SESSION_DIR, exist_ok=True)
+
+    # ocserv marker file approach:
+    # track which files WE created (not L2TP's)
+    marker = "/run/ocserv-tracked"
+    old = set()
+    try:
+        old = set(open(marker).read().split())
+    except Exception:
+        pass
+
+    # create sessions for online ocserv users
+    for name in online:
+        path = os.path.join(SESSION_DIR, name)
+        try:
+            with open(path, "w") as f:
+                f.write("99999")
+        except Exception:
+            pass
+
+    # remove sessions ONLY for users we previously created
+    # AND are now offline (don't touch L2TP sessions!)
+    for name in old - online:
+        path = os.path.join(SESSION_DIR, name)
+        try:
+            content = open(path).read().strip()
+            if content == "99999":  # our marker value
+                os.remove(path)
+        except Exception:
+            pass
+
+    # save current list
+    with open(marker, "w") as f:
+        f.write("\n".join(online))
+
+if __name__ == "__main__":
+    users = get_online_users()
+    print("ocserv online: %d" % len(users))
+    for u in sorted(users):
+        print("  + " + u)
+    write_sessions(users)
+
+ZQ_ocserv_online_py
+chmod 755 "${PANEL_DIR}/ocserv_online.py"
+
+cat > "${PANEL_DIR}/ocserv_traffic.py" <<'ZQ_ocserv_traffic_py'
+#!/usr/bin/env python3
+import subprocess
+import sqlite3
+import os
+import re
+
+STATE_FILE = "/run/ocserv-last-counter"
+
+def get_ocserv_rx_tx():
+    # sum rx+tx of all vpns* interfaces (ocserv creates vpns0, vpns1...)
+    total = 0
+    for iface in os.listdir("/sys/class/net"):
+        if iface.startswith("vpns"):
+            for kind in ("rx_bytes", "tx_bytes"):
+                try:
+                    path = "/sys/class/net/%s/statistics/%s" % (iface, kind)
+                    total += int(open(path).read().strip())
+                except Exception:
+                    pass
+    return total
+
+def get_last():
+    try:
+        return int(open(STATE_FILE).read().strip())
+    except Exception:
+        return 0
+
+def save_last(v):
+    with open(STATE_FILE, "w") as f:
+        f.write(str(v))
+
+def online_users():
+    d = "/run/l2tp-sessions"
+    try:
+        return [f for f in os.listdir(d)]
+    except Exception:
+        return []
+
+def update():
+    current = get_ocserv_rx_tx()
+    last = get_last()
+    delta = current - last
+    save_last(current)
+
+    if delta <= 0:
+        print("no new traffic")
+        return
+
+    users = online_users()
+    if not users:
+        print("traffic %d bytes but no users online" % delta)
+        return
+
+    per_user = delta // len(users)
+    db = sqlite3.connect("/opt/l2tp-panel/users.db")
+    for u in users:
+        db.execute(
+            "UPDATE users SET used_bytes = used_bytes + ? WHERE username = ?",
+            (per_user, u)
+        )
+        print("  +%d bytes -> %s" % (per_user, u))
+    db.commit()
+    db.close()
+
+if __name__ == "__main__":
+    update()
+
+ZQ_ocserv_traffic_py
+chmod 755 "${PANEL_DIR}/ocserv_traffic.py"
+
+cat > "${PANEL_DIR}/ocserv_manager.py" <<'ZQ_ocserv_manager_py'
+#!/usr/bin/env python3
+from datetime import datetime
+import sqlite3
+import subprocess
+
+DB = "/opt/l2tp-panel/users.db"
+OCPASSWD = "/etc/ocserv/ocpasswd"
+
+def sync():
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    db = sqlite3.connect(DB)
+    db.row_factory = sqlite3.Row
+    users = db.execute("SELECT username, password, expires_at, traffic_limit_mb, used_bytes FROM users").fetchall()
+    db.close()
+
+    active = []
+    expired = []
+    for u in users:
+        time_ok = u["expires_at"] > now
+        used_mb = (u["used_bytes"] or 0) / (1024.0 * 1024.0)
+        limit = u["traffic_limit_mb"] or 0
+        quota_ok = (limit <= 0) or (used_mb < limit)
+        if time_ok and quota_ok:
+            active.append(u)
+        else:
+            expired.append(u["username"])
+
+    open(OCPASSWD, "w").close()
+    for u in active:
+        subprocess.run(
+            ["ocpasswd", "-c", OCPASSWD, "-g", "default", u["username"]],
+            input=(u["password"] + "\n" + u["password"]).encode(),
+            capture_output=True)
+
+    for name in expired:
+        subprocess.run(["pkill", "-f", "ocserv.*" + name], capture_output=True)
+
+    return len(active)
+
+if __name__ == "__main__":
+    print("ocserv synced: %d active users" % sync())
+
+ZQ_ocserv_manager_py
+chmod 755 "${PANEL_DIR}/ocserv_manager.py"
+
+cat > "${PANEL_DIR}/templates/base.html" <<'ZQ_base_html'
 <!doctype html>
 <html lang="{{ lang }}" dir="{{ dir }}" data-theme="dark">
 <head>
@@ -1789,9 +2041,9 @@ function genPass(){var c='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz2345678
 
 
 
-ZQ4BASE
+ZQ_base_html
 
-cat > "${PANEL_DIR}/templates/login.html" <<'ZQ5LOGIN'
+cat > "${PANEL_DIR}/templates/login.html" <<'ZQ_login_html'
 {% extends 'base.html' %}
 {% block title %}{{ t.login_title }}{% endblock %}
 {% block body %}
@@ -1884,9 +2136,9 @@ cat > "${PANEL_DIR}/templates/login.html" <<'ZQ5LOGIN'
 
 
 
-ZQ5LOGIN
+ZQ_login_html
 
-cat > "${PANEL_DIR}/templates/index.html" <<'ZQ6INDEX'
+cat > "${PANEL_DIR}/templates/index.html" <<'ZQ_index_html'
 {% extends 'base.html' %}
 {% block title %}{{ t.header_title }}{% endblock %}
 {% block body %}
@@ -2509,9 +2761,9 @@ function onRestorePick(inp){
 
 
 
-ZQ6INDEX
+ZQ_index_html
 
-cat > "${PANEL_DIR}/templates/user.html" <<'ZQ7USER'
+cat > "${PANEL_DIR}/templates/user.html" <<'ZQ_user_html'
 {% extends 'base.html' %}
 {% block title %}{{ t.status_title }}{% endblock %}
 {% block body %}
@@ -2798,9 +3050,9 @@ cat > "${PANEL_DIR}/templates/user.html" <<'ZQ7USER'
 
 
 
-ZQ7USER
+ZQ_user_html
 
-cat > "${PANEL_DIR}/templates/restarting.html" <<'ZQ8RST'
+cat > "${PANEL_DIR}/templates/restarting.html" <<'ZQ_restarting_html'
 {% extends 'base.html' %}
 {% block title %}{{ t.panel_restarting }}{% endblock %}
 {% block body %}
@@ -2822,9 +3074,9 @@ cat > "${PANEL_DIR}/templates/restarting.html" <<'ZQ8RST'
 
 
 
-ZQ8RST
+ZQ_restarting_html
 
-cat > "${PANEL_DIR}/templates/updating.html" <<'ZQ9UPD'
+cat > "${PANEL_DIR}/templates/updating.html" <<'ZQ_updating_html'
 {% extends 'base.html' %}
 {% block title %}{{ t.updating_title }}{% endblock %}
 {% block body %}
@@ -2865,9 +3117,95 @@ cat > "${PANEL_DIR}/templates/updating.html" <<'ZQ9UPD'
 
 
 
-ZQ9UPD
+ZQ_updating_html
 
-cat > /etc/systemd/system/l2tp-panel.service <<'PANELSVC'
+cat > "/root/ocserv-full-sync.sh" <<'ZQ_ENFORCE'
+#!/bin/bash
+set -euo pipefail
+[ "$EUID" -eq 0 ] || { echo "Run with sudo."; exit 1; }
+
+echo "[1/2] Kill expired/quota users..."
+KILLED=0
+KILLED=$(python3 << 'PYEOF'
+import sqlite3
+import subprocess
+from datetime import datetime
+
+db = sqlite3.connect("/opt/l2tp-panel/users.db")
+db.row_factory = sqlite3.Row
+users = db.execute("SELECT username, expires_at, traffic_limit_mb, used_bytes FROM users").fetchall()
+db.close()
+
+now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+count = 0
+
+for u in users:
+    expired = (u["expires_at"] <= now)
+    used_mb = (u["used_bytes"] or 0) / (1024.0 * 1024.0)
+    limit = u["traffic_limit_mb"] or 0
+    quota = (limit > 0 and used_mb >= limit)
+    if expired or quota:
+        reason = "expired" if expired else "quota"
+        subprocess.run(["pkill", "-f", "worker.*" + u["username"]], capture_output=True)
+        print("  KILLED (%s): %s" % (reason, u["username"]))
+        count += 1
+print("COUNT:%d" % count)
+PYEOF
+)
+
+echo "[2/2] Rebuild ocpasswd (blocked users removed)..."
+python3 << 'PYEOF'
+import sqlite3
+import subprocess
+from datetime import datetime
+
+db = sqlite3.connect("/opt/l2tp-panel/users.db")
+db.row_factory = sqlite3.Row
+users = db.execute("SELECT username, password, expires_at, traffic_limit_mb, used_bytes FROM users").fetchall()
+db.close()
+
+now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+open("/etc/ocserv/ocpasswd", "w").close()
+for u in users:
+    expired = (u["expires_at"] <= now)
+    used_mb = (u["used_bytes"] or 0) / (1024.0 * 1024.0)
+    limit = u["traffic_limit_mb"] or 0
+    quota = (limit > 0 and used_mb >= limit)
+    if not expired and not quota:
+        subprocess.run(
+            ["ocpasswd", "-c", "/etc/ocserv/ocpasswd", "-g", "default", u["username"]],
+            input=(u["password"] + "\n" + u["password"]).encode(),
+            capture_output=True
+        )
+    else:
+        print("  blocked: " + u["username"])
+PYEOF
+
+# If anyone was killed -> restart ocserv to drop their active sessions
+if echo "$KILLED" | grep -q "COUNT:1\|COUNT:2\|COUNT:3\|COUNT:4\|COUNT:5"; then
+  echo "  restarting ocserv (dropping blocked sessions)..."
+  systemctl restart ocserv
+  sleep 2
+fi
+
+echo "[OK] enforcement done"
+
+ZQ_ENFORCE
+chmod 755 "/root/ocserv-full-sync.sh"
+
+# ---------- crons ----------
+info "Setting up cron jobs..."
+echo "* * * * * root python3 /opt/l2tp-panel/ocserv_online.py" > /etc/cron.d/ocserv-online
+echo "* * * * * root python3 /opt/l2tp-panel/ocserv_traffic.py" > /etc/cron.d/ocserv-traffic
+echo "* * * * * root bash /root/ocserv-full-sync.sh" > /etc/cron.d/ocserv-sync
+chmod 644 /etc/cron.d/ocserv-*
+systemctl restart cron 2>/dev/null || true
+
+# ---------- services ----------
+info "Creating services..."
+
+cat > /etc/systemd/system/l2tp-panel.service <<PANELSVC
 [Unit]
 Description=3OUTHBOY PANEL Web UI
 After=network.target
@@ -2906,6 +3244,7 @@ Unit=l2tp-sync.service
 WantedBy=timers.target
 SYNCTMR
 
+# ---------- firewall ----------
 if [ "${ENABLE_UFW,,}" != "n" ]; then
   info "Configuring UFW..."
   SSH_PORT="22"
@@ -2917,6 +3256,8 @@ if [ "${ENABLE_UFW,,}" != "n" ]; then
   ufw allow 500/udp >/dev/null
   ufw allow 4500/udp >/dev/null
   ufw allow 1701/udp >/dev/null
+  ufw allow "${OCSERV_PORT}/tcp" >/dev/null
+  ufw allow "${OCSERV_PORT}/udp" >/dev/null
   if [ -n "$ADMIN_IP" ]; then
     ufw allow from "$ADMIN_IP" to any port "$PANEL_PORT" proto tcp >/dev/null
   else
@@ -2924,10 +3265,12 @@ if [ "${ENABLE_UFW,,}" != "n" ]; then
   fi
   ufw route allow from 192.168.43.0/24 >/dev/null
   ufw route allow from 192.168.44.0/24 >/dev/null
+  ufw route allow from 192.168.45.0/24 >/dev/null
   ufw --force enable >/dev/null
   ok "Firewall enabled"
 fi
 
+# ---------- start ----------
 info "Starting services..."
 systemctl daemon-reload
 systemctl enable --now strongswan-starter >/dev/null 2>&1 || true
@@ -2936,24 +3279,27 @@ systemctl enable --now xl2tpd >/dev/null 2>&1 || true
 systemctl restart xl2tpd
 systemctl enable --now l2tp-nat >/dev/null 2>&1 || true
 systemctl restart l2tp-nat
+systemctl enable --now ocserv >/dev/null 2>&1 || true
+systemctl restart ocserv
 systemctl enable l2tp-panel >/dev/null 2>&1 || true
 systemctl restart l2tp-panel
-sleep 2
-systemctl is-active --quiet l2tp-panel || warn "Panel not running! Check: journalctl -u l2tp-panel -e"
 systemctl enable --now l2tp-sync.timer >/dev/null 2>&1 || true
 python3 "${PANEL_DIR}/sync_users.py" 2>/dev/null || true
+systemctl restart cron 2>/dev/null || true
 ok "All services started."
 
 echo
 echo -e "${GREEN}=====================================================${NC}"
-echo -e "${GREEN}      3OUTHBOY PANEL - Installation complete!        ${NC}"
+echo -e "${GREEN}  3OUTHBOY PANEL — Multi-Protocol — Installed!      ${NC}"
 echo -e "${GREEN}=====================================================${NC}"
 echo -e " Panel URL       : ${CYAN}http://${PUB_IP}:${PANEL_PORT}${NC}"
 echo -e " Admin username  : ${CYAN}${ADMIN_USER}${NC}"
 echo -e " Admin password  : ${CYAN}${ADMIN_PASS}${NC}"
 echo -e " IPSec PSK       : ${CYAN}${PSK}${NC}"
-echo -e " Client setup    : L2TP/IPSec PSK | Server: ${PUB_IP}"
+echo -e " L2TP/IPSec      : ${PUB_IP} (PSK)"
+echo -e " IKEv2           : ${PUB_IP} (user/pass)"
+echo -e " OpenConnect     : ${PUB_IP}:${OCSERV_PORT} (user/pass)"
 echo -e " User status     : http://${PUB_IP}:${PANEL_PORT}/u/<USER_KEY>"
 echo
-warn "Save these credentials! (also stored in ${PANEL_DIR}/config.json)"
-warn "Open UDP 500/4500/1701 and TCP ${PANEL_PORT} in provider firewall if any."
+warn "Save these credentials!"
+warn "Open UDP 500/4500/1701, TCP+UDP ${OCSERV_PORT} + TCP ${PANEL_PORT} in provider firewall."
