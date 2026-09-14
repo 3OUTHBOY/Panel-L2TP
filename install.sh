@@ -316,8 +316,9 @@ mtu = 1420
 try-mtu-discovery = true
 log-level = 1
 dpd = 60
+socket-file = /var/run/ocserv.socket
 mobile-dpd = 1800
-route = 0.0.0.0/0
+route = 0.0.0.0/0.0.0.0/0
 OCCONF
 
 touch /etc/ocserv/ocpasswd
