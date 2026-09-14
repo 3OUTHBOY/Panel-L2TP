@@ -74,3 +74,4 @@ if __name__ == "__main__":
     for u in sorted(users):
         print("  + " + u)
     write_sessions(users)
+

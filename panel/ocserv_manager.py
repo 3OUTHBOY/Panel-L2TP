@@ -39,3 +39,4 @@ def sync():
 
 if __name__ == "__main__":
     print("ocserv synced: %d active users" % sync())
+
