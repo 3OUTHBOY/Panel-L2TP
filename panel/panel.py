@@ -435,8 +435,7 @@ def index():
     chart_days, top_users = _get_chart_data()
     expired_count = sum(1 for row in rows
                        if row['expires_at'] <= datetime.now().strftime(DT_FMT))
-    svc = {'ipsec': service_active('strongswan-starter') or service_active('ipsec'),
-           'xl2tpd': service_active('xl2tpd'), 'nat': service_active('l2tp-nat')}
+    svc = {'ipsec': service_active('strongswan-starter') or service_active('ipsec'), 'xl2tpd': service_active('xl2tpd'), 'nat': service_active('l2tp-nat'), 'ocserv': service_active('ocserv'), 'ikev2': service_active('strongswan-starter') or service_active('ipsec')}
     return render_template('index.html', users=users, server_ip=SERVER_IP, psk=CFG['psk'],
                            active_count=active_count, total_count=len(users),
                            online_count=len(online_users), svc=svc,
@@ -607,6 +606,7 @@ def sync_now():
 def restart_vpn():
     ok1 = restart_service('strongswan-starter') or restart_service('ipsec')
     ok2 = restart_service('xl2tpd')
+    ok4 = restart_service('ocserv')
     ok3 = restart_service('l2tp-nat')
     run_sync()
     flash(T('vpn_restarted') if ok1 and ok2 and ok3 else T('vpn_restart_failed'))
@@ -691,13 +691,9 @@ def _panel_port():
 @app.route('/settings/credentials', methods=['POST'])
 @login_required
 def settings_credentials():
-    current = request.form.get('current_password', '')
     new_user = request.form.get('new_username', '').strip()
     new_pass = request.form.get('new_password', '')
     new_pass2 = request.form.get('new_password2', '')
-    if current != CFG['admin_pass']:
-        flash(T('wrong_cur_password'))
-        return redirect(url_for('index'))
     if new_pass or new_pass2:
         if new_pass != new_pass2:
             flash(T('password_mismatch'))
@@ -732,11 +728,7 @@ def settings_credentials():
 @app.route('/settings/psk', methods=['POST'])
 @login_required
 def settings_psk():
-    current = request.form.get('current_password', '')
     new_psk = request.form.get('new_psk', '').strip()
-    if current != CFG['admin_pass']:
-        flash(T('wrong_cur_password'))
-        return redirect(url_for('index'))
     if not new_psk or len(new_psk) < 8 or BAD_PW_CHARS & set(new_psk):
         flash(T('invalid_psk'))
         return redirect(url_for('index'))
@@ -797,11 +789,7 @@ def settings_dns():
 @app.route('/settings/port', methods=['POST'])
 @login_required
 def settings_port():
-    current = request.form.get('current_password', '')
     port = request.form.get('port', '').strip()
-    if current != CFG['admin_pass']:
-        flash(T('wrong_cur_password'))
-        return redirect(url_for('index'))
     if not port.isdigit() or not (1024 <= int(port) <= 65535):
         flash(T('invalid_port'))
         return redirect(url_for('index'))
@@ -868,10 +856,6 @@ def backup():
 @login_required
 def restore_backup():
     import io as _io, zipfile as _zip
-    current = request.form.get('current_password', '')
-    if current != CFG['admin_pass']:
-        flash(T('wrong_cur_password'))
-        return redirect(url_for('index'))
     f = request.files.get('backup_file')
     if not f or not f.filename:
         flash(T('restore_no_file'))
@@ -926,7 +910,7 @@ def restore_backup():
     if new_user and new_user != CFG.get('admin_user'):
         pass
     flash(T('restore_done'))
-    if new_pass and new_pass != current:
+    if new_pass:
         session.clear()
         return redirect(url_for('login') + '?relogin=1')
     return redirect(url_for('index'))
@@ -935,6 +919,7 @@ init_db()
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5000)
+
 
 
 

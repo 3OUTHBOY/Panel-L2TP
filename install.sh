@@ -721,8 +721,7 @@ def index():
     chart_days, top_users = _get_chart_data()
     expired_count = sum(1 for row in rows
                        if row['expires_at'] <= datetime.now().strftime(DT_FMT))
-    svc = {'ipsec': service_active('strongswan-starter') or service_active('ipsec'),
-           'xl2tpd': service_active('xl2tpd'), 'nat': service_active('l2tp-nat')}
+    svc = {'ipsec': service_active('strongswan-starter') or service_active('ipsec'), 'xl2tpd': service_active('xl2tpd'), 'nat': service_active('l2tp-nat'), 'ocserv': service_active('ocserv'), 'ikev2': service_active('strongswan-starter') or service_active('ipsec')}
     return render_template('index.html', users=users, server_ip=SERVER_IP, psk=CFG['psk'],
                            active_count=active_count, total_count=len(users),
                            online_count=len(online_users), svc=svc,
@@ -893,6 +892,7 @@ def sync_now():
 def restart_vpn():
     ok1 = restart_service('strongswan-starter') or restart_service('ipsec')
     ok2 = restart_service('xl2tpd')
+    ok4 = restart_service('ocserv')
     ok3 = restart_service('l2tp-nat')
     run_sync()
     flash(T('vpn_restarted') if ok1 and ok2 and ok3 else T('vpn_restart_failed'))
@@ -977,13 +977,9 @@ def _panel_port():
 @app.route('/settings/credentials', methods=['POST'])
 @login_required
 def settings_credentials():
-    current = request.form.get('current_password', '')
     new_user = request.form.get('new_username', '').strip()
     new_pass = request.form.get('new_password', '')
     new_pass2 = request.form.get('new_password2', '')
-    if current != CFG['admin_pass']:
-        flash(T('wrong_cur_password'))
-        return redirect(url_for('index'))
     if new_pass or new_pass2:
         if new_pass != new_pass2:
             flash(T('password_mismatch'))
@@ -1018,11 +1014,7 @@ def settings_credentials():
 @app.route('/settings/psk', methods=['POST'])
 @login_required
 def settings_psk():
-    current = request.form.get('current_password', '')
     new_psk = request.form.get('new_psk', '').strip()
-    if current != CFG['admin_pass']:
-        flash(T('wrong_cur_password'))
-        return redirect(url_for('index'))
     if not new_psk or len(new_psk) < 8 or BAD_PW_CHARS & set(new_psk):
         flash(T('invalid_psk'))
         return redirect(url_for('index'))
@@ -1083,11 +1075,7 @@ def settings_dns():
 @app.route('/settings/port', methods=['POST'])
 @login_required
 def settings_port():
-    current = request.form.get('current_password', '')
     port = request.form.get('port', '').strip()
-    if current != CFG['admin_pass']:
-        flash(T('wrong_cur_password'))
-        return redirect(url_for('index'))
     if not port.isdigit() or not (1024 <= int(port) <= 65535):
         flash(T('invalid_port'))
         return redirect(url_for('index'))
@@ -1154,10 +1142,6 @@ def backup():
 @login_required
 def restore_backup():
     import io as _io, zipfile as _zip
-    current = request.form.get('current_password', '')
-    if current != CFG['admin_pass']:
-        flash(T('wrong_cur_password'))
-        return redirect(url_for('index'))
     f = request.files.get('backup_file')
     if not f or not f.filename:
         flash(T('restore_no_file'))
@@ -1212,7 +1196,7 @@ def restore_backup():
     if new_user and new_user != CFG.get('admin_user'):
         pass
     flash(T('restore_done'))
-    if new_pass and new_pass != current:
+    if new_pass:
         session.clear()
         return redirect(url_for('login') + '?relogin=1')
     return redirect(url_for('index'))
@@ -1221,6 +1205,7 @@ init_db()
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5000)
+
 
 
 
@@ -1454,6 +1439,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
@@ -1802,6 +1788,7 @@ function genPass(){var c='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz2345678
 
 
 
+
 ZQ4BASE
 
 cat > "${PANEL_DIR}/templates/login.html" <<'ZQ5LOGIN'
@@ -1891,6 +1878,7 @@ cat > "${PANEL_DIR}/templates/login.html" <<'ZQ5LOGIN'
   </form>
 </div>
 {% endblock %}
+
 
 
 
@@ -2152,7 +2140,7 @@ html[dir=rtl] .sb-item.active{box-shadow:inset -3px 0 0 var(--neon-cyan),0 0 18p
         <div class="stat-head"><span class="stat-icon"><svg class="ni"><use href="#i-gear"/></svg></span><span class="stat-label">{{ t.services_status }}</span></div>
         <div class="svc-row">
           <span class="svc {{ 'ok' if svc.ipsec else 'bad' }}">IPSec</span>
-          <span class="svc {{ 'ok' if svc.xl2tpd else 'bad' }}">L2TP</span>
+          <span class="svc {{ 'ok' if svc.xl2tpd else 'bad' }}">L2TP</span> <span class='svc {{ 'ok' if svc.ocserv else 'bad' }}'>OpenConnect</span> <span class='svc {{ 'ok' if svc.ikev2 else 'bad' }}'>IKEv2</span>
           <span class="svc {{ 'ok' if svc.nat else 'bad' }}">NAT</span>
         </div>
       </div>
@@ -2334,10 +2322,6 @@ html[dir=rtl] .sb-item.active{box-shadow:inset -3px 0 0 var(--neon-cyan),0 0 18p
       <p class="muted" style="margin:-6px 0 14px">{{ t.settings_account_desc }}</p>
       <form method="post" action="/settings/credentials" class="set-grid">
         <div>
-          <label>{{ t.cur_password }}</label>
-          <input type="password" name="current_password" required autocomplete="current-password">
-        </div>
-        <div>
           <label>{{ t.new_username }}</label>
           <input name="new_username" value="{{ admin_user }}" pattern="[A-Za-z0-9_.\-]{3,32}">
         </div>
@@ -2360,10 +2344,6 @@ html[dir=rtl] .sb-item.active{box-shadow:inset -3px 0 0 var(--neon-cyan),0 0 18p
       <h2><svg class="ni ni-lg"><use href="#i-shield"/></svg> {{ t.settings_vpn }}</h2>
       <form method="post" action="/settings/psk" class="set-grid">
         <div class="full warn-box">⚠️ {{ t.change_psk_warn }}</div>
-        <div>
-          <label>{{ t.cur_password }}</label>
-          <input type="password" name="current_password" required autocomplete="current-password">
-        </div>
         <div>
           <label>{{ t.new_psk }}</label>
           <div class="secret-row" style="width:100%">
@@ -2392,10 +2372,6 @@ html[dir=rtl] .sb-item.active{box-shadow:inset -3px 0 0 var(--neon-cyan),0 0 18p
       <h2><svg class="ni ni-lg"><use href="#i-server"/></svg> {{ t.settings_panel }}</h2>
       <form method="post" action="/settings/port" class="set-grid">
         <div class="full note-box">ℹ️ {{ t.port_warn }}</div>
-        <div>
-          <label>{{ t.cur_password }}</label>
-          <input type="password" name="current_password" required autocomplete="current-password">
-        </div>
         <div>
           <label>{{ t.cur_port }}</label>
           <input value="{{ panel_port }}" disabled style="opacity:.55">
@@ -2528,6 +2504,7 @@ function onRestorePick(inp){
 
 </script>
 {% endblock %}
+
 
 
 
@@ -2820,6 +2797,7 @@ cat > "${PANEL_DIR}/templates/user.html" <<'ZQ7USER'
 
 
 
+
 ZQ7USER
 
 cat > "${PANEL_DIR}/templates/restarting.html" <<'ZQ8RST'
@@ -2835,6 +2813,7 @@ cat > "${PANEL_DIR}/templates/restarting.html" <<'ZQ8RST'
   </div>
 </div>
 {% endblock %}
+
 
 
 
@@ -2880,6 +2859,7 @@ cat > "${PANEL_DIR}/templates/updating.html" <<'ZQ9UPD'
   </div>
 </div>
 {% endblock %}
+
 
 
 

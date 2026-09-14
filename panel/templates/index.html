@@ -251,7 +251,7 @@ html[dir=rtl] .sb-item.active{box-shadow:inset -3px 0 0 var(--neon-cyan),0 0 18p
         <div class="stat-head"><span class="stat-icon"><svg class="ni"><use href="#i-gear"/></svg></span><span class="stat-label">{{ t.services_status }}</span></div>
         <div class="svc-row">
           <span class="svc {{ 'ok' if svc.ipsec else 'bad' }}">IPSec</span>
-          <span class="svc {{ 'ok' if svc.xl2tpd else 'bad' }}">L2TP</span>
+          <span class="svc {{ 'ok' if svc.xl2tpd else 'bad' }}">L2TP</span> <span class='svc {{ 'ok' if svc.ocserv else 'bad' }}'>OpenConnect</span> <span class='svc {{ 'ok' if svc.ikev2 else 'bad' }}'>IKEv2</span>
           <span class="svc {{ 'ok' if svc.nat else 'bad' }}">NAT</span>
         </div>
       </div>
@@ -433,10 +433,6 @@ html[dir=rtl] .sb-item.active{box-shadow:inset -3px 0 0 var(--neon-cyan),0 0 18p
       <p class="muted" style="margin:-6px 0 14px">{{ t.settings_account_desc }}</p>
       <form method="post" action="/settings/credentials" class="set-grid">
         <div>
-          <label>{{ t.cur_password }}</label>
-          <input type="password" name="current_password" required autocomplete="current-password">
-        </div>
-        <div>
           <label>{{ t.new_username }}</label>
           <input name="new_username" value="{{ admin_user }}" pattern="[A-Za-z0-9_.\-]{3,32}">
         </div>
@@ -459,10 +455,6 @@ html[dir=rtl] .sb-item.active{box-shadow:inset -3px 0 0 var(--neon-cyan),0 0 18p
       <h2><svg class="ni ni-lg"><use href="#i-shield"/></svg> {{ t.settings_vpn }}</h2>
       <form method="post" action="/settings/psk" class="set-grid">
         <div class="full warn-box">⚠️ {{ t.change_psk_warn }}</div>
-        <div>
-          <label>{{ t.cur_password }}</label>
-          <input type="password" name="current_password" required autocomplete="current-password">
-        </div>
         <div>
           <label>{{ t.new_psk }}</label>
           <div class="secret-row" style="width:100%">
@@ -491,10 +483,6 @@ html[dir=rtl] .sb-item.active{box-shadow:inset -3px 0 0 var(--neon-cyan),0 0 18p
       <h2><svg class="ni ni-lg"><use href="#i-server"/></svg> {{ t.settings_panel }}</h2>
       <form method="post" action="/settings/port" class="set-grid">
         <div class="full note-box">ℹ️ {{ t.port_warn }}</div>
-        <div>
-          <label>{{ t.cur_password }}</label>
-          <input type="password" name="current_password" required autocomplete="current-password">
-        </div>
         <div>
           <label>{{ t.cur_port }}</label>
           <input value="{{ panel_port }}" disabled style="opacity:.55">
@@ -627,6 +615,7 @@ function onRestorePick(inp){
 
 </script>
 {% endblock %}
+
 
 
 
