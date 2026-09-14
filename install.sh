@@ -1267,6 +1267,7 @@ if __name__ == '__main__':
 
 
 
+
 ZQ_panel_py
 chmod 755 "${PANEL_DIR}/panel.py"
 
@@ -1449,6 +1450,7 @@ if __name__ == '__main__':
 
 
 
+
 ZQ_sync_users_py
 chmod 755 "${PANEL_DIR}/sync_users.py"
 
@@ -1496,6 +1498,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
@@ -1588,6 +1591,7 @@ if __name__ == "__main__":
     write_sessions(users)
 
 
+
 ZQ_ocserv_online_py
 chmod 755 "${PANEL_DIR}/ocserv_online.py"
 
@@ -1660,6 +1664,7 @@ if __name__ == "__main__":
     update()
 
 
+
 ZQ_ocserv_traffic_py
 chmod 755 "${PANEL_DIR}/ocserv_traffic.py"
 
@@ -1705,6 +1710,7 @@ def sync():
 
 if __name__ == "__main__":
     print("ocserv synced: %d active users" % sync())
+
 
 
 ZQ_ocserv_manager_py
@@ -2049,6 +2055,7 @@ function genPass(){var c='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz2345678
 
 
 
+
 ZQ_base_html
 
 cat > "${PANEL_DIR}/templates/login.html" <<'ZQ_login_html'
@@ -2138,6 +2145,7 @@ cat > "${PANEL_DIR}/templates/login.html" <<'ZQ_login_html'
   </form>
 </div>
 {% endblock %}
+
 
 
 
@@ -2771,6 +2779,7 @@ function onRestorePick(inp){
 
 
 
+
 ZQ_index_html
 
 cat > "${PANEL_DIR}/templates/user.html" <<'ZQ_user_html'
@@ -3061,6 +3070,7 @@ cat > "${PANEL_DIR}/templates/user.html" <<'ZQ_user_html'
 
 
 
+
 ZQ_user_html
 
 cat > "${PANEL_DIR}/templates/restarting.html" <<'ZQ_restarting_html'
@@ -3076,6 +3086,7 @@ cat > "${PANEL_DIR}/templates/restarting.html" <<'ZQ_restarting_html'
   </div>
 </div>
 {% endblock %}
+
 
 
 
@@ -3123,6 +3134,7 @@ cat > "${PANEL_DIR}/templates/updating.html" <<'ZQ_updating_html'
   </div>
 </div>
 {% endblock %}
+
 
 
 
@@ -3203,6 +3215,7 @@ if echo "$KILLED" | grep -q "COUNT:1\|COUNT:2\|COUNT:3\|COUNT:4\|COUNT:5"; then
 fi
 
 echo "[OK] enforcement done"
+
 
 
 ZQ_ENFORCE
