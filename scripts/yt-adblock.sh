@@ -73,6 +73,22 @@ remove_redirect() {
   done
 }
 
+apply_dot() {
+  for pool in "${POOLS[@]}"; do
+    if ! /sbin/iptables -w 5 -C FORWARD -s "$pool" -p tcp --dport 853 -j DROP 2>/dev/null; then
+      /sbin/iptables -w 5 -I FORWARD -s "$pool" -p tcp --dport 853 -j DROP
+    fi
+  done
+}
+
+remove_dot() {
+  for pool in "${POOLS[@]}"; do
+    while /sbin/iptables -w 5 -C FORWARD -s "$pool" -p tcp --dport 853 -j DROP 2>/dev/null; do
+      /sbin/iptables -w 5 -D FORWARD -s "$pool" -p tcp --dport 853 -j DROP
+    done
+  done
+}
+
 case "$MODE" in
   on)
     dpkg -s dnsmasq >/dev/null 2>&1 || apt-get install -y dnsmasq >/dev/null
@@ -92,6 +108,7 @@ CONF
     systemctl enable dnsmasq >/dev/null 2>&1 || true
     systemctl restart dnsmasq
     apply_redirect
+    apply_dot
     ufw allow in on ppp+ to any port 53 proto udp >/dev/null 2>&1 || true
     ufw allow in on ppp+ to any port 53 proto tcp >/dev/null 2>&1 || true
     ufw allow in on tun+ to any port 53 proto udp >/dev/null 2>&1 || true
@@ -102,6 +119,7 @@ CONF
     ;;
   off)
     remove_redirect
+    remove_dot
     ufw delete allow in on ppp+ to any port 53 proto udp >/dev/null 2>&1 || true
     ufw delete allow in on ppp+ to any port 53 proto tcp >/dev/null 2>&1 || true
     ufw delete allow in on tun+ to any port 53 proto udp >/dev/null 2>&1 || true
