@@ -112,13 +112,18 @@
 
         <div class="flex-1 overflow-y-auto p-4 lg:p-8 pb-32 space-y-6">
             {% with msgs = get_flashed_messages() %}
+            {% set pglang = session.get('lang', 'fa') %}
               {% for m in msgs %}
-              {% if m.startswith('ERR_FA:') %}
-              <div class="flash-msg p-4 rounded-2xl bg-red-500/10 border border-red-500/40 text-red-600 dark:text-red-400 text-sm font-bold flex items-center gap-2" data-msg="{{ m }}"><i class="fa-solid fa-circle-exclamation"></i> <span class="flash-text">{{ m[7:] }}</span></div>
-              {% elif m.startswith('FA:') %}
-              <div class="flash-msg p-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300 text-sm font-bold flex items-center gap-2" data-msg="{{ m }}"><i class="fa-solid fa-circle-check"></i> <span class="flash-text">{{ m[3:] }}</span></div>
+              {% set is_err = m.startswith('ERR_FA:') %}
+              {% set body = m[7:] if is_err else (m[3:] if m.startswith('FA:') else m) %}
+              {% set sep = body.find('|EN:') %}
+              {% set fa_txt = body[:sep] if sep > -1 else body %}
+              {% set en_txt = body[sep+4:] if sep > -1 else fa_txt %}
+              {% set shown = en_txt if (pglang == 'en' and sep > -1) else fa_txt %}
+              {% if is_err %}
+              <div class="flash-msg p-4 rounded-2xl bg-red-500/10 border border-red-500/40 text-red-600 dark:text-red-400 text-sm font-bold flex items-center gap-2" data-msg="{{ m }}"><i class="fa-solid fa-circle-exclamation"></i> <span class="flash-text">{{ shown }}</span></div>
               {% else %}
-              <div class="flash-msg p-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300 text-sm font-bold flex items-center gap-2" data-msg="{{ m }}"><i class="fa-solid fa-circle-check"></i> <span class="flash-text">{{ m }}</span></div>
+              <div class="flash-msg p-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300 text-sm font-bold flex items-center gap-2" data-msg="{{ m }}"><i class="fa-solid fa-circle-check"></i> <span class="flash-text">{{ shown }}</span></div>
               {% endif %}
               {% endfor %}
             {% endwith %}
@@ -384,10 +389,25 @@
         function toggleTheme(){ var h=document.documentElement; h.classList.toggle('dark'); try{localStorage.setItem('l2tp-theme',h.classList.contains('dark')?'dark':'light');}catch(e){} }
         function toggleSidebar(){ const s=document.getElementById('sidebar'),o=document.getElementById('sidebarOverlay'); o.classList.toggle('hidden'); s.classList.toggle('open'); }
         function flashI18n(){ var lang=document.documentElement.getAttribute('lang')||'fa'; document.querySelectorAll('.flash-msg').forEach(function(el){ var raw=el.getAttribute('data-msg')||''; var isErr=raw.indexOf('ERR_FA:')===0; var body=isErr?raw.substring(7):(raw.indexOf('FA:')===0?raw.substring(3):raw); var sep=body.indexOf('|EN:'); var fa=sep>-1?body.substring(0,sep):body; var en=sep>-1?body.substring(sep+4):fa; var span=el.querySelector('.flash-text'); if(span){span.textContent=(lang==='en'&&en)?en:fa;} }); }
-        flashI18n();
+        if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",flashI18n);}else{flashI18n();}
         function generatePSK(){ const c='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789',a=new Uint32Array(20); window.crypto.getRandomValues(a); let p=''; for(let i=0;i<20;i++){p+=c[a[i]%c.length];} document.getElementById('pskInput').value=p; }
         function pwValidate(){ var pw=document.getElementById('newPw'),pw2=document.getElementById('newPw2'); if(!pw)return; var v=pw.value; if(v.length===0){pw.classList.remove('border-red-500','ring-red-500','border-green-500');return;} if(v.length<6){pw.classList.add('border-red-500','ring-2','ring-red-500/30');pw.classList.remove('border-green-500');}else{pw.classList.remove('border-red-500','ring-red-500/30');pw.classList.add('border-green-500','ring-2','ring-green-500/30');} if(pw2&&pw2.value.length>0){ if(pw2.value!==v){pw2.classList.add('border-red-500','ring-2','ring-red-500/30');pw2.classList.remove('border-green-500');}else{pw2.classList.remove('border-red-500','ring-red-500/30');pw2.classList.add('border-green-500','ring-2','ring-green-500/30');} } }
         function onRestorePick(inp){ if(!inp.files||!inp.files[0])return; if(!confirm('Restore '+inp.files[0].name+' ?')){inp.value='';return;} document.getElementById('restoreForm').submit(); }
     </script>
-</body>
+<script>
+        // مترجم صفحه: بر اساس lang صفحه، متن data-en/data-fa را جایگزین می‌کند
+        function applyLangI18n(){
+          var lang = document.documentElement.getAttribute('lang') || 'fa';
+          var dir  = (lang === 'en') ? 'ltr' : 'rtl';
+          document.documentElement.setAttribute('dir', dir);
+          document.querySelectorAll('[data-en]').forEach(function(el){
+            var en = el.getAttribute('data-en');
+            var fa = el.getAttribute('data-fa');
+            if (lang === 'en' && en) { if(el.textContent !== en) el.textContent = en; }
+            else if (fa && el.textContent !== fa) { el.textContent = fa; }
+          });
+        }
+        if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', applyLangI18n); } else { applyLangI18n(); }
+        </script>
+        </body>
 </html>

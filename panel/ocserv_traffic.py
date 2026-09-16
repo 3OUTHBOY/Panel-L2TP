@@ -75,7 +75,7 @@ def update():
     # per-user: split by actual usage if possible, else equal
     per_user = delta // len(users)
 
-    db = sqlite3.connect(DB)
+    db = sqlite3.connect(DB, timeout=15)
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     for u in users:
         db.execute(

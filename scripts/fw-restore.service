@@ -1,0 +1,11 @@
+[Unit]
+Description=Restore firewall/adblock states after boot
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/fw-restore-boot.sh
+
+[Install]
+WantedBy=multi-user.target

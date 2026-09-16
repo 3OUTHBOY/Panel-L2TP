@@ -836,7 +836,7 @@ def settings_credentials():
     if changed:
         session.clear()
         return redirect(url_for('login') + '?relogin=1')
-    flash_bi("تغییرات ذخیره شد.", "Changes saved.")
+    flash_i18n("تغییرات ذخیره شد.", "Changes saved.")
     return redirect(url_for('settings_page'))
 
 
@@ -895,9 +895,9 @@ def settings_dns():
         subprocess.run(['systemctl', 'restart', 'xl2tpd'],
                        capture_output=True, timeout=60)
     except Exception:
-        flash_bi("ریستارت ناموفق!", "Restart failed!")
+        flash_i18n("ریستارت ناموفق!", "Restart failed!")
         return redirect(url_for('settings_page'))
-    flash_bi("DNS پیش‌فرض ذخیره شد.", "Default DNS saved.")
+    flash_i18n("DNS پیش‌فرض ذخیره شد.", "Default DNS saved.")
     return redirect(url_for('settings_page'))
 
 
@@ -921,7 +921,7 @@ def settings_port():
         subprocess.run(['systemctl', 'daemon-reload'], capture_output=True, timeout=30)
         subprocess.run(['ufw', 'allow', port + '/tcp'], capture_output=True, timeout=30)
     except Exception:
-        flash_bi("ریستارت ناموفق!", "Restart failed!")
+        flash_i18n("ریستارت ناموفق!", "Restart failed!")
         return redirect(url_for('settings_page'))
     new_url = 'http://%s:%s/' % (request.host.split(':')[0], port)
     try:
@@ -1118,7 +1118,7 @@ def settings_ocserv_ports():
         _t.sleep(2)
         ok = sp.run(['systemctl', 'is-active', 'ocserv'], capture_output=True, text=True).stdout.strip() == 'active'
         if ok:
-            flash_bi("پورت‌های OpenConnect تغییر کرد: TCP " + tcp + " / UDP " + udp,
+            flash_i18n("پورت‌های OpenConnect تغییر کرد: TCP " + tcp + " / UDP " + udp,
                      "OpenConnect ports changed: TCP " + tcp + " / UDP " + udp)
         else:
             flash_err("پورت تغییر یافت اما ocserv بالا نیامد! لاگ: journalctl -u ocserv",
@@ -1143,7 +1143,7 @@ def settings_ipsec_params():
         flash_err("PSK نامعتبر است (حداقل ۸ کاراکتر).", "Invalid PSK (min 8 chars).")
         return redirect(url_for('settings_page'))
     if not new_psk and not mtu and not cipher:
-        flash_bi("چیزی تغییر نکرد.", "Nothing changed.")
+        flash_i18n("چیزی تغییر نکرد.", "Nothing changed.")
         return redirect(url_for('settings_page'))
     if cipher not in ('aes256', 'aes128', 'aes256gcm'):
         flash_err("Cipher نامعتبر است.", "Invalid cipher.")
@@ -1193,7 +1193,7 @@ def settings_ipsec_params():
         sp.run(['systemctl', 'restart', 'xl2tpd'], capture_output=True, timeout=30)
         sp.run(['systemctl', 'restart', 'ocserv'], capture_output=True, timeout=30)
         sp.run(['systemctl', 'restart', 'strongswan-starter'], capture_output=True, timeout=30)
-        flash_bi(("PSK، " if new_psk else "") + "MTU به " + mtu + " و Cipher به " + cipher + " تغییر کرد.",
+        flash_i18n(("PSK، " if new_psk else "") + "MTU به " + mtu + " و Cipher به " + cipher + " تغییر کرد.",
                  "PSK, " * (1 if new_psk else 0) + "MTU to " + mtu + ", cipher: " + cipher + ".")
     except Exception as e:
         flash_err("خطا: " + str(e)[:80], "Error: " + str(e)[:80])
@@ -1249,6 +1249,21 @@ def settings_page():
     def_dns = _default_dns()
     ocp = _ocserv_ports()
     ip = _ipsec_params()
+
+    try:
+        _st = '/tmp/fw-apply-status'
+        if os.path.exists(_st):
+            _age = time.time() - os.path.getmtime(_st)
+            _c = open(_st).read().strip()
+            if 0 < _age < 300 and _c != 'running' and _c != getattr(settings_page, '_lastfw', None):
+                settings_page._lastfw = _c
+                if _c.startswith('ok'):
+                    flash_bi('قوانین فایروال با موفقیت اعمال شد ✓', 'Firewall rules applied ✓')
+                else:
+                    flash_err('اعمال برخی قوانین ناموفق بود:' + _c.replace('fail:', ' '),
+                              'Some rules failed:' + _c.replace('fail:', ' '))
+    except Exception:
+        pass
     return render_template('settings.html', fw_state=_firewall_state(), server_ip=SERVER_IP, psk=CFG['psk'],
                            admin_user=CFG['admin_user'], panel_port=_panel_port(),
                            default_dns1=def_dns[0], default_dns2=def_dns[1], svc=svc,
@@ -1284,9 +1299,9 @@ def settings_firewall():
                  'block_ads': ('بلاک تبلیغات یوتیوب', 'YouTube ads block')}
         fa, en = names[key]
         if state == 'on':
-            flash_bi(fa + " فعال شد.", en + " enabled.")
+            flash_i18n(fa + " فعال شد.", en + " enabled.")
         else:
-            flash_bi(fa + " غیرفعال شد.", en + " disabled.")
+            flash_i18n(fa + " غیرفعال شد.", en + " disabled.")
     else:
         flash_err("اعمال قانون فایروال ناموفق بود!", "Firewall rule failed!")
     return redirect(url_for('settings_page'))
@@ -1297,53 +1312,32 @@ def settings_firewall():
 @login_required
 def settings_firewall_save():
     import subprocess as sp
-    # خواندن وضعیت toggle ها از فرم (checkbox → on)
     block_ir = 'block_ir' in request.form
     block_p2p = 'block_p2p' in request.form
     block_ads = 'block_ads' in request.form
 
-    names = {'ir': ('مسدودسازی سایت‌های ایرانی', 'Iranian domains block'),
-             'p2p': ('مسدودسازی تورنت', 'P2P block'),
-             'ads': ('بلاک تبلیغات', 'YouTube ads block')}
-    actions = [('ir', 'block_ir', block_ir),
-               ('p2p', 'block_p2p', block_p2p),
-               ('ads', 'block_ads', block_ads)]
-
-    applied = []
-    failed = []
-    for what, key, state in actions:
-        try:
-            r = sp.run(['/bin/bash', '/root/firewall-apply.sh', what, 'on' if state else 'off'],
-                       capture_output=True, text=True, timeout=120)
-            if r.returncode == 0:
-                applied.append(names[what])
-            else:
-                failed.append(names[what])
-        except Exception:
-            failed.append(names[what])
-
-    # ذخیره وضعیت در config:
+    # ذخیره فوری وضعیت
     CFG['firewall'] = {'block_ir': block_ir,
-                        'block_p2p': block_p2p,
-                        'block_ads': block_ads}
+                       'block_p2p': block_p2p,
+                       'block_ads': block_ads}
     _save_config()
 
-    if failed:
-        flash_err("برخی قوانین اعمال نشد: " + '، '.join(f[0] for f in failed),
-                  "Some rules failed: " + ', '.join(f[1] for f in failed))
-    else:
-        enabled = [n[0] for n in applied if n in [('ir', block_ir), ('p2p', block_p2p), ('ads', block_ads)] and dict(zip(['ir','p2p','ads'], [block_ir, block_p2p, block_ads]))[n]]
-        # ساده‌تر — لیست فعال‌ها:
-        on_list = []
-        if block_ir: on_list.append(names['ir'][0])
-        if block_p2p: on_list.append(names['p2p'][0])
-        if block_ads: on_list.append(names['ads'][0])
-        msg_fa = 'قوانین فایروال ذخیره شد.'
-        msg_en = 'Firewall rules saved.'
-        if on_list:
-            msg_fa += ' فعال: ' + '، '.join(on_list)
-            msg_en += ' Enabled: ' + ', '.join(names[k][1] for k in ['ir','p2p','ads'] if {'ir':block_ir,'p2p':block_p2p,'ads':block_ads}[k])
-        flash_bi(msg_fa, msg_en)
+    # اعمال در پس‌زمینه — دکمه فوراً جواب می‌دهد، هیچ تردی قفل نمی‌شود
+    states = {'ir': 'on' if block_ir else 'off',
+              'p2p': 'on' if block_p2p else 'off',
+              'ads': 'on' if block_ads else 'off'}
+    bg = '#!/bin/bash\nexec 9>/tmp/fw-apply.lock\nflock 9\n'
+    bg += 'S=/tmp/fw-apply-status; echo running > "$S"\n'
+    bg += 'FAIL=""\n'
+    for k in ('ir', 'p2p', 'ads'):
+        bg += '/bin/bash /root/firewall-apply.sh %s %s || FAIL="$FAIL %s"\n' % (k, states[k], k)
+    bg += 'if [ -z "$FAIL" ]; then echo "ok $(date +%H:%M)" > "$S"; else echo "fail:$FAIL" > "$S"; fi\n'
+
+    sp.Popen(['/bin/bash', '-c', bg], start_new_session=True,
+             stdout=sp.DEVNULL, stderr=sp.DEVNULL)
+
+    flash_bi("قوانین در پس‌زمینه اعمال می‌شوند؛ چند ثانیه بعد صفحه را دوباره باز کنید.",
+             "Applying in background; reload this page in a few seconds.")
     return redirect(url_for('settings_page'))
 
 
