@@ -492,7 +492,16 @@ app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax')
 _attempts = {}
 _lock = threading.Lock()
 
-def get_lang(): return session.get('lang', DEFAULT_LANG)
+def get_lang():
+    # cookie همیشه تازه‌ترین انتخاب کاربره (JS سوییچ زبان همون لحظه ست می‌کنه)
+    cookie_lang = request.cookies.get('l2tp_lang')
+    if cookie_lang in ('fa', 'en'):
+        if session.get('lang') != cookie_lang:
+            session['lang'] = cookie_lang
+        return cookie_lang
+    # fallback: session → default
+    return session.get('lang', DEFAULT_LANG)
+
 
 def T(key, **kwargs):
     text = TRANSLATIONS.get(get_lang(), TRANSLATIONS[DEFAULT_LANG]).get(key) \
@@ -501,10 +510,10 @@ def T(key, **kwargs):
 
 def fmt_remaining(secs, lang):
     d, h, m = int(secs // 86400), int((secs % 86400) // 3600), int((secs % 3600) // 60)
-    if lang == 'fa':
-        if d > 0: return '{} روز و {} ساعت'.format(d, h)
-        if h > 0: return '{} ساعت و {} دقیقه'.format(h, m)
-        return '{} دقیقه'.format(max(m, 1))
+    if lang == 'en':
+        if d > 0: return '{}d {}h'.format(d, h)
+        if h > 0: return '{}h {}m'.format(h, m)
+        return '{}m'.format(max(m, 1))
     if d > 0: return '{}d {}h'.format(d, h)
     if h > 0: return '{}h {}m'.format(h, m)
     return '{}m'.format(max(m, 1))
@@ -566,7 +575,18 @@ def init_db():
             used_bytes INTEGER NOT NULL DEFAULT 0,
             dns1 TEXT NOT NULL DEFAULT '',
             dns2 TEXT NOT NULL DEFAULT '',
-            dns_key TEXT NOT NULL DEFAULT '')''')
+            dns_key TEXT NOT NULL DEFAULT '',
+            telegram TEXT NOT NULL DEFAULT '',
+            protocol TEXT NOT NULL DEFAULT 'all',
+            max_devices INTEGER NOT NULL DEFAULT 0,
+            note TEXT NOT NULL DEFAULT '')''')
+        cols = [r[1] for r in conn.execute('PRAGMA table_info(users)')]
+        for col, ddl in (('telegram', "TEXT NOT NULL DEFAULT ''"),
+                         ('protocol', "TEXT NOT NULL DEFAULT 'all'"),
+                         ('max_devices', 'INTEGER NOT NULL DEFAULT 0'),
+                         ('note', "TEXT NOT NULL DEFAULT ''")):
+            if col not in cols:
+                conn.execute('ALTER TABLE users ADD COLUMN %s %s' % (col, ddl))
         conn.commit()
     finally:
         conn.close()
@@ -634,7 +654,7 @@ def user_row_to_dict(row):
     traffic_pct = min(int(used * 100 / limit_bytes), 100) if limit_bytes > 0 else 0
     traffic = ('{} / {}'.format(fmt_traffic(used), fmt_traffic(limit_bytes))
                if limit_mb > 0 else '{} / ∞'.format(fmt_traffic(used)))
-    remaining = fmt_remaining(secs, lang) if not expired and not quota_exceeded else '—'
+    remaining = fmt_remaining(secs, session.get('lang', 'fa')) if not expired and not quota_exceeded else '—'
     return {'id': row['id'], 'username': row['username'], 'password': row['password'],
             'expires': row['expires_at'],
             'expires_input': row['expires_at'][:16].replace(' ', 'T'),
@@ -643,7 +663,11 @@ def user_row_to_dict(row):
             'traffic': traffic, 'quota_exceeded': quota_exceeded,
             'limit_gb': round(limit_mb / 1024.0, 2), 'traffic_pct': traffic_pct,
             'dns1': row['dns1'] or '', 'dns2': row['dns2'] or '',
-            'key': row['dns_key'] or ''}
+            'key': row['dns_key'] or '',
+            'telegram': row['telegram'] or '',
+            'protocol': row['protocol'] or 'all',
+            'max_devices': row['max_devices'] or 0,
+            'note': row['note'] or ''}
 
 def login_required(view):
     @wraps(view)
@@ -659,20 +683,46 @@ def csrf_protect():
     src = request.headers.get('Origin') or request.headers.get('Referer')
     if not src: return None
     if urlparse(src).netloc and urlparse(src).netloc != request.host:
-        flash(T('invalid_request'))
+        flash_i18n("درخواست نامعتبر رد شد.", "Invalid request rejected.")
         return redirect(url_for('index') if session.get('admin') else url_for('login'))
     return None
+
+
+# دو زبانه: پیام با کلید — JS سمت کلاینت متن درست رو انتخاب می‌کنه
+def flash_i18n(fa_text, en_text):
+    session['flash_msg'] = {'fa': fa_text, 'en': en_text}
+    flash('FA:' + fa_text)
+
+
+
+def flash_bi(fa, en):
+    flash('FA:' + str(fa) + '|EN:' + str(en))
+
+
+
+def flash_err(fa, en):
+    flash('ERR_FA:' + str(fa) + '|EN:' + str(en))
+
 
 @app.route('/lang/<string:code>')
 def set_lang(code):
     if code in TRANSLATIONS:
         session['lang'] = code
-    return redirect(request.referrer or url_for('index'))
-
+    resp = redirect(request.referrer or url_for('index'))
+    resp.set_cookie('l2tp_lang', code, max_age=365*24*3600)
+    return resp
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     error = None
     if request.method == 'POST':
+        # زبان انتخاب‌شده روی صفحه لاگین — قبل از هرچیز اعمال شه
+        _lg = request.form.get('login_lang', '')
+        if _lg in ('fa', 'en'):
+            session['lang'] = _lg
+        # کوکی هم چک شه (اگه JS ست کرده باشه)
+        _ck = request.cookies.get('l2tp_lang', '')
+        if _ck in ('fa', 'en') and not _lg:
+            session['lang'] = _ck
         username = request.form.get('username', '')
         password = request.form.get('password', '')
         ip = request.remote_addr or '?'
@@ -728,8 +778,7 @@ def _get_chart_data():
             row = conn.execute('SELECT total_bytes FROM daily_stats WHERE day=?',
                                (key,)).fetchone()
             total = row['total_bytes'] if row else 0
-            label = ('امروز' if i == 0 else str(i)) if get_lang() == 'fa' \
-                    else ('Today' if i == 0 else str(i))
+            label = 'Today' if i == 0 else str(i)
             days.append({'label': label, 'bytes': total})
         top = conn.execute('SELECT username, used_bytes, traffic_limit_mb FROM users '
                            'WHERE used_bytes > 0 ORDER BY used_bytes DESC LIMIT 5').fetchall()
@@ -748,6 +797,46 @@ def _get_chart_data():
         return days, top_users
     except Exception:
         return [], []
+
+
+
+def _hardware_stats():
+    import os
+    try:
+        # CPU: sample /proc/stat twice over 200ms
+        def cpu_times():
+            with open('/proc/stat') as fh:
+                parts = fh.readline().split()[1:]
+            vals = [int(x) for x in parts]
+            idle = vals[3] + (vals[4] if len(vals) > 4 else 0)
+            return sum(vals), idle
+        import time
+        t1, i1 = cpu_times()
+        time.sleep(0.2)
+        t2, i2 = cpu_times()
+        cpu = int((1 - (i2 - i1) / max(t2 - t1, 1)) * 100)
+        cpu = max(0, min(cpu, 100))
+    except Exception:
+        cpu = 0
+    try:
+        with open('/proc/meminfo') as fh:
+            mem = {}
+            for line in fh:
+                p = line.split(':')
+                if len(p) == 2:
+                    mem[p[0]] = int(p[1].strip().split()[0])
+        total = mem.get('MemTotal', 0)
+        avail = mem.get('MemAvailable', 0)
+        used = total - avail
+        ram = int(used * 100 / total) if total else 0
+        def fmt(kb):
+            gb = kb / (1024 * 1024)
+            return ('%.1f GB' % gb) if gb < 10 else ('%d GB' % round(gb))
+        ram_used = fmt(used)
+        ram_total = fmt(total)
+    except Exception:
+        ram, ram_used, ram_total = 0, '?', '?'
+    return {'cpu': cpu, 'ram': ram, 'ram_used': ram_used, 'ram_total': ram_total}
 
 
 @app.route('/')
@@ -779,8 +868,8 @@ def index():
     svc = {'ipsec': service_active('strongswan-starter') or service_active('ipsec'), 'xl2tpd': service_active('xl2tpd'), 'nat': service_active('l2tp-nat'), 'ocserv': service_active('ocserv'), 'ikev2': service_active('strongswan-starter') or service_active('ipsec')}
     return render_template('index.html', users=users, server_ip=SERVER_IP, psk=CFG['psk'],
                            active_count=active_count, total_count=len(users),
-                           online_count=len(online_users), svc=svc,
-                           total_used=fmt_traffic(total_used),
+                           online_count=len(online_users), svc=svc, hw=_hardware_stats(),
+                           total_used=fmt_traffic(total_used), total_used_gb=fmt_gb(total_used),
                            total_limit=(fmt_traffic(total_limit_mb * 1024 * 1024) if total_limit_mb else None),
                            default_dns1=def_dns[0], default_dns2=def_dns[1],
                            admin_user=CFG['admin_user'], panel_port=_panel_port(),
@@ -810,37 +899,49 @@ def add_user():
     dns1 = request.form.get('dns1', '').strip()
     dns2 = request.form.get('dns2', '').strip()
     if not USERNAME_RE.match(username):
-        flash(T('invalid_username')); return redirect(url_for('index'))
+        flash_i18n("نام کاربری نامعتبر است.", "Invalid username."); return redirect(url_for('clients_page'))
     if BAD_PW_CHARS & set(password):
-        flash(T('bad_pw_chars')); return redirect(url_for('index'))
+        flash(T('bad_pw_chars')); return redirect(url_for('clients_page'))
     if not password: password = gen_password()
     for d in (dns1, dns2):
         if d and not IPV4_RE.match(d):
-            flash(T('invalid_dns')); return redirect(url_for('index'))
+            flash_i18n("آدرس DNS نامعتبر است.", "Invalid DNS address."); return redirect(url_for('clients_page'))
     limit_mb = parse_traffic_gb(traffic_raw)
     if traffic_raw and limit_mb is None:
-        flash(T('invalid_traffic')); return redirect(url_for('index'))
+        flash_i18n("محدودیت حجم نامعتبر است.", "Invalid traffic limit."); return redirect(url_for('clients_page'))
     now = datetime.now()
     if exact:
         expires_dt = parse_dt(exact)
         if expires_dt is None:
-            flash(T('invalid_expiry')); return redirect(url_for('index'))
+            flash_i18n("قالب تاریخ انقضا نامعتبر است.", "Invalid expiry format."); return redirect(url_for('clients_page'))
     else:
         try: days = int(days_raw)
         except ValueError: days = 0
         if days <= 0 or days > 3650:
-            flash(T('invalid_days')); return redirect(url_for('index'))
+            flash(T('invalid_days')); return redirect(url_for('clients_page'))
         expires_dt = now + timedelta(days=days)
+    telegram = request.form.get('telegram', '').strip()[:64]
+    protocol = request.form.get('protocol', 'all').strip()
+    if protocol not in ('all', 'openconnect', 'l2tp', 'ikev2'):
+        protocol = 'all'
+    try:
+        max_dev = int(request.form.get('max_devices', '0') or '0')
+    except ValueError:
+        max_dev = 0
+    if max_dev < 0 or max_dev > 10:
+        max_dev = 0
+    note = request.form.get('note', '').strip()[:500]
     try:
         db_execute('INSERT INTO users (username, password, expires_at, created_at, '
-                   'traffic_limit_mb, dns1, dns2, dns_key) VALUES (?,?,?,?,?,?,?,?)',
+                   'traffic_limit_mb, dns1, dns2, dns_key, telegram, protocol, max_devices, note) '
+                   'VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
                    (username, password, expires_dt.strftime(DT_FMT), now.strftime(DT_FMT),
-                    limit_mb, dns1, dns2, gen_key(20)))
+                    limit_mb, dns1, dns2, gen_key(20), telegram, protocol, max_dev, note))
     except sqlite3.IntegrityError:
-        flash(T('user_exists', username=username)); return redirect(url_for('index'))
+        flash_i18n("نام کاربری «" + username + "» قبلاً ثبت شده است.", "Username "" + username + "" already exists."); return redirect(url_for('clients_page'))
     run_sync()
-    flash(T('user_added', username=username, password=password))
-    return redirect(url_for('index'))
+    flash_i18n("کاربر «" + username + "» اضافه شد. رمز عبور: " + password + "", "User "" + username + "" added. Password: " + password + "")
+    return redirect(url_for('clients_page'))
 
 @app.route('/renew/<int:user_id>', methods=['POST'])
 @login_required
@@ -848,20 +949,23 @@ def renew_user(user_id):
     try: days = int(request.form.get('days', ''))
     except ValueError: days = 0
     if days <= 0 or days > 3650:
-        flash(T('invalid_days_short')); return redirect(url_for('index'))
+        flash_i18n("تعداد روز نامعتبر است.", "Invalid number of days."); return redirect(url_for('clients_page'))
     conn = get_db()
     try:
         row = conn.execute('SELECT expires_at FROM users WHERE id = ?', (user_id,)).fetchone()
     finally:
         conn.close()
     if row is None:
-        flash(T('user_not_found')); return redirect(url_for('index'))
+        flash_i18n("کاربر پیدا نشد.", "User not found."); return redirect(url_for('clients_page'))
     current = datetime.strptime(row['expires_at'], DT_FMT)
     base = current if current > datetime.now() else datetime.now()
     db_execute('UPDATE users SET expires_at = ? WHERE id = ?',
                ((base + timedelta(days=days)).strftime(DT_FMT), user_id))
-    run_sync(); flash(T('renewed'))
-    return redirect(url_for('index'))
+    run_sync()
+    # rebuild ocpasswd so renewed user can reconnect (without restarting ocserv)
+    subprocess.Popen(['/usr/bin/python3', '/root/ocserv-enforce.py'],
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); flash_i18n("اعتبار کاربر تمدید شد.", "User renewed successfully.")
+    return redirect(url_for('clients_page'))
 
 @app.route('/edit/<int:user_id>', methods=['POST'])
 @login_required
@@ -873,55 +977,66 @@ def edit_user(user_id):
     dns2 = request.form.get('dns2', '').strip()
     key_raw = request.form.get('key', '').strip()
     if not any((exact, password, traffic_raw, dns1, dns2, key_raw)):
-        flash(T('nothing_changed')); return redirect(url_for('index'))
+        flash_i18n("چیزی برای تغییر وارد نشده است.", "Nothing to change."); return redirect(url_for('clients_page'))
     conn = get_db()
     try:
         row = conn.execute('SELECT username FROM users WHERE id = ?', (user_id,)).fetchone()
     finally:
         conn.close()
     if row is None:
-        flash(T('user_not_found')); return redirect(url_for('index'))
+        flash_err("کاربر پیدا نشد.", "User not found."); return redirect(url_for('clients_page'))
     changed_pw = False
     if exact:
         dt = parse_dt(exact)
         if dt is None:
-            flash(T('invalid_date')); return redirect(url_for('index'))
+            flash_i18n("قالب تاریخ نامعتبر است.", "Invalid date format."); return redirect(url_for('clients_page'))
         db_execute('UPDATE users SET expires_at = ? WHERE id = ?', (dt.strftime(DT_FMT), user_id))
     if password:
         if BAD_PW_CHARS & set(password):
-            flash(T('bad_pw_chars_short')); return redirect(url_for('index'))
+            flash_i18n("رمز عبور دارای کاراکترهای غیرمجاز است.", "Password contains invalid characters."); return redirect(url_for('clients_page'))
         db_execute('UPDATE users SET password = ? WHERE id = ?', (password, user_id))
         changed_pw = True
     if traffic_raw:
         limit_mb = parse_traffic_gb(traffic_raw)
         if limit_mb is None:
-            flash(T('invalid_traffic')); return redirect(url_for('index'))
+            flash_err("محدودیت حجم نامعتبر است.", "Invalid traffic limit."); return redirect(url_for('clients_page'))
         db_execute('UPDATE users SET traffic_limit_mb = ? WHERE id = ?', (limit_mb, user_id))
     for d in (dns1, dns2):
         if d and not IPV4_RE.match(d):
-            flash(T('invalid_dns')); return redirect(url_for('index'))
+            flash_err("آدرس DNS نامعتبر است.", "Invalid DNS address."); return redirect(url_for('clients_page'))
     db_execute('UPDATE users SET dns1 = ?, dns2 = ? WHERE id = ?', (dns1, dns2, user_id))
+    telegram = request.form.get('telegram', '').strip()[:64]
+    protocol = request.form.get('protocol', 'all').strip()
+    if protocol not in ('all', 'openconnect', 'l2tp', 'ikev2'):
+        protocol = 'all'
+    try:
+        max_dev = int(request.form.get('max_devices', '0') or '0')
+    except ValueError:
+        max_dev = 0
+    note = request.form.get('note', '').strip()[:500]
+    db_execute('UPDATE users SET telegram = ?, protocol = ?, max_devices = ?, note = ? WHERE id = ?',
+               (telegram, protocol, max_dev, note, user_id))
     if key_raw:
         if not KEY_RE.match(key_raw):
-            flash(T('invalid_key')); return redirect(url_for('index'))
+            flash_i18n("کد کاربر نامعتبر است.", "Invalid user key."); return redirect(url_for('clients_page'))
         db_execute('UPDATE users SET dns_key = ? WHERE id = ?', (key_raw, user_id))
     if changed_pw: kill_session(row['username'])
-    run_sync(); flash(T('changes_saved'))
-    return redirect(url_for('index'))
+    run_sync(); flash_i18n("تغییرات ذخیره شد.", "Changes saved.")
+    return redirect(url_for('clients_page'))
 
 @app.route('/regen-key/<int:user_id>', methods=['POST'])
 @login_required
 def regen_key(user_id):
     db_execute('UPDATE users SET dns_key = ? WHERE id = ?', (gen_key(20), user_id))
-    flash(T('key_regenerated'))
-    return redirect(url_for('index'))
+    flash_i18n("کد جدید تولید شد (لینک قبلی دیگر کار نمی‌کند).", "New key generated (old link is invalid now).")
+    return redirect(url_for('clients_page'))
 
 @app.route('/reset-traffic/<int:user_id>', methods=['POST'])
 @login_required
 def reset_traffic(user_id):
     db_execute('UPDATE users SET used_bytes = 0 WHERE id = ?', (user_id,))
-    run_sync(); flash(T('traffic_reset'))
-    return redirect(url_for('index'))
+    run_sync(); flash_i18n("شمارنده حجم کاربر صفر شد.", "Traffic counter reset.")
+    return redirect(url_for('clients_page'))
 
 @app.route('/delete/<int:user_id>', methods=['POST'])
 @login_required
@@ -933,14 +1048,14 @@ def delete_user(user_id):
         conn.close()
     db_execute('DELETE FROM users WHERE id = ?', (user_id,))
     if row: kill_session(row['username'])
-    run_sync(); flash(T('user_deleted'))
-    return redirect(url_for('index'))
+    run_sync(); flash_i18n("کاربر حذف شد.", "User deleted.")
+    return redirect(url_for('clients_page'))
 
 @app.route('/sync', methods=['POST'])
 @login_required
 def sync_now():
-    run_sync(); flash(T('sync_done'))
-    return redirect(url_for('index'))
+    run_sync(); flash_i18n("همگام‌سازی انجام شد.", "Sync completed.")
+    return redirect(url_for('clients_page'))
 
 @app.route('/restart-vpn', methods=['POST'])
 @login_required
@@ -1037,20 +1152,20 @@ def settings_credentials():
     new_pass2 = request.form.get('new_password2', '')
     if new_pass or new_pass2:
         if new_pass != new_pass2:
-            flash(T('password_mismatch'))
-            return redirect(url_for('index'))
+            flash_i18n("رمزهای جدید یکسان نیستند.", "Passwords do not match.")
+            return redirect(url_for('settings_page'))
         if BAD_PW_CHARS & set(new_pass):
             flash(T('bad_pw_chars'))
-            return redirect(url_for('index'))
+            return redirect(url_for('settings_page'))
         if len(new_pass) < 6:
-            flash(T('invalid_password_short'))
-            return redirect(url_for('index'))
+            flash_err("رمز جدید باید حداقل ۶ کاراکتر باشد.", "Password must be at least 6 characters.")
+            return redirect(url_for('settings_page'))
     if new_user and not USERNAME_RE.match(new_user):
-        flash(T('invalid_username'))
-        return redirect(url_for('index'))
+        flash_err("نام کاربری نامعتبر است.", "Invalid username.")
+        return redirect(url_for('settings_page'))
     if not new_user and not new_pass:
-        flash(T('nothing_changed'))
-        return redirect(url_for('index'))
+        flash_err("چیزی برای تغییر وارد نشده است.", "Nothing to change.")
+        return redirect(url_for('settings_page'))
     changed = False
     if new_user and new_user != CFG['admin_user']:
         CFG['admin_user'] = new_user
@@ -1062,8 +1177,8 @@ def settings_credentials():
     if changed:
         session.clear()
         return redirect(url_for('login') + '?relogin=1')
-    flash(T('changes_saved'))
-    return redirect(url_for('index'))
+    flash_bi("تغییرات ذخیره شد.", "Changes saved.")
+    return redirect(url_for('settings_page'))
 
 
 @app.route('/settings/psk', methods=['POST'])
@@ -1071,8 +1186,8 @@ def settings_credentials():
 def settings_psk():
     new_psk = request.form.get('new_psk', '').strip()
     if not new_psk or len(new_psk) < 8 or BAD_PW_CHARS & set(new_psk):
-        flash(T('invalid_psk'))
-        return redirect(url_for('index'))
+        flash_i18n("PSK نامعتبر است.", "Invalid PSK.")
+        return redirect(url_for('settings_page'))
     CFG['psk'] = new_psk
     _save_config()
     try:
@@ -1083,8 +1198,8 @@ def settings_psk():
                        capture_output=True, timeout=60)
     except Exception:
         pass
-    flash(T('psk_saved'))
-    return redirect(url_for('index'))
+    flash_i18n("PSK جدید ذخیره شد و سرویس IPSec ریستارت شد.", "New PSK saved; IPSec restarted.")
+    return redirect(url_for('settings_page'))
 
 
 @app.route('/settings/dns', methods=['POST'])
@@ -1094,8 +1209,8 @@ def settings_dns():
     dns2 = request.form.get('dns2', '').strip()
     for d in (dns1, dns2):
         if d and not IPV4_RE.match(d):
-            flash(T('invalid_dns'))
-            return redirect(url_for('index'))
+            flash_err("آدرس DNS نامعتبر است.", "Invalid DNS address.")
+            return redirect(url_for('settings_page'))
     try:
         path = '/etc/ppp/options.xl2tpd'
         with open(path) as fh:
@@ -1121,10 +1236,10 @@ def settings_dns():
         subprocess.run(['systemctl', 'restart', 'xl2tpd'],
                        capture_output=True, timeout=60)
     except Exception:
-        flash(T('vpn_restart_failed'))
-        return redirect(url_for('index'))
-    flash(T('dns_saved'))
-    return redirect(url_for('index'))
+        flash_bi("ریستارت ناموفق!", "Restart failed!")
+        return redirect(url_for('settings_page'))
+    flash_bi("DNS پیش‌فرض ذخیره شد.", "Default DNS saved.")
+    return redirect(url_for('settings_page'))
 
 
 @app.route('/settings/port', methods=['POST'])
@@ -1132,11 +1247,11 @@ def settings_dns():
 def settings_port():
     port = request.form.get('port', '').strip()
     if not port.isdigit() or not (1024 <= int(port) <= 65535):
-        flash(T('invalid_port'))
-        return redirect(url_for('index'))
+        flash_err("پورت نامعتبر است.", "Invalid port.")
+        return redirect(url_for('settings_page'))
     if port == _panel_port():
-        flash(T('nothing_changed'))
-        return redirect(url_for('index'))
+        flash_err("چیزی برای تغییر وارد نشده است.", "Nothing to change.")
+        return redirect(url_for('settings_page'))
     try:
         svc_path = '/etc/systemd/system/l2tp-panel.service'
         with open(svc_path) as fh:
@@ -1147,8 +1262,8 @@ def settings_port():
         subprocess.run(['systemctl', 'daemon-reload'], capture_output=True, timeout=30)
         subprocess.run(['ufw', 'allow', port + '/tcp'], capture_output=True, timeout=30)
     except Exception:
-        flash(T('vpn_restart_failed'))
-        return redirect(url_for('index'))
+        flash_bi("ریستارت ناموفق!", "Restart failed!")
+        return redirect(url_for('settings_page'))
     new_url = 'http://%s:%s/' % (request.host.split(':')[0], port)
     try:
         subprocess.run(['systemd-run', '--collect', '--unit=l2tp-portchg',
@@ -1256,10 +1371,328 @@ def restore_backup():
         return redirect(url_for('login') + '?relogin=1')
     return redirect(url_for('index'))
 
+
+@app.route('/clients')
+@login_required
+def clients_page():
+    now = datetime.now()
+    conn = get_db()
+    try:
+        rows = conn.execute('SELECT * FROM users ORDER BY created_at ASC, id ASC').fetchall()
+    finally:
+        conn.close()
+    try:
+        online_users = set(os.listdir(SESS_DIR))
+    except OSError:
+        online_users = set()
+    users, active_count, expiring, expired_c = [], 0, 0, 0
+    for row in rows:
+        u = user_row_to_dict(row)
+        u['online'] = row['username'] in online_users
+        if not u['expired'] and not u['quota_exceeded']:
+            active_count += 1
+            if u['soon']:
+                expiring += 1
+        if u['expired'] or u['quota_exceeded']:
+            expired_c += 1
+        users.append(u)
+    svc = {'ipsec': service_active('strongswan-starter') or service_active('ipsec'),
+           'xl2tpd': service_active('xl2tpd'), 'nat': service_active('l2tp-nat'),
+           'ocserv': service_active('ocserv'),
+           'ikev2': service_active('strongswan-starter') or service_active('ipsec')}
+    return render_template('clients.html', admin_user=CFG['admin_user'], users=users, server_ip=SERVER_IP, psk=CFG['psk'],
+                           active_count=active_count, total_count=len(users),
+                           online_count=len(online_users),
+                           expiring_count=expiring, expired_count=expired_c, svc=svc)
+
+
+
+@app.route('/nodes')
+@login_required
+def nodes_page():
+    svc = {'ipsec': service_active('strongswan-starter') or service_active('ipsec'),
+           'xl2tpd': service_active('xl2tpd'), 'nat': service_active('l2tp-nat'),
+           'ocserv': service_active('ocserv'),
+           'ikev2': service_active('strongswan-starter') or service_active('ipsec')}
+    return render_template('nodes.html', server_ip=SERVER_IP, psk=CFG['psk'],
+                           admin_user=CFG['admin_user'], hw=_hardware_stats(),
+                           active_count=0, total_count=0, online_count=0, svc=svc)
+
+
+
+
+
+def _firewall_state():
+    fw = CFG.get('firewall', {})
+    return {'block_ir': fw.get('block_ir', False),
+            'block_p2p': fw.get('block_p2p', False),
+            'block_ads': fw.get('block_ads', False)}
+
+
+@app.route('/settings/ocserv-ports', methods=['POST'])
+@login_required
+def settings_ocserv_ports():
+    import subprocess as sp
+    tcp = request.form.get('ocserv_tcp', '').strip()
+    udp = request.form.get('ocserv_udp', '').strip()
+    for p in (tcp, udp):
+        if not p.isdigit() or not (1 <= int(p) <= 65535):
+            flash_err("پورت نامعتبر است (۱ تا ۶۵۵۳۵).", "Invalid port (1-65535).")
+            return redirect(url_for('settings_page'))
+    if tcp == udp:
+        flash_err("پورت TCP و UDP نمی‌توانند یکسان باشند.", "TCP and UDP ports cannot be the same.")
+        return redirect(url_for('settings_page'))
+    try:
+        conf = '/etc/ocserv/ocserv.conf'
+        with open(conf) as fh:
+            content = fh.read()
+        content = re.sub(r'^tcp-port\s*=\s*\d+', 'tcp-port = ' + tcp, content, flags=re.M)
+        content = re.sub(r'^udp-port\s*=\s*\d+', 'udp-port = ' + udp, content, flags=re.M)
+        with open(conf, 'w') as fh:
+            fh.write(content)
+        # فایروال: پورت‌های جدید باز
+        sp.run(['ufw', 'allow', tcp + '/tcp'], capture_output=True, timeout=30)
+        sp.run(['ufw', 'allow', udp + '/udp'], capture_output=True, timeout=30)
+        # ری‌استارت ocserv
+        sp.run(['systemctl', 'restart', 'ocserv'], capture_output=True, timeout=30)
+        import time as _t
+        _t.sleep(2)
+        ok = sp.run(['systemctl', 'is-active', 'ocserv'], capture_output=True, text=True).stdout.strip() == 'active'
+        if ok:
+            flash_bi("پورت‌های OpenConnect تغییر کرد: TCP " + tcp + " / UDP " + udp,
+                     "OpenConnect ports changed: TCP " + tcp + " / UDP " + udp)
+        else:
+            flash_err("پورت تغییر یافت اما ocserv بالا نیامد! لاگ: journalctl -u ocserv",
+                      "Port changed but ocserv failed! Check: journalctl -u ocserv")
+    except Exception as e:
+        flash_err("خطا: " + str(e)[:80], "Error: " + str(e)[:80])
+    return redirect(url_for('settings_page'))
+
+
+
+@app.route('/settings/ipsec-params', methods=['POST'])
+@login_required
+def settings_ipsec_params():
+    import subprocess as sp
+    mtu = request.form.get('mtu', '').strip()
+    cipher = request.form.get('cipher', 'aes256').strip()
+    if not mtu.isdigit() or not (1200 <= int(mtu) <= 1500):
+        flash_err("MTU نامعتبر است (۱۲۰۰ تا ۱۵۰۰).", "Invalid MTU (1200-1500).")
+        return redirect(url_for('settings_page'))
+    new_psk = request.form.get('new_psk', '').strip()
+    if new_psk and (len(new_psk) < 8 or BAD_PW_CHARS & set(new_psk)):
+        flash_err("PSK نامعتبر است (حداقل ۸ کاراکتر).", "Invalid PSK (min 8 chars).")
+        return redirect(url_for('settings_page'))
+    if not new_psk and not mtu and not cipher:
+        flash_bi("چیزی تغییر نکرد.", "Nothing changed.")
+        return redirect(url_for('settings_page'))
+    if cipher not in ('aes256', 'aes128', 'aes256gcm'):
+        flash_err("Cipher نامعتبر است.", "Invalid cipher.")
+        return redirect(url_for('settings_page'))
+    try:
+        # ---- ۱) xl2tpd MTU (L2TP) ----
+        opts = '/etc/ppp/options.xl2tpd'
+        with open(opts) as fh:
+            content = fh.read()
+        content = re.sub(r'^mtu\s+\d+', 'mtu ' + mtu, content, flags=re.M)
+        content = re.sub(r'^mru\s+\d+', 'mru ' + mtu, content, flags=re.M)
+        with open(opts, 'w') as fh:
+            fh.write(content)
+        # ---- ۲) ocserv MTU ----
+        oc = '/etc/ocserv/ocserv.conf'
+        try:
+            with open(oc) as fh:
+                occ = fh.read()
+            if re.search(r'^mtu\s*=', occ, re.M):
+                occ = re.sub(r'^mtu\s*=\s*\d+', 'mtu = ' + mtu, occ, flags=re.M)
+            else:
+                occ += '\nmtu = ' + mtu + '\n'
+            with open(oc, 'w') as fh:
+                fh.write(occ)
+        except Exception:
+            pass
+        # ---- ۳) Cipher (ipsec.conf esp) ----
+        cipher_map = {
+            'aes256': 'aes256-sha2_256,aes128-sha2_256,aes256-sha1,aes128-sha1',
+            'aes128': 'aes128-sha2_256,aes128-sha1',
+            'aes256gcm': 'aes256gcm16,aes128gcm16,aes256-sha2_256',
+        }
+        ipsec_f = '/etc/ipsec.conf'
+        with open(ipsec_f) as fh:
+            ic = fh.read()
+        ic = re.sub(r'(\s*esp\s*=\s*)[^\n]+', r'\1' + cipher_map[cipher], ic)
+        with open(ipsec_f, 'w') as fh:
+            fh.write(ic)
+        # ---- ۳.۵) PSK (اگه تغییر کرده) ----
+        if new_psk:
+            CFG['psk'] = new_psk
+            _save_config()
+            with open('/etc/ipsec.secrets', 'w') as fh:
+                fh.write('%%any %%any : PSK "%s"\n' % new_psk)
+            os.chmod('/etc/ipsec.secrets', 0o600)
+        # ---- ۴) ری‌استارت سرویس‌ها ----
+        sp.run(['systemctl', 'restart', 'xl2tpd'], capture_output=True, timeout=30)
+        sp.run(['systemctl', 'restart', 'ocserv'], capture_output=True, timeout=30)
+        sp.run(['systemctl', 'restart', 'strongswan-starter'], capture_output=True, timeout=30)
+        flash_bi(("PSK، " if new_psk else "") + "MTU به " + mtu + " و Cipher به " + cipher + " تغییر کرد.",
+                 "PSK, " * (1 if new_psk else 0) + "MTU to " + mtu + ", cipher: " + cipher + ".")
+    except Exception as e:
+        flash_err("خطا: " + str(e)[:80], "Error: " + str(e)[:80])
+    return redirect(url_for('settings_page'))
+
+
+
+def _ocserv_ports():
+    tcp, udp = '555', '555'
+    try:
+        with open('/etc/ocserv/ocserv.conf') as fh:
+            for line in fh:
+                if line.startswith('tcp-port'):
+                    tcp = line.split('=')[1].strip()
+                elif line.startswith('udp-port'):
+                    udp = line.split('=')[1].strip()
+    except Exception:
+        pass
+    return tcp, udp
+
+
+def _ipsec_params():
+    mtu = '1420'
+    try:
+        with open('/etc/ppp/options.xl2tpd') as fh:
+            m = re.search(r'^mtu\s+(\d+)', fh.read(), re.M)
+            if m:
+                mtu = m.group(1)
+    except Exception:
+        pass
+    cipher = 'aes256'
+    try:
+        with open('/etc/ipsec.conf') as fh:
+            content = fh.read()
+        if 'esp=' in content:
+            esp_val = content.split('esp=')[1].split('\n')[0]
+            if 'gcm' in esp_val:
+                cipher = 'aes256gcm'
+            elif esp_val.strip().startswith('aes128'):
+                cipher = 'aes128'
+    except Exception:
+        pass
+    return mtu, cipher
+
+
+@app.route('/settings')
+@login_required
+def settings_page():
+    svc = {'ipsec': service_active('strongswan-starter') or service_active('ipsec'),
+           'xl2tpd': service_active('xl2tpd'), 'nat': service_active('l2tp-nat'),
+           'ocserv': service_active('ocserv'),
+           'ikev2': service_active('strongswan-starter') or service_active('ipsec')}
+    def_dns = _default_dns()
+    ocp = _ocserv_ports()
+    ip = _ipsec_params()
+    return render_template('settings.html', fw_state=_firewall_state(), server_ip=SERVER_IP, psk=CFG['psk'],
+                           admin_user=CFG['admin_user'], panel_port=_panel_port(),
+                           default_dns1=def_dns[0], default_dns2=def_dns[1], svc=svc,
+                           ocserv_tcp=ocp[0], ocserv_udp=ocp[1],
+                           ipsec_mtu=ip[0], ipsec_cipher=ip[1])
+
+
+
+
+@app.route('/settings/firewall', methods=['POST'])
+@login_required
+def settings_firewall():
+    import subprocess as sp
+    key = request.form.get('fw_key', '').strip()
+    state = request.form.get('fw_state', '').strip()
+    if key not in ('block_ir', 'block_p2p', 'block_ads') or state not in ('on', 'off'):
+        flash_err("درخواست نامعتبر.", "Invalid request.")
+        return redirect(url_for('settings_page'))
+    what = {'block_ir': 'ir', 'block_p2p': 'p2p', 'block_ads': 'ads'}[key]
+    try:
+        r = sp.run(['/bin/bash', '/root/firewall-apply.sh', what, state],
+                   capture_output=True, text=True, timeout=60)
+        ok = r.returncode == 0
+    except Exception:
+        ok = False
+    if ok:
+        fw_cfg = CFG.get('firewall', {})
+        fw_cfg[key] = (state == 'on')
+        CFG['firewall'] = fw_cfg
+        _save_config()
+        names = {'block_ir': ('مسدودسازی سایت‌های ایرانی', 'Iranian domains block'),
+                 'block_p2p': ('مسدودسازی تورنت', 'P2P block'),
+                 'block_ads': ('بلاک تبلیغات یوتیوب', 'YouTube ads block')}
+        fa, en = names[key]
+        if state == 'on':
+            flash_bi(fa + " فعال شد.", en + " enabled.")
+        else:
+            flash_bi(fa + " غیرفعال شد.", en + " disabled.")
+    else:
+        flash_err("اعمال قانون فایروال ناموفق بود!", "Firewall rule failed!")
+    return redirect(url_for('settings_page'))
+
+
+
+@app.route('/settings/firewall-save', methods=['POST'])
+@login_required
+def settings_firewall_save():
+    import subprocess as sp
+    # خواندن وضعیت toggle ها از فرم (checkbox → on)
+    block_ir = 'block_ir' in request.form
+    block_p2p = 'block_p2p' in request.form
+    block_ads = 'block_ads' in request.form
+
+    names = {'ir': ('مسدودسازی سایت‌های ایرانی', 'Iranian domains block'),
+             'p2p': ('مسدودسازی تورنت', 'P2P block'),
+             'ads': ('بلاک تبلیغات', 'YouTube ads block')}
+    actions = [('ir', 'block_ir', block_ir),
+               ('p2p', 'block_p2p', block_p2p),
+               ('ads', 'block_ads', block_ads)]
+
+    applied = []
+    failed = []
+    for what, key, state in actions:
+        try:
+            r = sp.run(['/bin/bash', '/root/firewall-apply.sh', what, 'on' if state else 'off'],
+                       capture_output=True, text=True, timeout=120)
+            if r.returncode == 0:
+                applied.append(names[what])
+            else:
+                failed.append(names[what])
+        except Exception:
+            failed.append(names[what])
+
+    # ذخیره وضعیت در config:
+    CFG['firewall'] = {'block_ir': block_ir,
+                        'block_p2p': block_p2p,
+                        'block_ads': block_ads}
+    _save_config()
+
+    if failed:
+        flash_err("برخی قوانین اعمال نشد: " + '، '.join(f[0] for f in failed),
+                  "Some rules failed: " + ', '.join(f[1] for f in failed))
+    else:
+        enabled = [n[0] for n in applied if n in [('ir', block_ir), ('p2p', block_p2p), ('ads', block_ads)] and dict(zip(['ir','p2p','ads'], [block_ir, block_p2p, block_ads]))[n]]
+        # ساده‌تر — لیست فعال‌ها:
+        on_list = []
+        if block_ir: on_list.append(names['ir'][0])
+        if block_p2p: on_list.append(names['p2p'][0])
+        if block_ads: on_list.append(names['ads'][0])
+        msg_fa = 'قوانین فایروال ذخیره شد.'
+        msg_en = 'Firewall rules saved.'
+        if on_list:
+            msg_fa += ' فعال: ' + '، '.join(on_list)
+            msg_en += ' Enabled: ' + ', '.join(names[k][1] for k in ['ir','p2p','ads'] if {'ir':block_ir,'p2p':block_p2p,'ads':block_ads}[k])
+        flash_bi(msg_fa, msg_en)
+    return redirect(url_for('settings_page'))
+
+
 init_db()
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5000)
+
 
 
 
@@ -1422,7 +1855,13 @@ def main():
     for username, password, expires_at, limit_mb, used, dns1, dns2 in rows:
         time_ok = expires_at > now
         quota_ok = (limit_mb <= 0) or (used < limit_mb * 1024 * 1024)
-        if time_ok and quota_ok:
+        proto_ok = True
+        try:
+            proto_row = conn.execute('SELECT protocol FROM users WHERE username = ?', (username,)).fetchone()
+            proto_ok = (not proto_row) or (proto_row[0] in ('all', 'l2tp'))
+        except Exception:
+            pass
+        if time_ok and quota_ok and proto_ok:
             active.append((username, password))
             target = (dns1 or '').strip() or (dns2 or '').strip()
             if target: dns_targets[username] = target
@@ -1441,6 +1880,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
@@ -1498,6 +1938,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
@@ -1592,6 +2033,7 @@ if __name__ == "__main__":
 
 
 
+
 ZQ_ocserv_online_py
 chmod 755 "${PANEL_DIR}/ocserv_online.py"
 
@@ -1601,20 +2043,26 @@ import subprocess
 import sqlite3
 import os
 import re
+from datetime import datetime
 
 STATE_FILE = "/run/ocserv-last-counter"
+DB = "/opt/l2tp-panel/users.db"
+LOG_STATE = "/run/ocserv-traffic-log"
 
 def get_ocserv_rx_tx():
-    # sum rx+tx of all vpns* interfaces (ocserv creates vpns0, vpns1...)
+    """Sum rx+tx of all vpns* interfaces (ocserv tunnels)"""
     total = 0
-    for iface in os.listdir("/sys/class/net"):
-        if iface.startswith("vpns"):
-            for kind in ("rx_bytes", "tx_bytes"):
-                try:
-                    path = "/sys/class/net/%s/statistics/%s" % (iface, kind)
-                    total += int(open(path).read().strip())
-                except Exception:
-                    pass
+    try:
+        for iface in os.listdir("/sys/class/net"):
+            if iface.startswith("vpns"):
+                for kind in ("rx_bytes", "tx_bytes"):
+                    try:
+                        path = "/sys/class/net/%s/statistics/%s" % (iface, kind)
+                        total += int(open(path).read().strip())
+                    except Exception:
+                        pass
+    except Exception:
+        pass
     return total
 
 def get_last():
@@ -1628,11 +2076,28 @@ def save_last(v):
         f.write(str(v))
 
 def online_users():
-    d = "/run/l2tp-sessions"
+    """Find ocserv online users from journalctl (recent 10 min)"""
+    users = set()
     try:
-        return [f for f in os.listdir(d)]
+        result = subprocess.run(
+            ["journalctl", "-u", "ocserv", "--since", "10 minutes ago", "--no-pager"],
+            capture_output=True, text=True, timeout=10
+        )
+        connected = set()
+        disconnected = set()
+        for line in result.stdout.split("\n"):
+            m = re.search(r"worker\[(\w+)\]", line)
+            if m:
+                username = m.group(1)
+                connected.add(username)
+            if "disconnected" in line or "logout" in line or "removed" in line:
+                m2 = re.search(r"worker\[(\w+)\]", line)
+                if m2:
+                    disconnected.add(m2.group(1))
+        users = connected - disconnected
     except Exception:
-        return []
+        pass
+    return users
 
 def update():
     current = get_ocserv_rx_tx()
@@ -1641,38 +2106,39 @@ def update():
     save_last(current)
 
     if delta <= 0:
-        print("no new traffic")
-        return
+        return 0
 
     users = online_users()
     if not users:
-        print("traffic %d bytes but no users online" % delta)
-        return
+        return delta  # nobody online — just reset counter
 
+    # per-user: split by actual usage if possible, else equal
     per_user = delta // len(users)
-    db = sqlite3.connect("/opt/l2tp-panel/users.db")
+
+    db = sqlite3.connect(DB)
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     for u in users:
         db.execute(
             "UPDATE users SET used_bytes = used_bytes + ? WHERE username = ?",
             (per_user, u)
         )
-        print("  +%d bytes -> %s" % (per_user, u))
     db.commit()
     db.close()
+    return delta
 
 if __name__ == "__main__":
-    update()
-
-
+    d = update()
+    if d > 0:
+        print("ocserv traffic: +%d bytes" % d)
 
 ZQ_ocserv_traffic_py
 chmod 755 "${PANEL_DIR}/ocserv_traffic.py"
 
 cat > "${PANEL_DIR}/ocserv_manager.py" <<'ZQ_ocserv_manager_py'
 #!/usr/bin/env python3
-from datetime import datetime
 import sqlite3
 import subprocess
+from datetime import datetime
 
 DB = "/opt/l2tp-panel/users.db"
 OCPASSWD = "/etc/ocserv/ocpasswd"
@@ -1681,37 +2147,25 @@ def sync():
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     db = sqlite3.connect(DB)
     db.row_factory = sqlite3.Row
-    users = db.execute("SELECT username, password, expires_at, traffic_limit_mb, used_bytes FROM users").fetchall()
+    users = db.execute("SELECT username, password, expires_at, traffic_limit_mb, used_bytes, protocol FROM users").fetchall()
     db.close()
 
-    active = []
-    expired = []
+    open("/etc/ocserv/ocpasswd", "w").close()
     for u in users:
         time_ok = u["expires_at"] > now
         used_mb = (u["used_bytes"] or 0) / (1024.0 * 1024.0)
         limit = u["traffic_limit_mb"] or 0
         quota_ok = (limit <= 0) or (used_mb < limit)
-        if time_ok and quota_ok:
-            active.append(u)
-        else:
-            expired.append(u["username"])
-
-    open(OCPASSWD, "w").close()
-    for u in active:
-        subprocess.run(
-            ["ocpasswd", "-c", OCPASSWD, "-g", "default", u["username"]],
-            input=(u["password"] + "\n" + u["password"]).encode(),
-            capture_output=True)
-
-    for name in expired:
-        subprocess.run(["pkill", "-f", "ocserv.*" + name], capture_output=True)
-
-    return len(active)
+        proto_ok = u["protocol"] in ("all", "openconnect")
+        if time_ok and quota_ok and proto_ok:
+            subprocess.run(
+                ["ocpasswd", "-c", OCPASSWD, "-g", "default", u["username"]],
+                input=(u["password"] + "\n" + u["password"]).encode(),
+                capture_output=True)
+    return len(users)
 
 if __name__ == "__main__":
-    print("ocserv synced: %d active users" % sync())
-
-
+    print("ocserv synced: %d users" % sync())
 
 ZQ_ocserv_manager_py
 chmod 755 "${PANEL_DIR}/ocserv_manager.py"
@@ -2056,729 +2510,761 @@ function genPass(){var c='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz2345678
 
 
 
+
 ZQ_base_html
 
 cat > "${PANEL_DIR}/templates/login.html" <<'ZQ_login_html'
-{% extends 'base.html' %}
-{% block title %}{{ t.login_title }}{% endblock %}
-{% block body %}
-<style>
-.gcard{width:100%;max-width:400px;border-radius:22px;padding:2px;
-  background-image:linear-gradient(163deg,#00ff75 0%,#3700ff 100%);transition:all .3s}
-.gcard:hover{box-shadow:0 0 30px 1px rgba(0,255,117,.3)}
-.gform{background-color:#171717;border-radius:20px;transition:all .2s;
-  padding:12px 2em 1.4em;display:flex;flex-direction:column}
-.gcard:hover .gform{transform:scale(.98);border-radius:18px}
-.gheading{text-align:center;margin:1.2em 1em 1em;color:#fff;font-size:1.15em;font-weight:700}
-.gsub{text-align:center;color:#666;font-size:.72rem;margin:-0.8em 0 .4em}
-.gfield{display:flex;align-items:center;justify-content:center;gap:.6em;
-  border-radius:25px;padding:.7em 1em;border:none;outline:none;color:#fff;
-  background-color:#171717;box-shadow:inset 2px 5px 10px rgb(5,5,5);margin-top:12px;
-  transition:box-shadow .25s}
-.gfield:focus-within{box-shadow:inset 2px 5px 10px rgb(5,5,5),0 0 0 2px rgba(0,255,117,.4)}
-.gicon{height:1.3em;width:1.3em;fill:#9a9a9a;flex:none;transition:fill .25s}
-.gfield:focus-within .gicon{fill:#00ff75}
-.gfield input{background:none;border:none;outline:none;width:100%;color:#d3d3d3;
-  font-family:inherit;font-size:.9rem}
-.gfield input::placeholder{color:#6f6f6f}
-.gbtn-row{display:flex;justify-content:center;margin-top:1.8em}
-.gbtn{padding:.75em 2.5em;border-radius:6px;border:none;outline:none;cursor:pointer;
-  transition:.4s ease-in-out;background-color:#252525;color:#fff;width:100%;
-  font-family:inherit;font-weight:600;font-size:.9rem}
-.gbtn:hover{background-color:#000;color:#fff}
-.gerr{background:rgba(255,60,60,.12);color:#ff7b7b;border:1px solid rgba(255,60,60,.35);
-  padding:.7em 1em;border-radius:12px;margin:1em 0 .2em;font-size:.83rem;
-  font-weight:600;text-align:center}
-[data-theme=light] .gcard{background-image:none;padding:0;
-  background:linear-gradient(to right,#ffffff,#f8f9fd);
-  border:5px solid #ffffff;border-radius:40px;
-  box-shadow:rgba(133,189,215,.878) 0 30px 30px -20px}
-[data-theme=light] .gcard:hover{box-shadow:rgba(133,189,215,.878) 0 34px 34px -22px}
-[data-theme=light] .gform{background:transparent;border-radius:35px;
-  padding:25px 35px;transform:none !important}
-[data-theme=light] .gheading{color:rgb(70,130,180);font-weight:900;font-size:1.6rem}
-[data-theme=light] .gsub{color:#7a93ad}
-[data-theme=light] .gfield{background:#fff;border-inline:2px solid transparent;
-  box-shadow:#cff0ff 0 10px 10px -5px}
-[data-theme=light] .gfield:focus-within{border-inline:2px solid #12b1d1;
-  box-shadow:#cff0ff 0 10px 10px -5px}
-[data-theme=light] .gicon{fill:#8fa8bd}
-[data-theme=light] .gfield input{color:#182238}
-[data-theme=light] .gfield input::placeholder{color:#9aa8b8}
-[data-theme=light] .gbtn{background:linear-gradient(to right,#0b98ec,#0f58e8);
-  border-radius:20px;box-shadow:rgba(133,189,215,.878) 0 20px 10px -15px}
-[data-theme=light] .gbtn:hover{transform:scale(1.03);
-  background:linear-gradient(to right,#0b98ec,#0f58e8)}
-[data-theme=light] .gerr{background:#fef2f2;color:#b91c1c;border-color:#fecaca}
-[data-theme=light] .gfield input:-webkit-autofill{
-  -webkit-box-shadow:0 0 0 1000px #ffffff inset;-webkit-text-fill-color:#182238}
-</style>
-<div class="login-wrap">
-  <form method="post" class="gcard">
-    <div class="gform">
-      <div class="login-logo">
-        <svg class="logo-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="L2TP">
-          <defs><linearGradient id="lgl" x1="10" y1="6" x2="54" y2="58" gradientUnits="userSpaceOnUse">
-            <stop class="lg-a" offset="0"/><stop class="lg-b" offset="1"/></linearGradient></defs>
-          <path d="M32 4 L55.5 12.5 V28 C55.5 42.5 46 52.5 32 59.5 C18 52.5 8.5 42.5 8.5 28 V12.5 Z" stroke="url(#lgl)" stroke-width="3.4" stroke-linejoin="round" fill="url(#lgl)" fill-opacity="0.08"/>
-          <path d="M22 46.5 V29 C22 21.8 26.4 16 32 16 C37.6 16 42 21.8 42 29 V46.5" stroke="url(#lgl)" stroke-width="2.6" stroke-linecap="round"/>
-          <path d="M28 46.5 V31.5 C28 27 29.7 23.5 32 23.5 C34.3 23.5 36 27 36 31.5 V46.5" stroke="url(#lgl)" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
-          <circle cx="32" cy="36.5" r="3" fill="url(#lgl)"/>
-        </svg>
-      </div>
-      <div class="gheading">{{ t.brand }}</div>
-      <div class="gsub">L2TP / IPSec PSK</div>
-      {% if relogin %}<div class="gerr" style="color:var(--acc);border-color:color-mix(in srgb,var(--acc) 35%%,transparent);background:color-mix(in srgb,var(--acc) 8%%,transparent)">{{ t.relogin_note }}</div>{% endif %}
-      {% if error %}<div class="gerr">{{ error }}</div>{% endif %}
-      <div class="gfield">
-        <svg class="gicon" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-        <input type="text" name="username" placeholder="{{ t.username }}" autofocus required autocomplete="username">
-      </div>
-      <div class="gfield">
-        <svg class="gicon" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg>
-        <input type="password" name="password" placeholder="{{ t.password }}" required autocomplete="current-password">
-      </div>
-      <div class="gbtn-row">
-        <button type="submit" class="gbtn">{{ t.login_btn }}</button>
-      </div>
+<!DOCTYPE html>
+<html lang="{{ lang }}" dir="{{ dir }}" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3OUTHBOY | Secure Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { 
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#030303',
+                        darkCard: '#0c0c0c',
+                        darkBorder: '#1f1f1f'
+                    },
+                    backgroundImage: {
+                        'grid-pattern': "url('data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h40v40H0V0zm20 20h20v20H20V20zM0 20h20v20H0V20z' fill='%23ffffff' fill-opacity='0.02' fill-rule='evenodd'/%3E%3C/svg%3E')"
+                    },
+                    animation: {
+                        'fade-in-up': 'fadeInUp 0.6s ease-out forwards'
+                    },
+                    keyframes: {
+                        fadeInUp: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body { font-family: 'Vazirmatn', 'Inter', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            transition: all 0.3s ease;
+        }
+        .dark .glass-card {
+            background: rgba(12, 12, 12, 0.65);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-darkBg text-gray-900 dark:text-gray-100 transition-colors duration-300 flex items-center justify-center min-h-screen overflow-hidden relative">
+
+    <div class="absolute inset-0 bg-grid-pattern z-0 pointer-events-none"></div>
+    <div class="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
+        <div class="absolute -top-[10%] -right-[10%] w-[50vw] h-[50vw] max-w-[600px] max-h-[600px] bg-cyan-600/10 rounded-full blur-[100px] animate-pulse"></div>
+        <div class="absolute -bottom-[10%] -left-[10%] w-[50vw] h-[50vw] max-w-[600px] max-h-[600px] bg-purple-600/10 rounded-full blur-[100px] animate-pulse" style="animation-delay: 2s;"></div>
     </div>
-  </form>
-</div>
-{% endblock %}
 
+    <!-- دکمه‌های کنترل (زبان و تم) -->
+    <div class="absolute top-6 end-6 z-50 flex items-center gap-3">
+        <a href="/lang/{{ 'en' if lang == 'fa' else 'fa' }}" class="w-10 h-10 rounded-xl bg-white/70 dark:bg-[#0f0f0f]/80 backdrop-blur-md border border-gray-200 dark:border-white/10 flex items-center justify-center hover:bg-white dark:hover:bg-white/10 transition-all font-bold text-xs shadow-sm font-mono no-underline text-gray-700 dark:text-gray-200">
+            {{ 'EN' if lang == 'fa' else 'FA' }}
+        </a>
+        <button onclick="toggleTheme()" id="theme-icon" class="w-10 h-10 rounded-xl bg-white/70 dark:bg-[#0f0f0f]/80 backdrop-blur-md border border-gray-200 dark:border-white/10 flex items-center justify-center hover:bg-white dark:hover:bg-white/10 transition-all text-gray-600 dark:text-gray-300 shadow-sm">
+            <i class="fa-solid fa-sun"></i>
+        </button>
+    </div>
 
+    <!-- فرم لاگین -->
+    <div class="relative w-full max-w-[420px] mx-4 z-10 animate-fade-in-up">
+        <div class="glass-card rounded-[2.5rem] p-8 sm:p-10 relative overflow-hidden">
+            
+            <div class="absolute -top-20 -start-20 w-40 h-40 bg-purple-500/20 rounded-full blur-3xl pointer-events-none"></div>
 
+            <!-- لوگو و عنوان -->
+            <div class="flex flex-col items-center justify-center mb-10 relative z-10">
+                <div class="w-16 h-16 rounded-[1.25rem] bg-gradient-to-br from-gray-900 to-black dark:from-white dark:to-gray-300 flex items-center justify-center shadow-xl border border-gray-700 dark:border-gray-100 mb-4 transform hover:scale-105 transition-transform duration-300">
+                    <span class="text-white dark:text-black font-black text-4xl font-sans tracking-tighter">3</span>
+                </div>
+                <h1 class="font-bold text-2xl tracking-widest bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-500 dark:from-white dark:to-gray-500 mb-1">3OUTHBOY</h1>
+                <div class="flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(6,182,212,0.8)]"></span>
+                    <span class="text-xs text-cyan-600 dark:text-cyan-400 font-mono tracking-widest font-bold">SECURE PANEL</span>
+                </div>
+            </div>
 
+            <!-- پیام خطا (وقتی رمز غلط باشه) -->
+            {% if error %}
+            <div class="mb-6 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-sm font-bold text-center relative z-10 animate-fade-in-up">
+                <i class="fa-solid fa-circle-exclamation me-2"></i>{{ error }}
+            </div>
+            {% endif %}
 
+            <!-- پیام تغییر اعتبارنامه (بعد از تغییر رمز/restore) -->
+            {% if relogin %}
+            <div class="mb-6 p-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-600 dark:text-cyan-400 text-sm font-bold text-center relative z-10 animate-fade-in-up">
+                <i class="fa-solid fa-circle-info me-2"></i>{{ t.relogin_note }}
+            </div>
+            {% endif %}
 
+            <!-- فرم: POST واقعی به پنل -->
+            <form class="space-y-6 relative z-10" method="post" action="/login">
+                
+                <!-- نام کاربری -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider ps-1" data-fa="نام کاربری" data-en="Username">{{ t.username }}</label>
+                    <div class="relative group">
+                        <div class="absolute inset-y-0 start-0 flex items-center ps-4 pointer-events-none text-gray-400 group-focus-within:text-cyan-500 transition-colors">
+                            <i class="fa-solid fa-at"></i>
+                        </div>
+                        <input type="text" id="username" name="username" required autocomplete="username" class="bg-gray-100/50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-2xl focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 block w-full ps-11 p-3.5 text-gray-900 dark:text-white transition-all outline-none font-mono placeholder-gray-400/70" placeholder="admin">
+                    </div>
+                </div>
 
+                <!-- رمز عبور -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider ps-1" data-fa="رمز عبور" data-en="Password">{{ t.password }}</label>
+                    <div class="relative group">
+                        <div class="absolute inset-y-0 start-0 flex items-center ps-4 pointer-events-none text-gray-400 group-focus-within:text-purple-500 transition-colors">
+                            <i class="fa-solid fa-lock"></i>
+                        </div>
+                        <input type="password" id="password" name="password" required autocomplete="current-password" class="bg-gray-100/50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-2xl focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 block w-full ps-11 pe-12 p-3.5 text-gray-900 dark:text-white transition-all outline-none font-mono placeholder-gray-400/70" placeholder="••••••••">
+                        <button type="button" onclick="togglePassword()" class="absolute inset-y-0 end-0 flex items-center pe-4 text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors outline-none">
+                            <i class="fa-regular fa-eye" id="eye-icon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- به خاطر بسپار -->
+                <div class="flex items-center justify-between mt-4">
+                    <label class="flex items-center gap-2 cursor-pointer group">
+                        <div class="relative flex items-center justify-center">
+                            <input type="checkbox" name="remember" class="peer appearance-none w-5 h-5 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-black/20 checked:bg-cyan-500 checked:border-cyan-500 transition-colors cursor-pointer">
+                            <i class="fa-solid fa-check absolute text-white text-[10px] opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity"></i>
+                        </div>
+                        <span class="text-xs font-bold text-gray-600 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white transition-colors" data-fa="مرا به خاطر بسپار" data-en="Remember me">مرا به خاطر بسپار</span>
+                    </label>
+                    <a href="#" class="text-xs font-bold text-cyan-600 dark:text-cyan-400 hover:underline transition-all" data-fa="رمز را فراموش کردید؟" data-en="Forgot Password?">رمز را فراموش کردید؟</a>
+                </div>
+
+                <!-- دکمه ورود -->
+                <button type="submit" class="w-full bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 text-white font-bold py-3.5 px-6 rounded-2xl shadow-[0_10px_25px_rgba(6,182,212,0.3)] hover:shadow-[0_15px_35px_rgba(168,85,247,0.4)] transition-all duration-300 flex items-center justify-center gap-3 tracking-wide mt-8 group">
+                    <span data-fa="ورود به سیستم" data-en="Sign In to Core">{{ t.login_btn }}</span>
+                    <i class="fa-solid fa-arrow-left rtl:hidden group-hover:translate-x-1 transition-transform"></i>
+                    <i class="fa-solid fa-arrow-left ltr:hidden group-hover:-translate-x-1 transition-transform rotate-180"></i>
+                </button>
+                
+            </form>
+        <script>
+        document.querySelector('form[action="/login"]').addEventListener('submit', function(){
+            var f = document.getElementById('loginLangField');
+            if (f) f.value = document.documentElement.getAttribute('lang') || 'fa';
+        });
+        </script>
+            
+            <!-- پاورقی فرم -->
+            <div class="mt-8 text-center relative z-10">
+                <p class="text-[10px] text-gray-500 font-mono">Secured by 3OUTHBOY Protocol &copy; 2026</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // تم: با localStorage پنل هماهنگ
+        (function(){
+            var t = null;
+            try { t = localStorage.getItem('l2tp-theme'); } catch(e) {}
+            if(!t) { t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark'; }
+            document.documentElement.classList.toggle('dark', t !== 'light');
+        })();
+
+        function toggleTheme() {
+            var html = document.documentElement;
+            var isDark = html.classList.contains('dark');
+            html.classList.toggle('dark');
+            var next = isDark ? 'light' : 'dark';
+            try { localStorage.setItem('l2tp-theme', next); } catch(e) {}
+        }
+
+        // نمایش/مخفی رمز
+        function togglePassword() {
+            var passInput = document.getElementById('password');
+            var eyeIcon = document.getElementById('eye-icon');
+            if (passInput.type === 'password') {
+                passInput.type = 'text';
+                eyeIcon.classList.replace('fa-eye', 'fa-eye-slash');
+            } else {
+                passInput.type = 'password';
+                eyeIcon.classList.replace('fa-eye-slash', 'fa-eye');
+            }
+        }
+    </script>
+
+<script>
+// Auto-translate: سرور با lang درست رندر کرده (dir هم درسته)
+// فقط متن‌های data-attr رو sync کن
+(function autoTranslate(){
+    var lang = document.documentElement.getAttribute('lang') || 'fa';
+    if (lang === 'en') {
+        document.querySelectorAll('[data-en]').forEach(function(el){
+            el.innerText = el.getAttribute('data-en');
+        });
+        document.querySelectorAll('input[data-en-ph]').forEach(function(el){
+            el.placeholder = el.getAttribute('data-en-ph');
+        });
+        // placeholder فارسی بدون data-attr:
+        document.querySelectorAll('input[placeholder]').forEach(function(el){
+            var p = el.getAttribute('placeholder');
+            if (p === 'جستجو...') el.placeholder = 'Search...';
+        });
+        // فلش پیام‌ها:
+        document.querySelectorAll('.flash-msg').forEach(function(el){
+            var raw = el.getAttribute('data-msg') || el.textContent;
+            var sep = raw.indexOf('|EN:');
+            if (sep > -1) {
+                var fa = raw.replace(/^ERR_FA:|^FA:/, '').substring(0, sep).replace(/^ERR_FA:|^FA:/,'');
+                var en = raw.substring(sep + 4);
+                var span = el.querySelector('.flash-text');
+                if (span) span.textContent = en;
+            }
+        });
+    }
+})();
+</script>
+</body>
+</html>
 
 ZQ_login_html
 
 cat > "${PANEL_DIR}/templates/index.html" <<'ZQ_index_html'
-{% extends 'base.html' %}
-{% block title %}{{ t.header_title }}{% endblock %}
-{% block body %}
-<style>
-.ver-badge{display:inline-block;vertical-align:middle;font-size:.62rem;font-weight:700;
-  padding:2px 9px;border-radius:99px;margin-inline-start:8px;letter-spacing:.5px;
-  background:var(--card3);border:1px solid var(--bd2);color:var(--mu);
-  -webkit-text-fill-color:var(--mu)}
-.svc-row{display:flex;gap:8px;flex-wrap:wrap}
-.svc{padding:5px 13px;border-radius:9px;font-size:.76rem;font-weight:700}
-.svc.ok{background:rgba(52,211,153,.13);color:var(--grn)}
-.svc.bad{background:rgba(248,113,113,.13);color:var(--red)}
-[data-theme=light] .svc.ok{background:#dcfce7;color:#15803d}
-[data-theme=light] .svc.bad{background:#fee2e2;color:#b91c1c}
-/* ---- views ---- */
-.view{display:none}
-.view.active{display:block}
-@keyframes viewIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-/* ---- burger button ---- */
-.menu-fab{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;flex:none;
-  background:linear-gradient(135deg,var(--neon-cyan),var(--neon-purple));
-  border:none;color:var(--btn-tx);font-size:.85rem;cursor:pointer;font-family:inherit;
-  box-shadow:0 0 14px rgba(0,229,255,.28);transition:transform .25s,opacity .25s,border-color .25s,box-shadow .25s;overflow:hidden}
-.menu-fab:hover{box-shadow:0 0 30px rgba(0,229,255,.55);transform:translateY(-2px) scale(1.04)}
-.burger{display:inline-grid;place-items:center;position:relative;width:16px;height:16px}
-.burger-lines,.burger-x{grid-area:1/1;transition:transform .25s,opacity .25s,border-color .25s,box-shadow .25s cubic-bezier(.68,-.55,.27,1.55)}
-.burger-lines{display:flex;flex-direction:column;justify-content:space-between;height:11px;width:15px}
-.burger-lines i{display:block;height:1.9px;width:100%;border-radius:99px;background:currentColor}
-.burger-x{font-size:1.2rem;font-weight:800;line-height:1;opacity:0;transform:rotate(-90deg) scale(.5)}
-.menu-fab.open .burger-lines{opacity:0;transform:rotate(90deg) scale(.4)}
-.menu-fab.open .burger-x{opacity:1;transform:rotate(0) scale(1)}
-/* ---- sidebar ---- */
-.sb-overlay{position:fixed;inset:0;background:rgba(2,2,3,.55);backdrop-filter:blur(3px);
-  z-index:130;opacity:0;visibility:hidden;transition:transform .25s,opacity .25s,border-color .25s,box-shadow .25s}
-.sb-overlay.show{opacity:1;visibility:visible}
-.sidebar{position:fixed;will-change:transform;top:0;bottom:0;inset-inline-start:0;width:272px;z-index:140;
-  background:var(--panel-bg);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
-  border-inline-end:1px solid var(--border-neon);box-shadow:10px 0 40px rgba(0,0,0,.5);
-  transform:translateX(-105%);transition:transform .35s cubic-bezier(.22,1,.36,1);
-  display:flex;flex-direction:column;padding:22px 16px;overflow-y:auto}
-html[dir=rtl] .sidebar{transform:translateX(105%)}
-.sidebar.open{transform:translateX(0) !important}
-.sb-brand{display:flex;align-items:center;gap:12px;padding:6px 8px 20px}
-.sb-badge{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;flex:none;
-  background:linear-gradient(45deg,var(--neon-cyan),var(--neon-purple));
-  box-shadow:0 0 15px rgba(0,229,255,.3)}
-.sb-badge .logo-svg{width:29px;height:29px}
-.sb-brand h1{font-size:.92rem;line-height:1.5}
-.sb-close{margin-inline-start:auto;background:none;border:none;color:var(--mu);
-  font-size:1.35rem;cursor:pointer;padding:4px 8px;border-radius:8px;transition:transform .25s,opacity .25s,border-color .25s,box-shadow .25s}
-.sb-close:hover{color:var(--tx);background:var(--card3)}
-.sb-label{color:var(--mu);font-size:.68rem;font-weight:700;letter-spacing:2px;
-  text-transform:uppercase;padding:10px 12px 8px}
-.sb-item{display:flex;align-items:center;gap:13px;padding:13px 14px;margin-bottom:6px;
-  border-radius:13px;border:1px solid transparent;background:rgba(255,255,255,.015);
-  color:var(--mu);font-weight:600;font-size:.92rem;cursor:pointer;font-family:inherit;
-  width:100%;text-align:start;transition:transform .25s,opacity .25s,border-color .25s,box-shadow .25s cubic-bezier(.22,1,.36,1);position:relative}
-.sb-item:hover{color:var(--tx);border-color:var(--border-neon)}
-.sb-item.active{color:var(--tx);border-color:rgba(0,229,255,.35);
-  background:linear-gradient(90deg,rgba(0,229,255,.07),transparent);
-  box-shadow:inset 3px 0 0 var(--neon-cyan),0 0 18px rgba(0,229,255,.12) inset}
-html[dir=rtl] .sb-item.active{box-shadow:inset -3px 0 0 var(--neon-cyan),0 0 18px rgba(0,229,255,.12) inset}
-.sb-item .sb-ic{font-size:1.15rem;width:24px;text-align:center;flex:none}
-.sb-item.active .sb-ic{filter:drop-shadow(0 0 6px var(--neon-cyan))}
-.sb-foot{margin-top:auto;padding:14px 12px 6px;border-top:1px solid var(--bd)}
-.sb-ver{font-size:.68rem;color:var(--mu);text-align:center;letter-spacing:1px}
-@media(max-width:600px){.sidebar{width:min(285px,86vw)}}
-/* ---- total traffic ---- */
-.stat-total{font-size:1.55rem;font-weight:800;line-height:1.35;
-  background:linear-gradient(90deg,var(--neon-cyan),var(--neon-purple));
-  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-.stat-sub{font-size:.72rem;color:var(--mu);margin-top:4px}
-/* ---- settings ---- */
-.set-grid{display:grid;contain:layout;contain:layout;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;align-items:end}
-.set-grid .full{grid-column:1/-1;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.set-sep{border:none;height:1px;margin:22px 0;
-  background:linear-gradient(90deg,transparent,var(--bd2),transparent)}
-.warn-box{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:12px;
-  background:rgba(255,176,32,.08);border:1px solid rgba(255,176,32,.3);
-  color:var(--org);font-size:.78rem;line-height:1.8;}
-[data-theme=light] .warn-box{background:#fffbeb;border-color:#fde68a;color:#b45309}
-.note-box{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:12px;
-  background:rgba(0,229,255,.06);border:1px solid rgba(0,229,255,.22);
-  color:var(--mu);font-size:.78rem;line-height:1.8;}
-[data-theme=light] .note-box{background:#eff6ff;border-color:#bfdbfe;color:#475569}
-.actions{flex-wrap:wrap;justify-content:flex-end}
-@media(max-width:600px){.header-in{gap:8px}.actions{justify-content:flex-start;width:100%}}
-
-/* ===== rich dashboard ===== */
-.chart-card h2, .top-card h2 {margin-bottom:14px}
-.chart-wrap{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;
-  height:150px;padding-top:10px}
-.chart-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0}
-.chart-bar{width:100%;max-width:44px;border-radius:8px 8px 4px 4px;min-height:4px;
-  background:linear-gradient(180deg,var(--neon-cyan),var(--neon-purple));
-  box-shadow:0 0 10px rgba(0,229,255,.25);
-  transition:height .8s cubic-bezier(.22,1,.36,1);position:relative}
-.chart-bar.empty{background:var(--card3);box-shadow:none}
-.chart-bar .chart-tip{position:absolute;top:-24px;left:50%;transform:translateX(-50%);
-  font-size:.62rem;color:var(--mu);white-space:nowrap;opacity:0;transition:opacity .2s;
-  pointer-events:none;background:var(--panel-bg);padding:2px 7px;border-radius:6px;
-  border:1px solid var(--bd)}
-.chart-bar:hover .chart-tip{opacity:1}
-.chart-lbl{font-size:.65rem;color:var(--mu);white-space:nowrap}
-.top-row{display:flex;align-items:center;gap:12px;padding:10px 4px;border-bottom:1px dashed var(--bd)}
-.top-row:last-child{border-bottom:none}
-.top-rank{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;flex:none;
-  font-size:.72rem;font-weight:800;background:var(--card3);color:var(--mu)}
-.top-row:nth-child(1) .top-rank{background:linear-gradient(135deg,#ffd700,#ff9500);color:#1a1a00}
-.top-row:nth-child(2) .top-rank{background:linear-gradient(135deg,#c0c8d8,#8a94a8);color:#111}
-.top-row:nth-child(3) .top-rank{background:linear-gradient(135deg,#cd7f32,#a05a2c);color:#fff}
-.top-info{flex:1;min-width:0}
-.top-name{font-size:.85rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.top-bar{height:5px;background:var(--card3);border-radius:99px;overflow:hidden;margin-top:5px}
-.top-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--neon-cyan),var(--neon-purple))}
-.top-val{font-size:.75rem;color:var(--mu);font-family:ui-monospace,monospace;flex:none}
-.cap-wrap{margin-top:6px}
-.cap-bar{height:8px;border-radius:99px;background:var(--card3);overflow:hidden}
-.cap-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--neon-cyan),var(--neon-purple));
-  box-shadow:0 0 10px rgba(0,229,255,.35);transition:width 1s ease}
-.cap-text{display:flex;justify-content:space-between;font-size:.68rem;color:var(--mu);margin-top:6px}
-@media(max-width:600px){.chart-wrap{height:120px;gap:5px}.chart-bar{max-width:30px}}
-
-/* ===== save-btn style: dark & elegant ===== */
-#view-settings .btn.primary{
-  background:#0a0a12;
-  border:1px solid rgba(0,229,255,.4);
-  color:#e8e8f0;
-  box-shadow:0 0 12px rgba(0,229,255,.15);
-}
-#view-settings .btn.primary:hover{
-  background:#111119;
-  border-color:rgba(0,229,255,.7);
-  color:#fff;
-  box-shadow:0 0 18px rgba(0,229,255,.3);
-}
-[data-theme=light] #view-settings .btn.primary{
-  background:#16161f;
-  color:#fff;
-  border:1px solid #2563eb;
-  box-shadow:0 4px 12px rgba(22,22,31,.25);
-}
-[data-theme=light] #view-settings .btn.primary:hover{
-  background:#22222e;
-  box-shadow:0 6px 16px rgba(22,22,31,.35);
-}
-
-/* ===== settings icon dark: monochrome icons in buttons ===== */
-#view-settings .btn .ni,
-#view-settings .btn.primary .ni{
-  filter:none !important;
-  color:#e8e8f0}
-/* force all gradient strokes to solid light color inside settings buttons */
-#view-settings .btn .ni use,
-#view-settings .btn .ni *{
-  color:inherit}
-/* SVG strokes that use url(#...) can't be overridden directly,
-   so we apply a brightness filter to make them near-black:
-   grayscale(1) kills the hue, brightness(.25) darkens */
-#view-settings .btn .ni{
-  filter:grayscale(1) brightness(2.2) !important;
-  opacity:.95}
-#view-settings .btn:hover .ni{
-  filter:grayscale(1) brightness(2.6) !important;
-  opacity:1}
-[data-theme=light] #view-settings .btn .ni{
-  filter:grayscale(1) brightness(2.4) !important}
-
-/* psk-random */
-.psk-random{transition:transform .2s}
-.psk-random:active{transform:rotate(180deg) scale(1.1)}
-.psk-random:hover{box-shadow:0 0 12px rgba(0,229,255,.25)}
-#pskInput{font-family:ui-monospace,monospace}
+<!DOCTYPE html>
+<html lang="{{ lang }}" dir="{{ dir }}" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3OUTHBOY | Pro Network Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { 
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: { darkBg: '#030303', darkCard: '#0c0c0c', darkBorder: '#1f1f1f' },
+                    backgroundImage: {
+                        'grid-pattern': "url('data:image/svg+xml,%3Csvg width=\'40\' height=\'40\' viewBox=\'0 0 40 40\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0h40v40H0V0zm20 20h20v20H20V20zM0 20h20v20H0V20z\' fill=\'%23ffffff\' fill-opacity=\'0.02\' fill-rule=\'evenodd\'/%3E%3C/svg%3E')"
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body { font-family: 'Vazirmatn', 'Inter', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+        .dark ::-webkit-scrollbar-thumb:hover { background: #555; }
+        .glass-card { background: rgba(255,255,255,0.6); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.4); transition: all 0.3s ease; }
+        .dark .glass-card { background: rgba(12,12,12,0.6); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 4px 30px rgba(0,0,0,0.5); }
+        .dark .glass-card:hover { border-color: rgba(255,255,255,0.1); transform: translateY(-2px); }
+        .chart-bar { transition: height 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
+        /* flash */
+        .flash-msg { animation: fadeIn .3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-6px);} to { opacity: 1; transform: none;} }
+    
+    
+    .sidebar-panel {
+        transform: translateX(-100%);
+        position: fixed;
+        display: flex;
+    }
+    html[dir="rtl"] .sidebar-panel { transform: translateX(100%); }
+    html[dir="ltr"] .sidebar-panel { transform: translateX(-100%); }
+    .sidebar-panel.open { transform: translateX(0) !important; }
+    @media (min-width: 1024px) {
+        .sidebar-panel {
+            position: static !important;
+            transform: none !important;
+        }
+    }
+    
+    /* sidebar-css-fix: pure CSS sidebar */
+    .sidebar-panel { transform: translateX(-100%); position: fixed; display: flex; }
+    html[dir="rtl"] .sidebar-panel { transform: translateX(100%); }
+    html[dir="ltr"] .sidebar-panel { transform: translateX(-100%); }
+    .sidebar-panel.open { transform: translateX(0) !important; }
+    @media (min-width: 1024px) {
+        .sidebar-panel { position: static !important; transform: none !important; }
+    }
+    /* select-dark-fix */
+    .dark select option { background-color: #0c0c0c; color: #f3f4f6; }
+    select { color-scheme: light dark; }
+    .dark select { color-scheme: dark; }
 </style>
+</head>
+<body class="bg-gray-50 dark:bg-darkBg text-gray-900 dark:text-gray-100 transition-colors duration-300 flex h-screen overflow-hidden relative">
 
-<!-- sidebar -->
-<div class="sb-overlay" id="sbOverlay"></div>
-<aside class="sidebar" id="sidebar">
-  <div class="sb-brand">
-    <div class="sb-badge"><svg class="logo-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="lgsb" x1="10" y1="6" x2="54" y2="58" gradientUnits="userSpaceOnUse"><stop class="lg-a" offset="0"/><stop class="lg-b" offset="1"/></linearGradient></defs><path d="M32 4 L55.5 12.5 V28 C55.5 42.5 46 52.5 32 59.5 C18 52.5 8.5 42.5 8.5 28 V12.5 Z" stroke="url(#lgsb)" stroke-width="3.4" stroke-linejoin="round" fill="url(#lgsb)" fill-opacity="0.08"/><path d="M22 46.5 V29 C22 21.8 26.4 16 32 16 C37.6 16 42 21.8 42 29 V46.5" stroke="url(#lgsb)" stroke-width="2.6" stroke-linecap="round"/><path d="M28 46.5 V31.5 C28 27 29.7 23.5 32 23.5 C34.3 23.5 36 27 36 31.5 V46.5" stroke="url(#lgsb)" stroke-width="2" stroke-linecap="round" opacity="0.6"/><circle cx="32" cy="36.5" r="3" fill="url(#lgsb)"/></svg></div>
-    <h1>{{ t.header_title }}<br><span class="ver-badge" style="margin:4px 0 0">v{{ panel_version }}</span></h1>
-    <button type="button" class="sb-close" id="sbClose">&times;</button>
-  </div>
-  <div class="sb-label">{{ t.brand }}</div>
-  <button type="button" class="sb-item" data-tab="dashboard"><span class="sb-ic"><svg class="ni"><use href="#i-chart"/></svg></span> {{ t.tab_dashboard }}</button>
-  <button type="button" class="sb-item" data-tab="users"><span class="sb-ic"><svg class="ni"><use href="#i-users"/></svg></span> {{ t.tab_users }}</button>
-  <button type="button" class="sb-item" data-tab="settings"><span class="sb-ic"><svg class="ni"><use href="#i-gear"/></svg></span> {{ t.tab_settings }}</button>
-  <div class="sb-foot"><div class="sb-ver">3OUTHBOY PANEL &middot; v{{ panel_version }}</div></div>
-</aside>
-
-<header>
-  <div class="container header-in">
-    <div class="brand">
-      <button type="button" class="menu-fab" id="menuFab" aria-label="Menu">
-        <span class="burger"><span class="burger-lines"><i></i><i></i><i></i></span><span class="burger-x">&times;</span></span>
-      </button>
-      <div class="brand-badge"><svg class="logo-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="L2TP"><defs><linearGradient id="lgh" x1="10" y1="6" x2="54" y2="58" gradientUnits="userSpaceOnUse"><stop class="lg-a" offset="0"/><stop class="lg-b" offset="1"/></linearGradient></defs><path d="M32 4 L55.5 12.5 V28 C55.5 42.5 46 52.5 32 59.5 C18 52.5 8.5 42.5 8.5 28 V12.5 Z" stroke="url(#lgh)" stroke-width="3.4" stroke-linejoin="round" fill="url(#lgh)" fill-opacity="0.08"/><path d="M22 46.5 V29 C22 21.8 26.4 16 32 16 C37.6 16 42 21.8 42 29 V46.5" stroke="url(#lgh)" stroke-width="2.6" stroke-linecap="round"/><path d="M28 46.5 V31.5 C28 27 29.7 23.5 32 23.5 C34.3 23.5 36 27 36 31.5 V46.5" stroke="url(#lgh)" stroke-width="2" stroke-linecap="round" opacity="0.6"/><circle cx="32" cy="36.5" r="3" fill="url(#lgh)"/></svg></div>
-      <h1>{{ t.header_title }} <span class="ver-badge">v{{ panel_version }}</span></h1>
+    <!-- پس‌زمینه -->
+    <div class="absolute inset-0 bg-grid-pattern z-0 pointer-events-none"></div>
+    <div class="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
+        <div class="absolute -top-[20%] -right-[10%] w-[50%] h-[50%] bg-blue-600/10 rounded-full blur-[120px]"></div>
+        <div class="absolute bottom-[10%] -left-[10%] w-[40%] h-[40%] bg-purple-600/10 rounded-full blur-[120px]"></div>
     </div>
-    <div class="actions">
-      <form method="post" action="/sync" class="inline"><button class="btn small">{{ t.sync_btn }}</button></form>
-      <form method="post" action="/update" class="inline" onsubmit="return confirm('{{ t.update_confirm }}')">
-        <button class="btn small">{{ t.update_btn }}</button>
-      </form>
-      <form method="post" action="/restart-vpn" class="inline" onsubmit="return confirm('{{ t.restart_vpn_confirm }}')">
-        <button class="btn small">{{ t.restart_vpn_btn }}</button>
-      </form>
-      <form method="post" action="/restart-panel" class="inline" onsubmit="return confirm('{{ t.restart_panel_confirm }}')">
-        <button class="btn small">{{ t.restart_panel_btn }}</button>
-      </form>
-      <a class="btn small" href="/logout">{{ t.logout_btn }}</a>
-    </div>
-  </div>
-</header>
 
-<main class="container">
-  {% with msgs = get_flashed_messages() %}
-    {% for m in msgs %}<div class="alert ok">{{ m }}</div>{% endfor %}
-  {% endwith %}
+    <div id="sidebarOverlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 hidden transition-opacity lg:hidden"></div>
 
-  <!-- ==================== DASHBOARD ==================== -->
-  <section class="view" id="view-dashboard">
-    <section class="cards">
-      <div class="card stat">
-        <div class="stat-head"><span class="stat-icon"><svg class="ni"><use href="#i-globe"/></svg></span><span class="stat-label">{{ t.server_address }}</span></div>
-        <div class="secret-row"><b class="pw">{{ server_ip }}</b>
-          <button type="button" class="icon-btn copy-btn" data-copy="{{ server_ip }}" title="{{ t.copy_tip }}">📋</button></div>
-      </div>
-      <div class="card stat">
-        <div class="stat-head"><span class="stat-icon"><svg class="ni"><use href="#i-key"/></svg></span><span class="stat-label">{{ t.psk_label }}</span></div>
-        <div class="secret-row">
-          <span class="pw" data-pw="{{ psk }}" data-shown="0">••••••••</span>
-          <button type="button" class="icon-btn reveal" title="{{ t.show_tip }}">👁</button>
-          <button type="button" class="icon-btn copy-btn" data-copy="{{ psk }}" title="{{ t.copy_tip }}">📋</button>
-        </div>
-      </div>
-      <div class="card stat">
-        <div class="stat-head"><span class="stat-icon"><svg class="ni"><use href="#i-user"/></svg></span><span class="stat-label">{{ t.active_users }}</span></div>
-        <b>{{ active_count }} {{ t.of_word }} {{ total_count }}</b>
-      </div>
-      <div class="card stat">
-        <div class="stat-head"><span class="stat-icon"><svg class="ni"><use href="#i-signal"/></svg></span><span class="stat-label">{{ t.online_sessions }}</span></div>
-        <b>{{ online_count }}</b>
-      </div>
-      <div class="card stat">
-        <div class="stat-head"><span class="stat-icon"><svg class="ni"><use href="#i-gauge"/></svg></span><span class="stat-label">{{ t.total_traffic }}</span></div>
-        <div class="stat-total">{{ total_used }}</div>
-        {% if total_limit %}<div class="stat-sub">{{ t.sum_of_quotas }}: {{ total_limit }}</div>{% endif %}
-      </div>
-      <div class="card stat">
-        <div class="stat-head"><span class="stat-icon"><svg class="ni"><use href="#i-gear"/></svg></span><span class="stat-label">{{ t.services_status }}</span></div>
-        <div class="svc-row">
-          <span class="svc {{ 'ok' if svc.ipsec else 'bad' }}">IPSec</span>
-          <span class="svc {{ 'ok' if svc.xl2tpd else 'bad' }}">L2TP</span> <span class='svc {{ 'ok' if svc.ocserv else 'bad' }}'>OpenConnect</span> <span class='svc {{ 'ok' if svc.ikev2 else 'bad' }}'>IKEv2</span>
-          <span class="svc {{ 'ok' if svc.nat else 'bad' }}">NAT</span>
-        </div>
-      </div>
-    </section>
-    <section class="cards">
-      <div class="card chart-card">
-        <h2>{{ t.chart_title }}</h2>
-        {% if chart_days %}
-        <div class="chart-wrap">
-          {% for d in chart_days %}
-          <div class="chart-col">
-            <div class="chart-bar {{ 'empty' if d.pct == 0 else '' }}" style="height: {{ d.pct if d.pct > 0 else 3 }}%">
-              <span class="chart-tip">{{ d.gb }} GB</span>
-            </div>
-            <span class="chart-lbl">{{ d.label }}</span>
-          </div>
-          {% endfor %}
-        </div>
-        {% else %}
-        <p class="muted" style="padding:20px 0;text-align:center">{{ t.no_chart_data }}</p>
-        {% endif %}
-      </div>
-
-      <div class="card top-card">
-        <h2>{{ t.top_users }}</h2>
-        {% if top_users %}
-          {% for u in top_users %}
-          <div class="top-row">
-            <div class="top-rank">{{ loop.index }}</div>
-            <div class="top-info">
-              <div class="top-name">{{ u.username }}</div>
-              <div class="top-bar"><div class="top-fill" style="width: {{ u.pct }}%"></div></div>
-            </div>
-            <span class="top-val">{{ u.used }}</span>
-          </div>
-          {% endfor %}
-        {% else %}
-          <p class="muted" style="padding:12px 0;text-align:center">—</p>
-        {% endif %}
-      </div>
-
-      <div class="card">
-        <h2>{{ t.capacity }}</h2>
-        <div class="cap-wrap">
-          <div class="cap-bar"><div class="cap-fill" style="width: {{ ((total_count / 241) * 100) | round(1) }}%"></div></div>
-          <div class="cap-text"><span>{{ total_count }} / 240</span><span>{{ t.slots_used }}</span></div>
-        </div>
-      </div>
-    </section>
-
-  </section>
-
-  <!-- ==================== USERS ==================== -->
-  <section class="view" id="view-users">
-    <section class="card">
-      <h2>{{ t.add_user_title }}</h2>
-      <form method="post" action="/add" class="add-form">
-        <div>
-          <label>{{ t.username }}</label>
-          <input name="username" required pattern="[A-Za-z0-9_.\-]{3,32}" placeholder="user01">
-        </div>
-        <div>
-          <label>{{ t.password_auto }}</label>
-          <div class="secret-row" style="width:100%">
-            <input name="password" id="pw-input" placeholder="{{ t.auto_placeholder }}" style="flex:1">
-            <button type="button" class="btn small" onclick="genPass()">🎲</button>
-          </div>
-        </div>
-        <div>
-          <label>{{ t.days_label }}</label>
-          <input type="number" name="days" value="30" min="1" max="3650">
-        </div>
-        <div>
-          <label>{{ t.traffic_label }}</label>
-          <input type="number" name="traffic" min="0" step="0.1" placeholder="{{ t.traffic_ph }}">
-        </div>
-        <div>
-          <label>{{ t.dns1_label }}</label>
-          <input name="dns1" placeholder="8.8.8.8" inputmode="numeric">
-        </div>
-        <div>
-          <label>{{ t.dns2_label }}</label>
-          <input name="dns2" placeholder="1.1.1.1" inputmode="numeric">
-        </div>
-        <div>
-          <label>{{ t.exact_expiry }}</label>
-          <input type="datetime-local" name="expires_at">
-        </div>
-        <div class="full">
-          <button class="btn primary">＋ {{ t.add_btn }}</button>
-          <span class="muted">{{ t.exact_note }}</span>
-        </div>
-      </form>
-    </section>
-
-    <section class="card">
-      <h2>{{ t.users_title }}</h2>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th><th>{{ t.th_username }}</th><th>{{ t.th_password }}</th><th>{{ t.th_expiry }}</th>
-              <th>{{ t.th_remaining }}</th><th>{{ t.th_traffic }}</th><th>{{ t.th_dns }}</th><th>{{ t.th_key }}</th>
-              <th>{{ t.th_status }}</th><th>{{ t.th_actions }}</th>
-            </tr>
-          </thead>
-          <tbody>
-          {% for u in users %}
-            <tr class="{{ 'expired' if (u.expired or u.quota_exceeded) else '' }}">
-              <td>{{ loop.index }}</td>
-              <td><b>{{ u.username }}</b>{% if u.online %}<span class="dot" title="{{ t.online_tip }}"></span>{% endif %}</td>
-              <td>
-                <span class="secret-row">
-                  <span class="pw" data-pw="{{ u.password }}" data-shown="0">••••••••</span>
-                  <button type="button" class="icon-btn reveal" title="{{ t.show_tip }}">👁</button>
-                  <button type="button" class="icon-btn copy-btn" data-copy="{{ u.password }}" title="{{ t.copy_tip }}">📋</button>
-                </span>
-              </td>
-              <td>{{ u.expires }}</td>
-              <td>{{ u.remaining }}</td>
-              <td>
-                <div class="traffic-cell">
-                  <span>{{ u.traffic }}</span>
-                  {% if u.limit_gb > 0 %}
-                  <div class="bar"><div class="bar-fill {{ 'danger' if u.traffic_pct >= 90 else ('warn' if u.traffic_pct >= 70 else '') }}" style="width: {{ u.traffic_pct }}%"></div></div>
-                  {% endif %}
+    <!-- ============ سایدبار ============ -->
+    <aside id="sidebar" class="sidebar-panel fixed inset-y-0 start-0 z-50 w-72 bg-white/70 dark:bg-[#0a0a0a]/80 backdrop-blur-3xl border-e border-gray-200 dark:border-white/5 flex flex-col transition-transform duration-300 ease-out shadow-[4px_0_24px_rgba(0,0,0,0.2)]">
+        <div class="h-[88px] flex items-center justify-between px-6 border-b border-gray-200/50 dark:border-white/5">
+            <div class="flex items-center gap-4">
+                <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-gray-900 to-black dark:from-white dark:to-gray-300 flex items-center justify-center shadow-lg border border-gray-700 dark:border-gray-100">
+                    <span class="text-white dark:text-black font-black text-2xl font-sans tracking-tighter">3</span>
                 </div>
-              </td>
-              <td>
-                {% if u.dns1 or u.dns2 %}
-                  <span class="pw">{{ u.dns1 or '—' }} / {{ u.dns2 or '—' }}</span>
-                {% else %}
-                  <span class="muted">{{ t.default_dns }}</span>
-                {% endif %}
-              </td>
-              <td>
-                <span class="secret-row">
-                  <span class="pw">{{ u.key }}</span>
-                  <button type="button" class="icon-btn copy-btn" data-copy="{{ u.key }}" title="{{ t.copy_tip }}">📋</button>
-                  <a class="icon-btn" href="/u/{{ u.key }}" target="_blank" title="{{ t.status_link_tip }}">🔗</a>
-                </span>
-              </td>
-              <td>
-                {% if u.expired %}<span class="badge red">{{ t.badge_expired }}</span>
-                {% elif u.quota_exceeded %}<span class="badge red">{{ t.badge_quota }}</span>
-                {% elif u.soon %}<span class="badge orange">{{ t.badge_soon }}</span>
-                {% else %}<span class="badge green">{{ t.badge_active }}</span>{% endif %}
-              </td>
-              <td>
-                <form method="post" action="/renew/{{ u.id }}" class="inline">
-                  <input class="mini" type="number" name="days" value="30" min="1" max="3650">
-                  <button class="btn small">{{ t.renew_btn }}</button>
-                </form>
-                <button class="btn small" onclick="openEdit({{ u.id }}, '{{ u.expires_input }}', '{{ u.dns1 }}', '{{ u.dns2 }}', '{{ u.key }}')"><svg class="ni ni-sm ni-hover"><use href="#i-edit"/></svg></button>
-                <form method="post" action="/reset-traffic/{{ u.id }}" class="inline">
-                  <button class="btn small" title="{{ t.reset_traffic_tip }}"><svg class="ni ni-sm ni-hover"><use href="#i-refresh"/></svg></button>
-                </form>
-                <form method="post" action="/regen-key/{{ u.id }}" class="inline">
-                  <button class="btn small" title="{{ t.regen_key_tip }}"><svg class="ni"><use href="#i-key"/></svg></button>
-                </form>
-                <form method="post" action="/delete/{{ u.id }}" class="inline" onsubmit="return confirm('{{ t.delete_confirm }}')">
-                  <button class="btn small danger"><svg class="ni ni-sm"><use href="#i-trash"/></svg></button>
-                </form>
-              </td>
-            </tr>
-          {% else %}
-            <tr><td colspan="10" class="empty">{{ t.no_users }}</td></tr>
-          {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  </section>
+                <div class="flex flex-col">
+                    <span class="font-bold text-lg tracking-widest bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-500 dark:from-white dark:to-gray-500">3OUTHBOY</span>
+                    <span class="text-[10px] text-green-500 font-mono tracking-widest flex items-center gap-1"><span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span> v{{ panel_version }}</span>
+                </div>
+            </div>
+            <button onclick="toggleSidebar()" class="lg:hidden text-gray-500 hover:text-white">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+        </div>
+        
+        <nav class="flex-1 p-5 space-y-2.5 overflow-y-auto">
+            <p class="text-[10px] font-bold text-gray-400 dark:text-gray-500 tracking-widest px-2 mb-2" data-fa="منوی اصلی" data-en="MAIN MENU">منوی اصلی</p>
+            <a href="/" class="flex items-center gap-4 px-4 py-3 bg-blue-500/10 rounded-2xl text-blue-600 dark:text-blue-400 font-bold transition-all border border-blue-500/20 shadow-inner"><i class="fa-solid fa-chart-line w-5 text-lg"></i><span data-fa="مانیتورینگ شبکه" data-en="Network Monitor">مانیتورینگ شبکه</span></a>
+            <a href="/clients" class="flex items-center gap-4 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/5 rounded-2xl text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all font-medium group"><i class="fa-solid fa-users-gear w-5 text-lg"></i><span data-fa="مدیریت کلاینت‌ها" data-en="Clients Manager">مدیریت کلاینت‌ها</span></a>
+            <a href="/nodes" class="flex items-center gap-4 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/5 rounded-2xl text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all font-medium group"><i class="fa-solid fa-network-wired w-5 text-lg"></i><span data-fa="نودها و سرورها" data-en="Nodes & Servers">نودها و سرورها</span></a>
+            <a href="/settings" class="flex items-center gap-4 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/5 rounded-2xl text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all font-medium group"><i class="fa-solid fa-sliders w-5 text-lg"></i><span data-fa="تنظیمات هسته" data-en="Core Settings">تنظیمات هسته</span></a>
+        </nav>
+        
+        <div class="p-6 border-t border-gray-200/50 dark:border-white/5">
+            <div class="flex items-center gap-3 p-3 rounded-2xl hover:bg-gray-100 dark:hover:bg-white/5 transition-colors cursor-pointer">
+                <div id="userAvatar" class="w-12 h-12 rounded-xl bg-gray-900 dark:bg-white flex items-center justify-center text-white dark:text-black font-black text-xl shadow-lg font-sans"></div>
+                <div class="flex-1 overflow-hidden">
+                    <p id="usernameText" class="text-sm font-bold truncate text-gray-900 dark:text-white">{{ admin_user }}</p>
+                    <p class="text-xs text-gray-500 font-mono mt-0.5">Root Admin</p>
+                </div>
+            </div>
+            <a href="/logout" class="mt-3 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 font-bold text-sm hover:bg-red-500/20 transition-all">
+                <i class="fa-solid fa-right-from-bracket"></i>
+                <span data-fa="خروج" data-en="Logout">خروج</span>
+            </a>
+        </div>
+    </aside>
 
-  <!-- ==================== SETTINGS ==================== -->
-  <section class="view" id="view-settings">
-    <section class="card">
-      <h2><svg class="ni"><use href="#i-user"/></svg> {{ t.settings_account }}</h2>
-      <p class="muted" style="margin:-6px 0 14px">{{ t.settings_account_desc }}</p>
-      <form method="post" action="/settings/credentials" class="set-grid">
-        <div>
-          <label>{{ t.new_username }}</label>
-          <input name="new_username" value="{{ admin_user }}" pattern="[A-Za-z0-9_.\-]{3,32}">
-        </div>
-        <div>
-          <label>{{ t.new_password }}</label>
-          <input type="password" name="new_password" autocomplete="new-password" placeholder="••••••">
-        </div>
-        <div>
-          <label>{{ t.new_password2 }}</label>
-          <input type="password" name="new_password2" autocomplete="new-password" placeholder="••••••">
-        </div>
-        <div class="full">
-          <button class="btn primary"><svg class="ni ni-lg"><use href="#i-download"/></svg> {{ t.save_btn }}</button>
-          <span class="muted">{{ t.creds_note }}</span>
-        </div>
-      </form>
-    </section>
+    <!-- ============ محتوای اصلی ============ -->
+    <main class="flex-1 flex flex-col h-screen overflow-hidden relative z-10 w-full">
+        <header class="h-[88px] px-6 lg:px-10 flex items-center justify-between border-b border-gray-200/50 dark:border-white/5 bg-white/30 dark:bg-[#030303]/50 backdrop-blur-md z-30 sticky top-0">
+            <div class="flex items-center gap-4">
+                <button onclick="toggleSidebar()" class="lg:hidden w-10 h-10 rounded-xl bg-white dark:bg-darkCard border border-gray-200 dark:border-darkBorder flex items-center justify-center text-gray-600 dark:text-gray-300">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+                <h1 class="text-xl font-bold hidden sm:block tracking-wide" data-fa="داشبورد عملیاتی شبکه" data-en="Network Operations Dashboard">داشبورد عملیاتی شبکه</h1>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <div class="hidden xl:flex items-center gap-2 bg-gray-100 dark:bg-white/5 p-1 rounded-xl border border-gray-200 dark:border-white/5">
+                    <form method="post" action="/sync" class="inline">
+                        <button type="submit" class="px-4 py-2 rounded-lg text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-white/10 transition-all flex items-center gap-2 shadow-sm cursor-pointer">
+                            <i class="fa-solid fa-rotate text-blue-500"></i> <span data-fa="همگام‌سازی" data-en="Sync">همگام‌سازی</span>
+                        </button>
+                    </form>
+                    <form method="post" action="/update" class="inline" onsubmit="return confirm('{{ t.update_confirm }}')">
+                        <button type="submit" class="px-4 py-2 rounded-lg text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-white/10 transition-all flex items-center gap-2 shadow-sm cursor-pointer">
+                            <i class="fa-solid fa-cloud-arrow-down text-cyan-500"></i> <span data-fa="بروزرسانی هسته" data-en="Update Core">بروزرسانی هسته</span>
+                        </button>
+                    </form>
+                    <form method="post" action="/restart-vpn" class="inline" onsubmit="return confirm('{{ t.restart_vpn_confirm }}')">
+                        <button type="submit" class="px-4 py-2 rounded-lg text-xs font-bold text-red-600 dark:text-red-400 hover:bg-white dark:hover:bg-white/10 transition-all flex items-center gap-2 shadow-sm cursor-pointer">
+                            <i class="fa-solid fa-power-off"></i> <span data-fa="ریستارت سرویس" data-en="Restart Svc">ریستارت سرویس</span>
+                        </button>
+                    </form>
+                </div>
+                
+                <div class="h-8 w-px bg-gray-300 dark:bg-white/10 hidden xl:block mx-2"></div>
+                
+                <a href="/lang/{{ 'en' if lang == 'fa' else 'fa' }}" class="w-10 h-10 rounded-xl bg-white dark:bg-[#0f0f0f] border border-gray-200 dark:border-white/10 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-white/5 transition-all font-bold text-xs shadow-sm font-mono no-underline text-gray-700 dark:text-gray-200">
+                    {{ 'EN' if lang == 'fa' else 'FA' }}
+                </a>
+                <button onclick="toggleTheme()" id="theme-icon" class="w-10 h-10 rounded-xl bg-white dark:bg-[#0f0f0f] border border-gray-200 dark:border-white/10 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-white/5 transition-all text-gray-600 dark:text-gray-300 shadow-sm cursor-pointer">
+                    <i class="fa-solid fa-sun"></i>
+                </button>
+            </div>
+        </header>
 
-    <section class="card">
-      <h2><svg class="ni ni-lg"><use href="#i-shield"/></svg> {{ t.settings_vpn }}</h2>
-      <form method="post" action="/settings/psk" class="set-grid">
-        <div class="full warn-box">⚠️ {{ t.change_psk_warn }}</div>
-        <div>
-          <label>{{ t.new_psk }}</label>
-          <div class="secret-row" style="width:100%">
-            <input name="new_psk" id="pskInput" required minlength="8" placeholder="..." style="flex:1">
-            <button type="button" class="btn small psk-random" onclick="genPSK()" title="Generate">🎲</button>
-          </div>
-        </div>
-        <div class="full"><button class="btn primary">{{ t.change_psk }}</button></div>
-      </form>
-      <hr class="set-sep">
-      <h2><svg class="ni"><use href="#i-globe"/></svg> {{ t.default_dns_title }}</h2>
-      <form method="post" action="/settings/dns" class="set-grid">
-        <div>
-          <label>DNS 1</label>
-          <input name="dns1" value="{{ default_dns1 }}" placeholder="8.8.8.8" inputmode="numeric">
-        </div>
-        <div>
-          <label>DNS 2</label>
-          <input name="dns2" value="{{ default_dns2 }}" placeholder="1.1.1.1" inputmode="numeric">
-        </div>
-        <div class="full"><button class="btn primary"><svg class="ni ni-lg"><use href="#i-download"/></svg> {{ t.save_btn }}</button></div>
-      </form>
-    </section>
+        <div class="flex-1 overflow-y-auto p-4 lg:p-8 pb-20 lg:pb-10 space-y-6">
+            
+            <!-- flash -->
+            {% with msgs = get_flashed_messages() %}
+              {% for m in msgs %}
+              <div class="flash-msg p-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300 text-sm font-bold flex items-center gap-2">
+                  <i class="fa-solid fa-circle-check"></i> {{ m }}
+              </div>
+              {% endfor %}
+            {% endwith %}
 
-    <section class="card">
-      <h2><svg class="ni ni-lg"><use href="#i-server"/></svg> {{ t.settings_panel }}</h2>
-      <form method="post" action="/settings/port" class="set-grid">
-        <div class="full note-box">ℹ️ {{ t.port_warn }}</div>
-        <div>
-          <label>{{ t.cur_port }}</label>
-          <input value="{{ panel_port }}" disabled style="opacity:.55">
+            <!-- ردیف ۱: آمار حیاتی -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="glass-card p-5 rounded-2xl relative overflow-hidden group">
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-cyan-500/20 rounded-full blur-2xl group-hover:bg-cyan-500/30 transition-all"></div>
+                    <p class="text-[11px] font-bold text-gray-500 dark:text-gray-400 mb-1 tracking-widest uppercase" data-fa="نود مرکزی شبکه" data-en="Core Network Node">نود مرکزی شبکه</p>
+                    <div class="flex items-center gap-3 mt-2">
+                        <i class="fa-solid fa-server text-cyan-500"></i>
+                        <p class="text-xl font-bold font-mono text-gray-900 dark:text-white">{{ server_ip }}</p>
+                    </div>
+                </div>
+
+                <div class="glass-card p-4 rounded-2xl relative overflow-hidden group">
+                    <div class="absolute top-0 right-0 w-20 h-20 bg-orange-500/20 rounded-full blur-2xl group-hover:bg-orange-500/30 transition-all"></div>
+                    <div class="flex flex-col relative z-10">
+                        <p class="text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-2 tracking-widest uppercase" data-fa="کلید رمزنگاری" data-en="Encryption Key">کلید رمزنگاری</p>
+                        <div class="flex items-center justify-between gap-2 bg-gray-100/70 dark:bg-black/30 rounded-xl p-2 border border-gray-200/50 dark:border-white/10">
+                            <div class="flex items-center gap-2 min-w-0 flex-1">
+                                <i class="fa-solid fa-shield-halved text-orange-500 text-xs flex-none"></i>
+                                <p class="text-xs font-mono font-bold text-gray-700 dark:text-gray-200 truncate select-all" id="pskText" data-psk="{{ psk }}" data-shown="0" title="{{ psk }}">••••••••</p>
+                            </div>
+                            <div class="flex gap-1 flex-none">
+                                <button onclick="togglePSK()" class="w-7 h-7 rounded-lg bg-white/80 dark:bg-white/10 border border-gray-200 dark:border-white/10 flex items-center justify-center text-gray-500 dark:text-gray-300 hover:text-orange-500 dark:hover:text-orange-400 transition-all cursor-pointer text-xs" title="Show/Hide"><i class="fa-regular fa-eye"></i></button>
+                                <button onclick="copyPSK()" class="w-7 h-7 rounded-lg bg-white/80 dark:bg-white/10 border border-gray-200 dark:border-white/10 flex items-center justify-center text-gray-500 dark:text-gray-300 hover:text-orange-500 dark:hover:text-orange-400 transition-all cursor-pointer text-xs" title="Copy"><i class="fa-regular fa-copy"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card p-5 rounded-2xl relative overflow-hidden group">
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-blue-500/20 rounded-full blur-2xl group-hover:bg-blue-500/30 transition-all"></div>
+                    <p class="text-[11px] font-bold text-gray-500 dark:text-gray-400 mb-1 tracking-widest uppercase" data-fa="کلاینت‌های برخط" data-en="Online Clients">کلاینت‌های برخط</p>
+                    <div class="flex items-center gap-3 mt-2">
+                        <i class="fa-solid fa-users text-blue-500"></i>
+                        <p class="text-2xl font-bold font-mono text-gray-900 dark:text-white">{{ active_count }} <span class="text-xs text-gray-500 font-sans mx-1">/ {{ total_count }}</span></p>
+                    </div>
+                </div>
+
+                <div class="glass-card p-5 rounded-2xl relative overflow-hidden group">
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-emerald-500/20 rounded-full blur-2xl group-hover:bg-emerald-500/30 transition-all"></div>
+                    <p class="text-[11px] font-bold text-gray-500 dark:text-gray-400 mb-1 tracking-widest uppercase" data-fa="تونل‌های فعال" data-en="Active Tunnels">تونل‌های فعال</p>
+                    <div class="flex items-center gap-3 mt-2">
+                        <div class="relative">
+                            <i class="fa-solid fa-bolt text-emerald-500"></i>
+                            <span class="absolute -top-1 -right-2 w-2 h-2 bg-emerald-500 rounded-full animate-ping opacity-75"></span>
+                        </div>
+                        <p class="text-2xl font-bold font-mono text-gray-900 dark:text-white">{{ online_count }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ردیف ۲: مصرف + سخت‌افزار -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                
+                <div class="glass-card p-6 rounded-3xl lg:col-span-2 flex flex-col md:flex-row gap-6 items-center">
+                    <div class="w-full md:w-1/3 flex flex-col justify-center text-center md:text-start border-b md:border-b-0 md:border-e border-gray-200/50 dark:border-white/10 pb-6 md:pb-0 md:pe-6">
+                        <div class="flex items-center justify-center md:justify-start gap-2 mb-2">
+                            <span class="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></span>
+                            <h3 class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest" data-fa="مصرف کل ترافیک" data-en="Total Traffic Usage">مصرف کل ترافیک</h3>
+                        </div>
+                        <div class="inline-flex items-end justify-center md:justify-start my-2">
+                            <span class="text-5xl lg:text-6xl font-black font-mono tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-cyan-400 to-blue-600">{{ total_used_gb }}</span>
+                            <span class="text-lg text-gray-500 font-bold mb-1 ml-1">GB</span>
+                        </div>
+                        <p class="text-[11px] text-gray-500 font-mono mt-1">{% if total_limit %}<span data-fa="مجموع سهم کاربران محدود: {{ total_limit }}" data-en="Total Quota: {{ total_limit }}">مجموع سهم کاربران محدود: {{ total_limit }}</span>{% else %}<span data-fa="نامحدود" data-en="Unlimited">نامحدود</span>{% endif %}</p>
+                    </div>
+
+                    <div class="w-full md:w-2/3 h-full flex flex-col justify-end">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest" data-fa="روند ۷ روز گذشته" data-en="7-Day Trend">روند ۷ روز گذشته</h3>
+                        </div>
+                        <div class="flex-1 flex items-end justify-between gap-1.5 h-24 border-b border-gray-200 dark:border-white/10 pb-1 relative">
+                            {% for d in chart_days %}
+                            <div class="w-full {% if loop.last %}bg-gradient-to-t from-blue-500 to-cyan-400 rounded-sm chart-bar relative shadow-[0_0_12px_rgba(56,189,248,0.4)]{% else %}bg-gradient-to-t from-gray-200 to-gray-300 dark:from-white/10 dark:to-white/20 rounded-sm chart-bar{% endif %}" style="height: {{ d.pct if d.pct > 0 else 3 }}%"></div>
+                            {% endfor %}
+                        </div>
+                        <div class="flex justify-between text-[9px] text-gray-400 mt-2 font-mono tracking-wider">
+                            {% for d in chart_days %}
+                            <span {% if loop.last %}class="text-cyan-500 font-bold"{% endif %}>{{ d.label }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- سخت‌افزار -->
+                <div class="glass-card p-6 rounded-3xl lg:col-span-1 flex flex-col justify-center">
+                    <div class="flex justify-between items-center mb-5">
+                        <h3 class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest" data-fa="وضعیت سخت‌افزار" data-en="Hardware Status">وضعیت سخت‌افزار</h3>
+                        <i class="fa-solid fa-microchip text-gray-400"></i>
+                    </div>
+                    
+                    <div class="flex flex-row justify-between gap-4 divide-x rtl:divide-x-reverse divide-gray-200/50 dark:divide-white/10 h-full items-center">
+                        <div class="w-1/2 flex flex-col justify-center pe-2">
+                            <div class="flex items-center gap-1.5 mb-2">
+                                <i class="fa-solid fa-server text-amber-500 text-[10px]"></i>
+                                <span class="text-[10px] text-gray-500 font-bold">CPU</span>
+                            </div>
+                            <span class="text-2xl font-black font-mono text-gray-900 dark:text-white mb-2">{{ hw.cpu }}<span class="text-sm text-gray-400 font-sans">%</span></span>
+                            <div class="w-full bg-gray-200 dark:bg-gray-800/80 rounded-full h-1 overflow-hidden">
+                                <div class="bg-gradient-to-r from-amber-400 to-orange-500 h-1 rounded-full shadow-[0_0_8px_rgba(245,158,11,0.5)]" style="width: {{ hw.cpu }}%"></div>
+                            </div>
+                        </div>
+
+                        <div class="w-1/2 flex flex-col justify-center ps-4">
+                            <div class="flex items-center gap-1.5 mb-2">
+                                <i class="fa-solid fa-memory text-purple-500 text-[10px]"></i>
+                                <span class="text-[10px] text-gray-500 font-bold">RAM</span>
+                            </div>
+                            <span class="text-2xl font-black font-mono text-gray-900 dark:text-white mb-2">{{ hw.ram }}<span class="text-sm text-gray-400 font-sans">%</span></span>
+                            <div class="w-full bg-gray-200 dark:bg-gray-800/80 rounded-full h-1 overflow-hidden">
+                                <div class="bg-gradient-to-r from-purple-500 to-indigo-500 h-1 rounded-full shadow-[0_0_8px_rgba(168,85,247,0.5)]" style="width: {{ hw.ram }}%"></div>
+                            </div>
+                            <p class="text-[9px] text-gray-500 font-mono mt-2">{{ hw.ram_used }} / {{ hw.ram_total }}</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- ردیف ۳: پرمصرف‌ها + IP -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                
+                <div class="glass-card p-6 rounded-3xl flex flex-col justify-center">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest" data-fa="کلاینت‌های پرمصرف" data-en="Top Traffic Clients">کلاینت‌های پرمصرف</h3>
+                        <i class="fa-solid fa-trophy text-yellow-500 text-sm"></i>
+                    </div>
+                    
+                    <div class="space-y-6">
+                        {% for u in top_users %}
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-5 h-5 rounded {% if loop.index == 1 %}bg-gray-100 dark:bg-white/10 flex items-center justify-center text-[10px] font-bold text-gray-900 dark:text-white{% elif loop.index == 2 %}bg-yellow-50 dark:bg-yellow-500/10 flex items-center justify-center text-[10px] text-yellow-600{% else %}bg-orange-50 dark:bg-orange-500/10 flex items-center justify-center text-[10px] text-orange-600{% endif %}">
+                                        {% if loop.index == 1 %}{{ loop.index }}{% elif loop.index == 2 %}<i class="fa-solid fa-star"></i>{% else %}{{ loop.index }}{% endif %}
+                                    </div>
+                                    <span class="text-sm font-bold text-gray-800 dark:text-gray-200">{{ u.username }}</span>
+                                </div>
+                                <span class="text-[11px] font-mono font-bold text-purple-600 dark:text-purple-400">{{ u.used }}</span>
+                            </div>
+                            <div class="w-full bg-gray-200 dark:bg-gray-800/50 rounded-full h-1.5 overflow-hidden">
+                                <div class="bg-gradient-to-r from-purple-500 to-pink-500 h-1.5 rounded-full shadow-[0_0_8px_rgba(236,72,153,0.5)]" style="width: {{ u.pct }}%"></div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <p class="text-center text-gray-500 text-sm py-4">—</p>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="glass-card p-6 rounded-3xl flex flex-col justify-center border-l-4 border-l-pink-500">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest" data-fa="اسلات IP استفاده شده" data-en="IP Slots Used">اسلات IP استفاده شده</h3>
+                        <i class="fa-solid fa-network-wired text-pink-500 text-sm"></i>
+                    </div>
+                    <div class="flex-1 flex flex-col justify-center">
+                        <div class="flex justify-between items-end mb-4">
+                            <span class="text-4xl font-black font-mono text-gray-900 dark:text-white">{{ total_count }} <span class="text-lg text-gray-400 font-sans">/ 240</span></span>
+                            <span class="text-[10px] font-bold bg-pink-100 text-pink-600 dark:bg-pink-500/20 dark:text-pink-400 px-2 py-1 rounded">{{ ((total_count / 240) * 100) | round(1) }}% Usage</span>
+                        </div>
+                        <div class="w-full bg-gray-200 dark:bg-gray-800/80 rounded-full h-2 overflow-hidden mb-2">
+                            <div class="bg-gradient-to-r from-pink-500 to-rose-500 h-2 rounded-full shadow-[0_0_10px_rgba(236,72,153,0.5)]" style="width: {{ ((total_count / 240) * 100) | round(1) }}%"></div>
+                        </div>
+                        <p class="text-[10px] text-gray-500" data-fa="ظرفیت فعلی شبکه پایدار است." data-en="Network capacity is stable.">ظرفیت فعلی شبکه پایدار است.</p>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- ردیف ۴: سرویس‌ها -->
+            <div class="pt-2">
+                <div class="flex justify-between items-end px-1 mb-3">
+                    <h3 class="font-bold text-sm tracking-wide text-gray-800 dark:text-gray-200" data-fa="مانیتورینگ سرویس‌ها" data-en="Services Monitoring">مانیتورینگ سرویس‌ها</h3>
+                </div>
+                
+                <div class="glass-card rounded-2xl overflow-hidden mb-10">
+                    <div class="divide-y divide-gray-100 dark:divide-white/5">
+
+                        {% set services = [
+                            (svc.ocserv, 'OpenConnect', 'PORT: 555', 'fa-shield-halved', 'blue', 'سرویس در حال اجرا - بدون خطا', 'Service running - No errors'),
+                            (svc.xl2tpd, 'L2TP', 'PORT: 1701', 'fa-network-wired', 'purple', 'ارتباط پایدار - رمزنگاری شده', 'Stable connection - Encrypted'),
+                            (svc.ipsec, 'IPSec', 'PORT: 500', 'fa-lock', 'orange', 'تونل رمزنگاری فعال است', 'Encryption tunnel is active'),
+                            (svc.nat, 'NAT', 'CORE ROUTING', 'fa-route', 'cyan', 'مسیریابی شبکه - بدون قطعی', 'Network routing - No issues'),
+                            (svc.ikev2, 'IKEv2', 'PORT: 4500', 'fa-key', 'pink', 'اتصال امن - رمزنگاری قدرتمند', 'Secure connection - Strong encryption')
+                        ] %}
+                        {% for active, name, port, icon, color, desc_fa, desc_en in services %}
+                        <div class="p-4 flex flex-col sm:flex-row sm:items-center justify-between hover:bg-white/40 dark:hover:bg-white/[0.02] transition-colors cursor-pointer group">
+                            <div class="flex items-center gap-4">
+                                <div class="w-10 h-10 rounded-lg bg-{{ color }}-50 dark:bg-{{ color }}-900/20 flex items-center justify-center border border-{{ color }}-100 dark:border-{{ color }}-500/20 text-{{ color }}-600 dark:text-{{ color }}-400 group-hover:scale-105 transition-transform">
+                                    <i class="fa-solid {{ icon }}"></i>
+                                </div>
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <p class="font-bold text-gray-900 dark:text-white text-sm font-mono">{{ name }}</p>
+                                        <span class="px-1.5 py-0.5 bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-400 text-[9px] rounded font-mono border border-gray-200 dark:border-white/10">{{ port }}</span>
+                                    </div>
+                                    <p class="text-[11px] text-gray-500 mt-0.5" data-fa="{{ desc_fa }}" data-en="{{ desc_en }}">{{ desc_fa }}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-4 mt-3 sm:mt-0">
+                                <div class="flex items-center gap-1.5">
+                                    {% if active %}
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                    <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest" data-fa="فعال" data-en="Active">فعال</span>
+                                    {% else %}
+                                    <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                                    <span class="text-[10px] font-bold text-red-600 dark:text-red-400 uppercase tracking-widest" data-fa="از کار افتاده" data-en="Down">از کار افتاده</span>
+                                    {% endif %}
+                                </div>
+                                <i class="fa-solid fa-chevron-left rtl:fa-chevron-right text-gray-400 text-xs group-hover:text-gray-900 dark:group-hover:text-white transition-colors"></i>
+                            </div>
+                        </div>
+                        {% endfor %}
+
+                    </div>
+                </div>
+            </div>
         </div>
-        <div>
-          <label>{{ t.port_label }}</label>
-          <input name="port" required inputmode="numeric" placeholder="8080">
-        </div>
-        <div class="full"><button class="btn primary"><svg class="ni ni-lg"><use href="#i-download"/></svg> {{ t.save_btn }}</button></div>
-      </form>
-    </section>
+    </main>
 
-    <section class="card">
-      <h2><svg class="ni ni-lg"><use href="#i-download"/></svg> {{ t.settings_data }}</h2>
-      <div class="note-box">📋 {{ t.backup_note }}</div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
-        <a href="/backup" class="btn primary">{{ t.backup_btn }}</a>
-        <button type="button" class="btn" id="restoreBtn"
-                onclick="document.getElementById('restoreFile').click()">{{ t.restore_btn }}</button>
-      </div>
-      <form method="post" action="/settings/restore" enctype="multipart/form-data" id="restoreForm">
-        <input type="file" name="backup_file" id="restoreFile" accept=".zip" required
-               style="display:none" onchange="onRestorePick(this)">
-      </form>
-      </section>
-  </section>
-</main>
-
-<div class="modal" id="editModal">
-  <form method="post" id="editForm" class="modal-card">
-    <h3><svg class="ni ni-sm ni-hover"><use href="#i-edit"/></svg> {{ t.edit_title }}</h3>
-    <label>{{ t.new_password }}</label>
-    <input name="password" id="editPass">
-    <label>{{ t.new_expiry }}</label>
-    <input type="datetime-local" name="expires_at" id="editExp">
-    <label>{{ t.new_traffic }}</label>
-    <input type="number" step="0.1" min="0" name="traffic" id="editTraffic">
-    <label>{{ t.new_dns1 }}</label>
-    <input name="dns1" id="editDns1" placeholder="8.8.8.8" inputmode="numeric">
-    <label>{{ t.new_dns2 }}</label>
-    <input name="dns2" id="editDns2" placeholder="1.1.1.1" inputmode="numeric">
-    <label>{{ t.new_key }}</label>
-    <input name="key" id="editKey">
-    <div class="modal-btns">
-      <button type="button" class="btn" onclick="closeEdit()">{{ t.cancel }}</button>
-      <button type="submit" class="btn primary">{{ t.save }}</button>
-    </div>
-  </form>
-</div>
-{% endblock %}
-
-{% block scripts %}
+    
 <script>
-(function(){
-  var sb = document.getElementById('sidebar');
-  var ov = document.getElementById('sbOverlay');
-  var fab = document.getElementById('menuFab');
-  var items = Array.prototype.slice.call(sb.querySelectorAll('.sb-item'));
-  var views = Array.prototype.slice.call(document.querySelectorAll('.view'));
-  var valid = ['dashboard','users','settings'];
+        document.addEventListener("DOMContentLoaded", () => {
+            const av = document.getElementById("userAvatar");
+            const un = document.getElementById("usernameText");
+            if(av && un) { av.innerText = un.innerText.trim().charAt(0).toUpperCase(); }
+        });
 
-  function show(name){
-    items.forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-tab') === name); });
-    views.forEach(function(v){
-      v.classList.toggle('active', v.id === 'view-' + name);
-      v.style.display = (v.id === 'view-' + name) ? 'block' : 'none';
-    });
-    try{ localStorage.setItem('l2tp-tab', name); }catch(e){}
-    if (history.replaceState) { history.replaceState(null, '', '#' + name); }
-  }
-  function open(){ sb.classList.add('open'); ov.classList.add('show'); fab.classList.add('open'); document.body.style.overflow='hidden'; }
-  function close(){ sb.classList.remove('open'); ov.classList.remove('show'); fab.classList.remove('open'); document.body.style.overflow=''; }
+        (function(){
+            var t = null;
+            try { t = localStorage.getItem('l2tp-theme'); } catch(e) {}
+            if(!t) { t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark'; }
+            document.documentElement.classList.toggle('dark', t !== 'light');
+        })();
 
-  fab.addEventListener('click', function(){ (sb.classList.contains('open')) ? close() : open(); });
-  ov.addEventListener('click', close);
-  document.getElementById('sbClose').addEventListener('click', close);
-  document.addEventListener('keydown', function(e){ if(e.key === 'Escape') close(); });
+        function toggleTheme() {
+            var html = document.documentElement;
+            html.classList.toggle('dark');
+            try { localStorage.setItem('l2tp-theme', html.classList.contains('dark') ? 'dark' : 'light'); } catch(e) {}
+        }
 
-  sb.addEventListener('click', function(ev){
-    var item = ev.target.closest('.sb-item');
-    if(!item) return;
-    var name = item.getAttribute('data-tab');
-    if(!name || valid.indexOf(name) === -1) return;
-    ev.preventDefault();
-    show(name); close();
-  });
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            overlay.classList.toggle('hidden');
+            sidebar.classList.toggle('open');
+        }
 
-  var initial = (location.hash || '').replace('#','');
-  var saved = null;
-  try{ saved = localStorage.getItem('l2tp-tab'); }catch(e){}
-  var start = valid.indexOf(initial) >= 0 ? initial : (valid.indexOf(saved) >= 0 ? saved : 'dashboard');
-  show(start);
+        // ===== Language: persistent + placeholders =====
+        let currentLang = '{{ lang }}';
+        function setLang(l) {
+            currentLang = l;
+            document.cookie = 'l2tp_lang=' + l + ';path=/;max-age=31536000';
+            const html = document.documentElement;
+            const btn = document.querySelector('button[onclick="toggleLanguage()"]');
+            if (l === 'en') {
+                html.setAttribute('dir', 'ltr');
+                html.setAttribute('lang', 'en');
+                if (btn) btn.innerText = 'FA';
+                document.querySelectorAll('[data-en]').forEach(el => el.innerText = el.getAttribute('data-en'));
+                document.querySelectorAll('input[data-en-ph]').forEach(el => el.placeholder = el.getAttribute('data-en-ph'));
+            } else {
+                html.setAttribute('dir', 'rtl');
+                html.setAttribute('lang', 'fa');
+                if (btn) btn.innerText = 'EN';
+                document.querySelectorAll('[data-fa]').forEach(el => el.innerText = el.getAttribute('data-fa'));
+                document.querySelectorAll('input[data-fa-ph]').forEach(el => el.placeholder = el.getAttribute('data-fa-ph'));
+            }
+        }
+        // language handled by /lang links
+        
+
+        // ===== PSK: show/hide + copy =====
+        function togglePSK() {
+            var el = document.getElementById('pskText');
+            if (!el) return;
+            if (el.getAttribute('data-shown') === '1') {
+                el.textContent = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
+                el.setAttribute('data-shown', '0');
+            } else {
+                el.textContent = el.getAttribute('data-psk');
+                el.setAttribute('data-shown', '1');
+            }
+        }
+        function copyPSK() {
+            var el = document.getElementById('pskText');
+            if (!el) return;
+            var psk = el.getAttribute('data-psk');
+            var done = function(){ alert('PSK copied!'); };
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(psk).then(done).catch(function(){
+                    fallbackCopy(psk);
+                });
+            } else {
+                fallbackCopy(psk);
+            }
+        }
+        function fallbackCopy(text) {
+            var a = document.createElement('textarea');
+            a.value = text;
+            a.style.position = 'fixed';
+            a.style.opacity = '0';
+            document.body.appendChild(a);
+            a.select();
+            document.execCommand('copy');
+            a.remove();
+            alert('PSK copied!');
+        }
+    
+// Restore lang from COOKIE (server already rendered with it — this is just UI sync)
+
+    </script>
+
+<script>
+// Auto-translate: سرور با lang درست رندر کرده (dir هم درسته)
+// فقط متن‌های data-attr رو sync کن
+(function autoTranslate(){
+    var lang = document.documentElement.getAttribute('lang') || 'fa';
+    if (lang === 'en') {
+        document.querySelectorAll('[data-en]').forEach(function(el){
+            el.innerText = el.getAttribute('data-en');
+        });
+        document.querySelectorAll('input[data-en-ph]').forEach(function(el){
+            el.placeholder = el.getAttribute('data-en-ph');
+        });
+        // placeholder فارسی بدون data-attr:
+        document.querySelectorAll('input[placeholder]').forEach(function(el){
+            var p = el.getAttribute('placeholder');
+            if (p === 'جستجو...') el.placeholder = 'Search...';
+        });
+        // فلش پیام‌ها:
+        document.querySelectorAll('.flash-msg').forEach(function(el){
+            var raw = el.getAttribute('data-msg') || el.textContent;
+            var sep = raw.indexOf('|EN:');
+            if (sep > -1) {
+                var fa = raw.replace(/^ERR_FA:|^FA:/, '').substring(0, sep).replace(/^ERR_FA:|^FA:/,'');
+                var en = raw.substring(sep + 4);
+                var span = el.querySelector('.flash-text');
+                if (span) span.textContent = en;
+            }
+        });
+    }
 })();
-
-function openEdit(id, exp, dns1, dns2, key){
-  document.getElementById('editForm').action = '/edit/' + id;
-  document.getElementById('editExp').value = exp;
-  document.getElementById('editPass').value = '';
-  document.getElementById('editTraffic').value = '';
-  document.getElementById('editDns1').value = dns1;
-  document.getElementById('editDns2').value = dns2;
-  document.getElementById('editKey').value = key;
-  document.getElementById('editModal').classList.add('show');
-}
-function closeEdit(){ document.getElementById('editModal').classList.remove('show'); }
-document.getElementById('editModal').addEventListener('click', function(e){ if(e.target === this) closeEdit(); });
-document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeEdit(); });
-
-function genPSK(){
-  var c='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-  var a=new Uint32Array(20);window.crypto.getRandomValues(a);
-  var p='';for(var i=0;i<20;i++){p+=c[a[i]%c.length];}
-  var el=document.getElementById('pskInput');
-  el.value=p;
-  el.style.borderColor='var(--neon-cyan)';
-  el.style.boxShadow='0 0 12px rgba(0,229,255,.25)';
-  setTimeout(function(){el.style.boxShadow='';},1200);
-}
-
-
-function onRestorePick(inp){
-  if(!inp.files || !inp.files[0]) return;
-  var name = inp.files[0].name;
-  if(!confirm('{{ t.restore_confirm }}' + "\n" + name)) {
-    inp.value = '';
-    return;
-  }
-  document.getElementById('restoreForm').submit();
-}
-
 </script>
-{% endblock %}
-
-
-
-
-
-
+</body>
+</html>
 
 ZQ_index_html
 
@@ -3071,6 +3557,7 @@ cat > "${PANEL_DIR}/templates/user.html" <<'ZQ_user_html'
 
 
 
+
 ZQ_user_html
 
 cat > "${PANEL_DIR}/templates/restarting.html" <<'ZQ_restarting_html'
@@ -3086,6 +3573,7 @@ cat > "${PANEL_DIR}/templates/restarting.html" <<'ZQ_restarting_html'
   </div>
 </div>
 {% endblock %}
+
 
 
 
@@ -3134,6 +3622,7 @@ cat > "${PANEL_DIR}/templates/updating.html" <<'ZQ_updating_html'
   </div>
 </div>
 {% endblock %}
+
 
 
 
@@ -3215,6 +3704,7 @@ if echo "$KILLED" | grep -q "COUNT:1\|COUNT:2\|COUNT:3\|COUNT:4\|COUNT:5"; then
 fi
 
 echo "[OK] enforcement done"
+
 
 
 

@@ -1,93 +1,231 @@
-{% extends 'base.html' %}
-{% block title %}{{ t.login_title }}{% endblock %}
-{% block body %}
-<style>
-.gcard{width:100%;max-width:400px;border-radius:22px;padding:2px;
-  background-image:linear-gradient(163deg,#00ff75 0%,#3700ff 100%);transition:all .3s}
-.gcard:hover{box-shadow:0 0 30px 1px rgba(0,255,117,.3)}
-.gform{background-color:#171717;border-radius:20px;transition:all .2s;
-  padding:12px 2em 1.4em;display:flex;flex-direction:column}
-.gcard:hover .gform{transform:scale(.98);border-radius:18px}
-.gheading{text-align:center;margin:1.2em 1em 1em;color:#fff;font-size:1.15em;font-weight:700}
-.gsub{text-align:center;color:#666;font-size:.72rem;margin:-0.8em 0 .4em}
-.gfield{display:flex;align-items:center;justify-content:center;gap:.6em;
-  border-radius:25px;padding:.7em 1em;border:none;outline:none;color:#fff;
-  background-color:#171717;box-shadow:inset 2px 5px 10px rgb(5,5,5);margin-top:12px;
-  transition:box-shadow .25s}
-.gfield:focus-within{box-shadow:inset 2px 5px 10px rgb(5,5,5),0 0 0 2px rgba(0,255,117,.4)}
-.gicon{height:1.3em;width:1.3em;fill:#9a9a9a;flex:none;transition:fill .25s}
-.gfield:focus-within .gicon{fill:#00ff75}
-.gfield input{background:none;border:none;outline:none;width:100%;color:#d3d3d3;
-  font-family:inherit;font-size:.9rem}
-.gfield input::placeholder{color:#6f6f6f}
-.gbtn-row{display:flex;justify-content:center;margin-top:1.8em}
-.gbtn{padding:.75em 2.5em;border-radius:6px;border:none;outline:none;cursor:pointer;
-  transition:.4s ease-in-out;background-color:#252525;color:#fff;width:100%;
-  font-family:inherit;font-weight:600;font-size:.9rem}
-.gbtn:hover{background-color:#000;color:#fff}
-.gerr{background:rgba(255,60,60,.12);color:#ff7b7b;border:1px solid rgba(255,60,60,.35);
-  padding:.7em 1em;border-radius:12px;margin:1em 0 .2em;font-size:.83rem;
-  font-weight:600;text-align:center}
-[data-theme=light] .gcard{background-image:none;padding:0;
-  background:linear-gradient(to right,#ffffff,#f8f9fd);
-  border:5px solid #ffffff;border-radius:40px;
-  box-shadow:rgba(133,189,215,.878) 0 30px 30px -20px}
-[data-theme=light] .gcard:hover{box-shadow:rgba(133,189,215,.878) 0 34px 34px -22px}
-[data-theme=light] .gform{background:transparent;border-radius:35px;
-  padding:25px 35px;transform:none !important}
-[data-theme=light] .gheading{color:rgb(70,130,180);font-weight:900;font-size:1.6rem}
-[data-theme=light] .gsub{color:#7a93ad}
-[data-theme=light] .gfield{background:#fff;border-inline:2px solid transparent;
-  box-shadow:#cff0ff 0 10px 10px -5px}
-[data-theme=light] .gfield:focus-within{border-inline:2px solid #12b1d1;
-  box-shadow:#cff0ff 0 10px 10px -5px}
-[data-theme=light] .gicon{fill:#8fa8bd}
-[data-theme=light] .gfield input{color:#182238}
-[data-theme=light] .gfield input::placeholder{color:#9aa8b8}
-[data-theme=light] .gbtn{background:linear-gradient(to right,#0b98ec,#0f58e8);
-  border-radius:20px;box-shadow:rgba(133,189,215,.878) 0 20px 10px -15px}
-[data-theme=light] .gbtn:hover{transform:scale(1.03);
-  background:linear-gradient(to right,#0b98ec,#0f58e8)}
-[data-theme=light] .gerr{background:#fef2f2;color:#b91c1c;border-color:#fecaca}
-[data-theme=light] .gfield input:-webkit-autofill{
-  -webkit-box-shadow:0 0 0 1000px #ffffff inset;-webkit-text-fill-color:#182238}
-</style>
-<div class="login-wrap">
-  <form method="post" class="gcard">
-    <div class="gform">
-      <div class="login-logo">
-        <svg class="logo-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="L2TP">
-          <defs><linearGradient id="lgl" x1="10" y1="6" x2="54" y2="58" gradientUnits="userSpaceOnUse">
-            <stop class="lg-a" offset="0"/><stop class="lg-b" offset="1"/></linearGradient></defs>
-          <path d="M32 4 L55.5 12.5 V28 C55.5 42.5 46 52.5 32 59.5 C18 52.5 8.5 42.5 8.5 28 V12.5 Z" stroke="url(#lgl)" stroke-width="3.4" stroke-linejoin="round" fill="url(#lgl)" fill-opacity="0.08"/>
-          <path d="M22 46.5 V29 C22 21.8 26.4 16 32 16 C37.6 16 42 21.8 42 29 V46.5" stroke="url(#lgl)" stroke-width="2.6" stroke-linecap="round"/>
-          <path d="M28 46.5 V31.5 C28 27 29.7 23.5 32 23.5 C34.3 23.5 36 27 36 31.5 V46.5" stroke="url(#lgl)" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
-          <circle cx="32" cy="36.5" r="3" fill="url(#lgl)"/>
-        </svg>
-      </div>
-      <div class="gheading">{{ t.brand }}</div>
-      <div class="gsub">L2TP / IPSec PSK</div>
-      {% if relogin %}<div class="gerr" style="color:var(--acc);border-color:color-mix(in srgb,var(--acc) 35%%,transparent);background:color-mix(in srgb,var(--acc) 8%%,transparent)">{{ t.relogin_note }}</div>{% endif %}
-      {% if error %}<div class="gerr">{{ error }}</div>{% endif %}
-      <div class="gfield">
-        <svg class="gicon" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-        <input type="text" name="username" placeholder="{{ t.username }}" autofocus required autocomplete="username">
-      </div>
-      <div class="gfield">
-        <svg class="gicon" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg>
-        <input type="password" name="password" placeholder="{{ t.password }}" required autocomplete="current-password">
-      </div>
-      <div class="gbtn-row">
-        <button type="submit" class="gbtn">{{ t.login_btn }}</button>
-      </div>
+<!DOCTYPE html>
+<html lang="{{ lang }}" dir="{{ dir }}" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3OUTHBOY | Secure Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { 
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#030303',
+                        darkCard: '#0c0c0c',
+                        darkBorder: '#1f1f1f'
+                    },
+                    backgroundImage: {
+                        'grid-pattern': "url('data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h40v40H0V0zm20 20h20v20H20V20zM0 20h20v20H0V20z' fill='%23ffffff' fill-opacity='0.02' fill-rule='evenodd'/%3E%3C/svg%3E')"
+                    },
+                    animation: {
+                        'fade-in-up': 'fadeInUp 0.6s ease-out forwards'
+                    },
+                    keyframes: {
+                        fadeInUp: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body { font-family: 'Vazirmatn', 'Inter', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            transition: all 0.3s ease;
+        }
+        .dark .glass-card {
+            background: rgba(12, 12, 12, 0.65);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-darkBg text-gray-900 dark:text-gray-100 transition-colors duration-300 flex items-center justify-center min-h-screen overflow-hidden relative">
+
+    <div class="absolute inset-0 bg-grid-pattern z-0 pointer-events-none"></div>
+    <div class="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
+        <div class="absolute -top-[10%] -right-[10%] w-[50vw] h-[50vw] max-w-[600px] max-h-[600px] bg-cyan-600/10 rounded-full blur-[100px] animate-pulse"></div>
+        <div class="absolute -bottom-[10%] -left-[10%] w-[50vw] h-[50vw] max-w-[600px] max-h-[600px] bg-purple-600/10 rounded-full blur-[100px] animate-pulse" style="animation-delay: 2s;"></div>
     </div>
-  </form>
-</div>
-{% endblock %}
 
+    <!-- دکمه‌های کنترل (زبان و تم) -->
+    <div class="absolute top-6 end-6 z-50 flex items-center gap-3">
+        <a href="/lang/{{ 'en' if lang == 'fa' else 'fa' }}" class="w-10 h-10 rounded-xl bg-white/70 dark:bg-[#0f0f0f]/80 backdrop-blur-md border border-gray-200 dark:border-white/10 flex items-center justify-center hover:bg-white dark:hover:bg-white/10 transition-all font-bold text-xs shadow-sm font-mono no-underline text-gray-700 dark:text-gray-200">
+            {{ 'EN' if lang == 'fa' else 'FA' }}
+        </a>
+        <button onclick="toggleTheme()" id="theme-icon" class="w-10 h-10 rounded-xl bg-white/70 dark:bg-[#0f0f0f]/80 backdrop-blur-md border border-gray-200 dark:border-white/10 flex items-center justify-center hover:bg-white dark:hover:bg-white/10 transition-all text-gray-600 dark:text-gray-300 shadow-sm">
+            <i class="fa-solid fa-sun"></i>
+        </button>
+    </div>
 
+    <!-- فرم لاگین -->
+    <div class="relative w-full max-w-[420px] mx-4 z-10 animate-fade-in-up">
+        <div class="glass-card rounded-[2.5rem] p-8 sm:p-10 relative overflow-hidden">
+            
+            <div class="absolute -top-20 -start-20 w-40 h-40 bg-purple-500/20 rounded-full blur-3xl pointer-events-none"></div>
 
+            <!-- لوگو و عنوان -->
+            <div class="flex flex-col items-center justify-center mb-10 relative z-10">
+                <div class="w-16 h-16 rounded-[1.25rem] bg-gradient-to-br from-gray-900 to-black dark:from-white dark:to-gray-300 flex items-center justify-center shadow-xl border border-gray-700 dark:border-gray-100 mb-4 transform hover:scale-105 transition-transform duration-300">
+                    <span class="text-white dark:text-black font-black text-4xl font-sans tracking-tighter">3</span>
+                </div>
+                <h1 class="font-bold text-2xl tracking-widest bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-500 dark:from-white dark:to-gray-500 mb-1">3OUTHBOY</h1>
+                <div class="flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(6,182,212,0.8)]"></span>
+                    <span class="text-xs text-cyan-600 dark:text-cyan-400 font-mono tracking-widest font-bold">SECURE PANEL</span>
+                </div>
+            </div>
 
+            <!-- پیام خطا (وقتی رمز غلط باشه) -->
+            {% if error %}
+            <div class="mb-6 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-sm font-bold text-center relative z-10 animate-fade-in-up">
+                <i class="fa-solid fa-circle-exclamation me-2"></i>{{ error }}
+            </div>
+            {% endif %}
 
+            <!-- پیام تغییر اعتبارنامه (بعد از تغییر رمز/restore) -->
+            {% if relogin %}
+            <div class="mb-6 p-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-600 dark:text-cyan-400 text-sm font-bold text-center relative z-10 animate-fade-in-up">
+                <i class="fa-solid fa-circle-info me-2"></i>{{ t.relogin_note }}
+            </div>
+            {% endif %}
 
+            <!-- فرم: POST واقعی به پنل -->
+            <form class="space-y-6 relative z-10" method="post" action="/login">
+                
+                <!-- نام کاربری -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider ps-1" data-fa="نام کاربری" data-en="Username">{{ t.username }}</label>
+                    <div class="relative group">
+                        <div class="absolute inset-y-0 start-0 flex items-center ps-4 pointer-events-none text-gray-400 group-focus-within:text-cyan-500 transition-colors">
+                            <i class="fa-solid fa-at"></i>
+                        </div>
+                        <input type="text" id="username" name="username" required autocomplete="username" class="bg-gray-100/50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-2xl focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 block w-full ps-11 p-3.5 text-gray-900 dark:text-white transition-all outline-none font-mono placeholder-gray-400/70" placeholder="admin">
+                    </div>
+                </div>
 
+                <!-- رمز عبور -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider ps-1" data-fa="رمز عبور" data-en="Password">{{ t.password }}</label>
+                    <div class="relative group">
+                        <div class="absolute inset-y-0 start-0 flex items-center ps-4 pointer-events-none text-gray-400 group-focus-within:text-purple-500 transition-colors">
+                            <i class="fa-solid fa-lock"></i>
+                        </div>
+                        <input type="password" id="password" name="password" required autocomplete="current-password" class="bg-gray-100/50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-2xl focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 block w-full ps-11 pe-12 p-3.5 text-gray-900 dark:text-white transition-all outline-none font-mono placeholder-gray-400/70" placeholder="••••••••">
+                        <button type="button" onclick="togglePassword()" class="absolute inset-y-0 end-0 flex items-center pe-4 text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors outline-none">
+                            <i class="fa-regular fa-eye" id="eye-icon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- به خاطر بسپار -->
+                <div class="flex items-center justify-between mt-4">
+                    <label class="flex items-center gap-2 cursor-pointer group">
+                        <div class="relative flex items-center justify-center">
+                            <input type="checkbox" name="remember" class="peer appearance-none w-5 h-5 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-black/20 checked:bg-cyan-500 checked:border-cyan-500 transition-colors cursor-pointer">
+                            <i class="fa-solid fa-check absolute text-white text-[10px] opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity"></i>
+                        </div>
+                        <span class="text-xs font-bold text-gray-600 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white transition-colors" data-fa="مرا به خاطر بسپار" data-en="Remember me">مرا به خاطر بسپار</span>
+                    </label>
+                    <a href="#" class="text-xs font-bold text-cyan-600 dark:text-cyan-400 hover:underline transition-all" data-fa="رمز را فراموش کردید؟" data-en="Forgot Password?">رمز را فراموش کردید؟</a>
+                </div>
+
+                <!-- دکمه ورود -->
+                <button type="submit" class="w-full bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 text-white font-bold py-3.5 px-6 rounded-2xl shadow-[0_10px_25px_rgba(6,182,212,0.3)] hover:shadow-[0_15px_35px_rgba(168,85,247,0.4)] transition-all duration-300 flex items-center justify-center gap-3 tracking-wide mt-8 group">
+                    <span data-fa="ورود به سیستم" data-en="Sign In to Core">{{ t.login_btn }}</span>
+                    <i class="fa-solid fa-arrow-left rtl:hidden group-hover:translate-x-1 transition-transform"></i>
+                    <i class="fa-solid fa-arrow-left ltr:hidden group-hover:-translate-x-1 transition-transform rotate-180"></i>
+                </button>
+                
+            </form>
+        <script>
+        document.querySelector('form[action="/login"]').addEventListener('submit', function(){
+            var f = document.getElementById('loginLangField');
+            if (f) f.value = document.documentElement.getAttribute('lang') || 'fa';
+        });
+        </script>
+            
+            <!-- پاورقی فرم -->
+            <div class="mt-8 text-center relative z-10">
+                <p class="text-[10px] text-gray-500 font-mono">Secured by 3OUTHBOY Protocol &copy; 2026</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // تم: با localStorage پنل هماهنگ
+        (function(){
+            var t = null;
+            try { t = localStorage.getItem('l2tp-theme'); } catch(e) {}
+            if(!t) { t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark'; }
+            document.documentElement.classList.toggle('dark', t !== 'light');
+        })();
+
+        function toggleTheme() {
+            var html = document.documentElement;
+            var isDark = html.classList.contains('dark');
+            html.classList.toggle('dark');
+            var next = isDark ? 'light' : 'dark';
+            try { localStorage.setItem('l2tp-theme', next); } catch(e) {}
+        }
+
+        // نمایش/مخفی رمز
+        function togglePassword() {
+            var passInput = document.getElementById('password');
+            var eyeIcon = document.getElementById('eye-icon');
+            if (passInput.type === 'password') {
+                passInput.type = 'text';
+                eyeIcon.classList.replace('fa-eye', 'fa-eye-slash');
+            } else {
+                passInput.type = 'password';
+                eyeIcon.classList.replace('fa-eye-slash', 'fa-eye');
+            }
+        }
+    </script>
+
+<script>
+// Auto-translate: سرور با lang درست رندر کرده (dir هم درسته)
+// فقط متن‌های data-attr رو sync کن
+(function autoTranslate(){
+    var lang = document.documentElement.getAttribute('lang') || 'fa';
+    if (lang === 'en') {
+        document.querySelectorAll('[data-en]').forEach(function(el){
+            el.innerText = el.getAttribute('data-en');
+        });
+        document.querySelectorAll('input[data-en-ph]').forEach(function(el){
+            el.placeholder = el.getAttribute('data-en-ph');
+        });
+        // placeholder فارسی بدون data-attr:
+        document.querySelectorAll('input[placeholder]').forEach(function(el){
+            var p = el.getAttribute('placeholder');
+            if (p === 'جستجو...') el.placeholder = 'Search...';
+        });
+        // فلش پیام‌ها:
+        document.querySelectorAll('.flash-msg').forEach(function(el){
+            var raw = el.getAttribute('data-msg') || el.textContent;
+            var sep = raw.indexOf('|EN:');
+            if (sep > -1) {
+                var fa = raw.replace(/^ERR_FA:|^FA:/, '').substring(0, sep).replace(/^ERR_FA:|^FA:/,'');
+                var en = raw.substring(sep + 4);
+                var span = el.querySelector('.flash-text');
+                if (span) span.textContent = en;
+            }
+        });
+    }
+})();
+</script>
+</body>
+</html>

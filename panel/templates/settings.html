@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}" dir="{{ dir }}" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3OUTHBOY | Core Settings</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { 
+            darkMode: 'class',
+            theme: { extend: { colors: { darkBg: '#030303', darkCard: '#0c0c0c', darkBorder: '#1f1f1f' } } }
+        }
+    </script>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Vazirmatn', 'Inter', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+        .dark ::-webkit-scrollbar-thumb:hover { background: #555; }
+        .glass-card { background: rgba(255,255,255,0.6); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.4); transition: all .3s ease; }
+        .dark .glass-card { background: rgba(12,12,12,0.6); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 4px 30px rgba(0,0,0,0.5); }
+        input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .sidebar-panel { transform: translateX(-100%); position: fixed; display: flex; }
+        html[dir="rtl"] .sidebar-panel { transform: translateX(100%); }
+        html[dir="ltr"] .sidebar-panel { transform: translateX(-100%); }
+        .sidebar-panel.open { transform: translateX(0) !important; }
+        @media (min-width: 1024px) { .sidebar-panel { position: static !important; transform: none !important; } }
+        .dark select option { background-color: #0c0c0c; color: #f3f4f6; }
+        select { color-scheme: light dark; }
+        .dark select { color-scheme: dark; }
+        .flash-msg { animation: fadeIn .3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-6px);} to { opacity: 1; transform: none;} }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-darkBg text-gray-900 dark:text-gray-100 transition-colors duration-300 flex h-screen overflow-hidden relative">
+
+    <div class="absolute inset-0 bg-grid-pattern z-0 pointer-events-none"></div>
+    <div class="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
+        <div class="absolute top-[30%] -right-[10%] w-[40%] h-[40%] bg-orange-600/10 rounded-full blur-[120px]"></div>
+        <div class="absolute bottom-[-10%] -left-[10%] w-[50%] h-[50%] bg-red-600/10 rounded-full blur-[120px]"></div>
+    </div>
+
+    <div id="sidebarOverlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 hidden transition-opacity lg:hidden"></div>
+
+    <!-- سایدبار -->
+    <aside id="sidebar" class="sidebar-panel fixed inset-y-0 start-0 z-50 w-72 bg-white/70 dark:bg-[#0a0a0a]/80 backdrop-blur-3xl border-e border-gray-200 dark:border-white/5 flex flex-col transition-transform duration-300 ease-out shadow-[4px_0_24px_rgba(0,0,0,0.2)]">
+        <div class="h-[88px] flex items-center justify-between px-6 border-b border-gray-200/50 dark:border-white/5">
+            <div class="flex items-center gap-4">
+                <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-gray-900 to-black dark:from-white dark:to-gray-300 flex items-center justify-center shadow-lg border border-gray-700 dark:border-gray-100">
+                    <span class="text-white dark:text-black font-black text-2xl font-sans tracking-tighter">3</span>
+                </div>
+                <div class="flex flex-col">
+                    <span class="font-bold text-lg tracking-widest bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-500 dark:from-white dark:to-gray-500">3OUTHBOY</span>
+                    <span class="text-[10px] text-green-500 font-mono tracking-widest flex items-center gap-1"><span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span> v{{ panel_version }}</span>
+                </div>
+            </div>
+            <button onclick="toggleSidebar()" class="lg:hidden text-gray-500 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+        </div>
+        <nav class="flex-1 p-5 space-y-2.5 overflow-y-auto">
+            <p class="text-[10px] font-bold text-gray-400 dark:text-gray-500 tracking-widest px-2 mb-2" data-fa="منوی اصلی" data-en="MAIN MENU">منوی اصلی</p>
+            <a href="/" class="flex items-center gap-4 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/5 rounded-2xl text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all font-medium group">
+                <i class="fa-solid fa-chart-line w-5 text-lg group-hover:text-blue-400 transition-colors"></i>
+                <span data-fa="مانیتورینگ شبکه" data-en="Network Monitor">مانیتورینگ شبکه</span>
+            </a>
+            <a href="/clients" class="flex items-center gap-4 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/5 rounded-2xl text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all font-medium group">
+                <i class="fa-solid fa-users-gear w-5 text-lg group-hover:text-purple-400 transition-colors"></i>
+                <span data-fa="مدیریت کلاینت‌ها" data-en="Clients Manager">مدیریت کلاینت‌ها</span>
+            </a>
+            <a href="/nodes" class="flex items-center gap-4 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/5 rounded-2xl text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all font-medium group">
+                <i class="fa-solid fa-network-wired w-5 text-lg group-hover:text-cyan-400 transition-colors"></i>
+                <span data-fa="نودها و سرورها" data-en="Nodes & Servers">نودها و سرورها</span>
+            </a>
+            <a href="/settings" class="flex items-center gap-4 px-4 py-3 bg-orange-500/10 rounded-2xl text-orange-600 dark:text-orange-400 font-bold transition-all border border-orange-500/20 shadow-inner">
+                <i class="fa-solid fa-sliders w-5 text-lg"></i>
+                <span data-fa="تنظیمات هسته" data-en="Core Settings">تنظیمات هسته</span>
+            </a>
+        </nav>
+        <div class="p-6 border-t border-gray-200/50 dark:border-white/5">
+            <div class="flex items-center gap-3 p-3 rounded-2xl hover:bg-gray-100 dark:hover:bg-white/5 transition-colors cursor-pointer">
+                <div id="userAvatar" class="w-12 h-12 rounded-xl bg-gray-900 dark:bg-white flex items-center justify-center text-white dark:text-black font-black text-xl shadow-lg font-sans"></div>
+                <div class="flex-1 overflow-hidden">
+                    <p id="usernameText" class="text-sm font-bold truncate text-gray-900 dark:text-white">{{ admin_user }}</p>
+                    <p class="text-xs text-gray-500 font-mono mt-0.5">Root Admin</p>
+                </div>
+            </div>
+            <a href="/logout" class="mt-3 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 font-bold text-sm hover:bg-red-500/20 transition-all">
+                <i class="fa-solid fa-right-from-bracket"></i>
+                <span data-fa="خروج" data-en="Logout">خروج</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- محتوا -->
+    <main class="flex-1 flex flex-col h-screen overflow-hidden relative z-10 w-full">
+        <header class="h-[88px] px-6 lg:px-10 flex items-center justify-between border-b border-gray-200/50 dark:border-white/5 bg-white/30 dark:bg-[#030303]/50 backdrop-blur-md z-30 sticky top-0">
+            <div class="flex items-center gap-4">
+                <button onclick="toggleSidebar()" class="lg:hidden w-10 h-10 rounded-xl bg-white dark:bg-darkCard border border-gray-200 dark:border-darkBorder flex items-center justify-center text-gray-600 dark:text-gray-300"><i class="fa-solid fa-bars"></i></button>
+                <div class="flex flex-col">
+                    <h1 class="text-xl font-bold tracking-wide" data-fa="تنظیمات هسته سیستم" data-en="System Core Settings">تنظیمات هسته سیستم</h1>
+                    <p class="text-[11px] text-gray-500 font-mono hidden sm:block mt-0.5" data-fa="پیکربندی امنیتی و شبکه‌ای سرور" data-en="Server security & network config">پیکربندی امنیتی و شبکه‌ای سرور</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <a href="/lang/{{ 'en' if lang == 'fa' else 'fa' }}" class="w-10 h-10 rounded-xl bg-white dark:bg-[#0f0f0f] border border-gray-200 dark:border-white/10 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-white/5 transition-all font-bold text-xs shadow-sm font-mono no-underline text-gray-700 dark:text-gray-200">{{ 'EN' if lang == 'fa' else 'FA' }}</a>
+                <button onclick="toggleTheme()" id="theme-icon" class="w-10 h-10 rounded-xl bg-white dark:bg-[#0f0f0f] border border-gray-200 dark:border-white/10 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-white/5 transition-all text-gray-600 dark:text-gray-300 shadow-sm cursor-pointer"><i class="fa-solid fa-sun"></i></button>
+            </div>
+        </header>
+
+        <div class="flex-1 overflow-y-auto p-4 lg:p-8 pb-32 space-y-6">
+            {% with msgs = get_flashed_messages() %}
+              {% for m in msgs %}
+              {% if m.startswith('ERR_FA:') %}
+              <div class="flash-msg p-4 rounded-2xl bg-red-500/10 border border-red-500/40 text-red-600 dark:text-red-400 text-sm font-bold flex items-center gap-2" data-msg="{{ m }}"><i class="fa-solid fa-circle-exclamation"></i> <span class="flash-text">{{ m[7:] }}</span></div>
+              {% elif m.startswith('FA:') %}
+              <div class="flash-msg p-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300 text-sm font-bold flex items-center gap-2" data-msg="{{ m }}"><i class="fa-solid fa-circle-check"></i> <span class="flash-text">{{ m[3:] }}</span></div>
+              {% else %}
+              <div class="flash-msg p-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300 text-sm font-bold flex items-center gap-2" data-msg="{{ m }}"><i class="fa-solid fa-circle-check"></i> <span class="flash-text">{{ m }}</span></div>
+              {% endif %}
+              {% endfor %}
+            {% endwith %}
+
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                
+                <!-- ۱: ورود (واقعی) -->
+                <div class="glass-card p-6 lg:p-8 rounded-3xl relative overflow-hidden h-fit flex flex-col">
+                    <div class="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                    <div class="flex items-center gap-3 mb-6 relative z-10 border-b border-gray-200/50 dark:border-white/5 pb-4">
+                        <div class="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400"><i class="fa-solid fa-user-shield"></i></div>
+                        <h3 class="font-bold text-lg" data-fa="اطلاعات ورود به پنل" data-en="Panel Login Credentials">اطلاعات ورود به پنل</h3>
+                    </div>
+                    <form method="post" action="/settings/credentials" class="space-y-4 relative z-10 flex-1">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider" data-fa="نام کاربری لاگین" data-en="Login Username">نام کاربری لاگین</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none text-gray-400"><i class="fa-solid fa-at"></i></div>
+                                <input type="text" name="new_username" value="{{ admin_user }}" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 block w-full ps-10 p-3 text-gray-900 dark:text-white transition-all outline-none font-mono">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider" data-fa="رمز عبور جدید" data-en="New Password">رمز عبور جدید</label>
+                                <input type="password" name="new_password" id="newPw" oninput="pwValidate()" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 block w-full p-3 text-gray-900 dark:text-white transition-all outline-none font-mono" placeholder="********">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider" data-fa="تکرار رمز جدید" data-en="Confirm Password">تکرار رمز جدید</label>
+                                <input type="password" name="new_password2" id="newPw2" oninput="pwValidate()" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 block w-full p-3 text-gray-900 dark:text-white transition-all outline-none font-mono" placeholder="********">
+                            </div>
+                        </div>
+                        <div class="pt-5 mt-5 border-t border-gray-200/50 dark:border-white/5 flex justify-end">
+                            <button type="submit" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-xs shadow-lg shadow-indigo-500/30 hover:opacity-90 transition-all flex items-center gap-2 cursor-pointer"><i class="fa-solid fa-floppy-disk"></i> <span data-fa="ذخیره اطلاعات ورود" data-en="Save Credentials">ذخیره اطلاعات ورود</span></button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- ۲: پنل (پورت واقعی) -->
+                <div class="glass-card p-6 lg:p-8 rounded-3xl relative overflow-hidden h-fit flex flex-col">
+                    <div class="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                    <div class="flex items-center gap-3 mb-6 relative z-10 border-b border-gray-200/50 dark:border-white/5 pb-4">
+                        <div class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400"><i class="fa-solid fa-globe"></i></div>
+                        <h3 class="font-bold text-lg" data-fa="پیکربندی پنل و دامنه" data-en="Panel & Domain Config">پیکربندی پنل و دامنه</h3>
+                    </div>
+                    <form method="post" action="/settings/port" class="space-y-5 relative z-10 flex-1">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider" data-fa="پورت پنل (Web)" data-en="Panel Port (Web)">پورت پنل (Web)</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none text-gray-400"><i class="fa-solid fa-door-open"></i></div>
+                                <input type="number" name="port" value="{{ panel_port }}" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-3 text-gray-900 dark:text-white transition-all outline-none font-mono">
+                            </div>
+                            <p class="text-[10px] text-gray-500 mt-1" data-fa="پورت جدید خودکار در فایروال باز و ریدایرکت می‌شود" data-en="New port auto-opens in firewall; you'll be redirected">پورت جدید خودکار در فایروال باز و ریدایرکت می‌شود</p>
+                        </div>
+                        <div class="opacity-60">
+                            <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider" data-fa="دامنه اتصال (SNI)" data-en="Connection Domain (SNI)">دامنه اتصال (SNI)</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none text-gray-400"><i class="fa-solid fa-link"></i></div>
+                                <input type="text" disabled value="{{ server_ip }}" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl block w-full ps-10 p-3 text-gray-500 transition-all outline-none font-mono">
+                            </div>
+                        </div>
+                        <div class="pt-5 mt-5 border-t border-gray-200/50 dark:border-white/5 flex justify-end">
+                            <button type="submit" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-bold text-xs shadow-lg shadow-blue-500/30 hover:opacity-90 transition-all flex items-center gap-2 cursor-pointer"><i class="fa-solid fa-floppy-disk"></i> <span data-fa="ذخیره پنل" data-en="Save Panel">ذخیره پنل</span></button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- ۳: پروتکل‌ها -->
+                <div class="glass-card p-6 lg:p-8 rounded-3xl relative overflow-hidden h-fit xl:col-span-2 flex flex-col">
+                    <div class="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                    <div class="flex items-center gap-3 mb-6 relative z-10 border-b border-gray-200/50 dark:border-white/5 pb-4">
+                        <div class="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-500/10 flex items-center justify-center text-purple-600 dark:text-purple-400"><i class="fa-solid fa-network-wired"></i></div>
+                        <h3 class="font-bold text-lg" data-fa="پیکربندی پروتکل‌های اتصال" data-en="Connection Protocols Config">پیکربندی پروتکل‌های اتصال</h3>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10 flex-1">
+                        <!-- OpenConnect ports -->
+                        <form method="post" action="/settings/ocserv-ports" class="p-5 rounded-2xl bg-purple-500/5 border border-purple-500/20 space-y-4">
+                            <h4 class="font-bold text-sm text-gray-500 dark:text-gray-400 uppercase tracking-widest border-l-2 border-purple-500 ps-2">OpenConnect</h4>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-gray-500 mb-1" data-fa="پورت اصلی (TCP)" data-en="Main Port (TCP)">پورت اصلی (TCP)</label>
+                                    <input type="number" name="ocserv_tcp" value="{{ ocserv_tcp }}" min="1" max="65535" required class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl focus:ring-purple-500 focus:border-purple-500 block w-full p-2.5 text-gray-900 dark:text-white transition-all outline-none font-mono">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-gray-500 mb-1" data-fa="پورت پرسرعت (UDP)" data-en="Fast Port (UDP)">پورت پرسرعت (UDP)</label>
+                                    <input type="number" name="ocserv_udp" value="{{ ocserv_udp }}" min="1" max="65535" required class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl focus:ring-purple-500 focus:border-purple-500 block w-full p-2.5 text-gray-900 dark:text-white transition-all outline-none font-mono">
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-[10px] text-gray-400" data-fa="پس از اعمال، ocserv ریستارت می‌شود" data-en="ocserv restarts after applying">پس از اعمال، ocserv ریستارت می‌شود</span>
+                                <button type="submit" class="px-5 py-2 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold text-xs shadow-md hover:opacity-90 transition-all cursor-pointer" data-fa="اعمال پورت‌ها" data-en="Apply Ports">اعمال پورت‌ها</button>
+                            </div>
+                        </form>
+                        <!-- IPSec PSK/MTU/Cipher -->
+                        <form method="post" action="/settings/ipsec-params" class="p-5 rounded-2xl bg-orange-500/5 border border-orange-500/20 space-y-4">
+                            <h4 class="font-bold text-sm text-gray-500 dark:text-gray-400 uppercase tracking-widest border-l-2 border-orange-500 ps-2">IPSec / L2TP / IKEv2</h4>
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-500 mb-1" data-fa="کلید مشترک پیش‌فرض (PSK)" data-en="Pre-Shared Key (PSK)">کلید مشترک پیش‌فرض (PSK)</label>
+                                <div class="relative">
+                                    <input type="text" name="new_psk" id="pskInput" value="{{ psk }}" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl focus:ring-orange-500 focus:border-orange-500 block w-full pe-10 p-2.5 text-gray-900 dark:text-white transition-all outline-none font-mono">
+                                    <button type="button" onclick="generatePSK()" class="absolute inset-y-0 end-0 flex items-center pe-3 text-orange-500 hover:text-orange-400 transition-colors cursor-pointer"><i class="fa-solid fa-dice"></i></button>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-gray-500 mb-1" data-fa="سایز بسته (MTU)" data-en="Packet Size (MTU)">سایز بسته (MTU)</label>
+                                    <input type="number" name="mtu" value="{{ ipsec_mtu }}" min="1200" max="1500" required class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl focus:ring-orange-500 focus:border-orange-500 block w-full p-2 text-gray-900 dark:text-white transition-all outline-none font-mono text-center">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-gray-500 mb-1" data-fa="نوع رمزنگاری" data-en="Cipher Type">نوع رمزنگاری</label>
+                                    <select name="cipher" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl focus:ring-orange-500 focus:border-orange-500 block w-full p-2 text-gray-900 dark:text-white transition-all outline-none font-mono font-bold">
+                                        <option value="aes256" {% if ipsec_cipher == 'aes256' %}selected{% endif %}>AES-256</option>
+                                        <option value="aes128" {% if ipsec_cipher == 'aes128' %}selected{% endif %}>AES-128</option>
+                                        <option value="aes256gcm" {% if ipsec_cipher == 'aes256gcm' %}selected{% endif %}>AES-256-GCM</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-[10px] text-gray-400" data-fa="با تغییر PSK، IPSec ریستارت می‌شود" data-en="Changing PSK restarts IPSec">با تغییر PSK، IPSec ریستارت می‌شود</span>
+                                <button type="submit" class="px-5 py-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold text-xs shadow-md hover:opacity-90 transition-all cursor-pointer" data-fa="ذخیره PSK و ریستارت" data-en="Save PSK & Restart">ذخیره PSK و ریستارت</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- ۴: فایروال -->
+                <div class="glass-card p-6 lg:p-8 rounded-3xl relative overflow-hidden h-fit flex flex-col">
+                    <div class="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                    <div class="flex items-center gap-3 mb-6 relative z-10 border-b border-gray-200/50 dark:border-white/5 pb-4">
+                        <div class="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400"><i class="fa-solid fa-shield-halved"></i></div>
+                        <h3 class="font-bold text-lg" data-fa="فایروال و امنیت" data-en="Security & Firewall">فایروال و امنیت</h3>
+                    </div>
+                    <form method="post" action="/settings/firewall-save" class="space-y-4 relative z-10 flex-1">
+                        <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-white/5 border border-gray-200/50 dark:border-white/5 rounded-2xl">
+                            <div>
+                                <h4 class="font-bold text-sm text-gray-900 dark:text-white" data-fa="مسدودسازی سایت‌های ایرانی (IR)" data-en="Block Iranian Domains (IR)">مسدودسازی سایت‌های ایرانی (IR)</h4>
+                                <p class="text-[10px] text-gray-500 mt-1" data-fa="جلوگیری از شناسایی سرور" data-en="Prevent detection">جلوگیری از شناسایی سرور</p>
+                            </div>
+                            <label class="relative inline-block w-12 h-6 cursor-pointer">
+                                <input type="checkbox" name="block_ir" class="sr-only peer" {% if fw_state.block_ir %}checked{% endif %}>
+                                <div class="w-full h-full bg-gray-300 dark:bg-gray-700 peer-checked:bg-emerald-500 rounded-full transition-colors duration-300 shadow-inner"></div>
+                                <div class="absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-300 peer-checked:translate-x-6 shadow-md"></div>
+                            </label>
+                        </div>
+                        <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-white/5 border border-gray-200/50 dark:border-white/5 rounded-2xl">
+                            <div>
+                                <h4 class="font-bold text-sm text-gray-900 dark:text-white" data-fa="مسدودسازی ترافیک تورنت (P2P)" data-en="Block Torrent Traffic (P2P)">مسدودسازی ترافیک تورنت (P2P)</h4>
+                                <p class="text-[10px] text-gray-500 mt-1" data-fa="محافظت در برابر Abuse" data-en="Protect against abuse">محافظت در برابر Abuse</p>
+                            </div>
+                            <label class="relative inline-block w-12 h-6 cursor-pointer">
+                                <input type="checkbox" name="block_p2p" class="sr-only peer" {% if fw_state.block_p2p %}checked{% endif %}>
+                                <div class="w-full h-full bg-gray-300 dark:bg-gray-700 peer-checked:bg-emerald-500 rounded-full transition-colors duration-300 shadow-inner"></div>
+                                <div class="absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-300 peer-checked:translate-x-6 shadow-md"></div>
+                            </label>
+                        </div>
+                        <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-white/5 border border-gray-200/50 dark:border-white/5 rounded-2xl">
+                            <div>
+                                <h4 class="font-bold text-sm text-gray-900 dark:text-white" data-fa="مسدود سازی تبلیغات یوتیوب" data-en="Block YouTube Ads">مسدود سازی تبلیغات یوتیوب</h4>
+                                <p class="text-[10px] text-gray-500 mt-1" data-fa="حذف تبلیغات در سطح شبکه" data-en="Network-level ad blocking">حذف تبلیغات در سطح شبکه</p>
+                            </div>
+                            <label class="relative inline-block w-12 h-6 cursor-pointer">
+                                <input type="checkbox" name="block_ads" class="sr-only peer" {% if fw_state.block_ads %}checked{% endif %}>
+                                <div class="w-full h-full bg-gray-300 dark:bg-gray-700 peer-checked:bg-emerald-500 rounded-full transition-colors duration-300 shadow-inner"></div>
+                                <div class="absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-300 peer-checked:translate-x-6 shadow-md"></div>
+                            </label>
+                        </div>
+                        <div class="pt-5 mt-5 border-t border-gray-200/50 dark:border-white/5 flex items-center justify-between">
+                            <span class="text-[10px] text-gray-400" data-fa="تغییرات را اعمال و ذخیره کنید" data-en="Apply and save your changes">تغییرات را اعمال و ذخیره کنید</span>
+                            <button type="submit" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/30 hover:opacity-90 transition-all flex items-center gap-2 cursor-pointer"><i class="fa-solid fa-floppy-disk"></i> <span data-fa="ذخیره قوانین فایروال" data-en="Save Firewall Rules">ذخیره قوانین فایروال</span></button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- ۵: دیتابیس (واقعی) -->
+                <div class="glass-card p-6 lg:p-8 rounded-3xl relative overflow-hidden h-fit flex flex-col">
+                    <div class="flex items-center gap-3 mb-6 relative z-10 border-b border-gray-200/50 dark:border-white/5 pb-4">
+                        <div class="w-10 h-10 rounded-xl bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-600 dark:text-gray-300"><i class="fa-solid fa-database"></i></div>
+                        <h3 class="font-bold text-lg" data-fa="پایگاه داده و پشتیبان‌گیری" data-en="Database & Backup">پایگاه داده و پشتیبان‌گیری</h3>
+                    </div>
+                    <div class="space-y-5 relative z-10 flex-1">
+                        <div class="opacity-60">
+                            <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider" data-fa="بازه بکاپ‌گیری خودکار تلگرام" data-en="Telegram Auto-Backup">بازه بکاپ‌گیری خودکار تلگرام</label>
+                            <select disabled class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl block w-full p-3 text-gray-500 transition-all outline-none font-bold"><option>SOON</option></select>
+                        </div>
+                        <div class="flex gap-3">
+                            <a href="/backup" class="flex-1 px-4 py-3 rounded-xl bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 transition-colors border border-gray-200 dark:border-white/10 text-sm font-bold flex justify-center items-center gap-2 no-underline text-gray-700 dark:text-gray-200 cursor-pointer"><i class="fa-solid fa-download"></i> <span data-fa="دانلود دیتابیس" data-en="Download DB">دانلود دیتابیس</span></a>
+                            <button type="button" onclick="document.getElementById('restoreFile').click()" class="flex-1 px-4 py-3 rounded-xl bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 transition-colors border border-gray-200 dark:border-white/10 text-sm font-bold flex justify-center items-center gap-2 cursor-pointer"><i class="fa-solid fa-upload"></i> <span data-fa="بازیابی دیتابیس" data-en="Restore DB">بازیابی دیتابیس</span></button>
+                        </div>
+                        <form method="post" action="/settings/restore" enctype="multipart/form-data" id="restoreForm">
+                            <input type="file" name="backup_file" id="restoreFile" accept=".zip" required style="display:none" onchange="onRestorePick(this)">
+                        </form>
+                    </div>
+                </div>
+
+                <!-- ۶: نگهداری (واقعی) -->
+                <div class="glass-card p-6 lg:p-8 rounded-3xl relative overflow-hidden h-fit xl:col-span-2">
+                    <div class="absolute top-0 left-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                    <div class="flex items-center gap-3 mb-6 relative z-10 border-b border-gray-200/50 dark:border-white/5 pb-4">
+                        <div class="w-10 h-10 rounded-xl bg-cyan-50 dark:bg-cyan-500/10 flex items-center justify-center text-cyan-600 dark:text-cyan-400"><i class="fa-solid fa-screwdriver-wrench"></i></div>
+                        <h3 class="font-bold text-lg" data-fa="عملیات و نگهداری سیستم" data-en="System Maintenance">عملیات و نگهداری سیستم</h3>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10">
+                        <form method="post" action="/sync" class="contents">
+                            <button type="submit" class="flex flex-col items-center justify-center p-6 bg-gray-50 dark:bg-white/5 border border-gray-200/50 dark:border-white/10 rounded-2xl hover:bg-blue-50 dark:hover:bg-blue-500/10 hover:border-blue-200 dark:hover:border-blue-500/30 transition-all group cursor-pointer">
+                                <div class="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform"><i class="fa-solid fa-rotate text-xl text-blue-500"></i></div>
+                                <h4 class="font-bold text-gray-900 dark:text-white mb-1 tracking-wide" data-fa="همگام‌سازی" data-en="Sync Data">همگام‌سازی</h4>
+                                <p class="text-[10px] text-gray-500 text-center" data-fa="همگام‌سازی کاربران و قوانین" data-en="Sync users & rules">همگام‌سازی کاربران و قوانین</p>
+                            </button>
+                        </form>
+                        <form method="post" action="/update" class="contents" onsubmit="return confirm('{{ t.update_confirm }}')">
+                            <button type="submit" class="flex flex-col items-center justify-center p-6 bg-gray-50 dark:bg-white/5 border border-gray-200/50 dark:border-white/10 rounded-2xl hover:bg-emerald-50 dark:hover:bg-emerald-500/10 hover:border-emerald-200 dark:hover:border-emerald-500/30 transition-all group cursor-pointer">
+                                <div class="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform"><i class="fa-solid fa-cloud-arrow-down text-xl text-emerald-500"></i></div>
+                                <h4 class="font-bold text-gray-900 dark:text-white mb-1 tracking-wide" data-fa="آپدیت پنل" data-en="Update Panel">آپدیت پنل</h4>
+                                <p class="text-[10px] text-gray-500 text-center" data-fa="دریافت آخرین نسخه از گیت‌هاب" data-en="Fetch latest from GitHub">دریافت آخرین نسخه از گیت‌هاب</p>
+                            </button>
+                        </form>
+                        <form method="post" action="/restart-vpn" class="contents" onsubmit="return confirm('{{ t.restart_vpn_confirm }}')">
+                            <button type="submit" class="flex flex-col items-center justify-center p-6 bg-gray-50 dark:bg-white/5 border border-gray-200/50 dark:border-white/10 rounded-2xl hover:bg-orange-50 dark:hover:bg-orange-500/10 hover:border-orange-200 dark:hover:border-orange-500/30 transition-all group cursor-pointer">
+                                <div class="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-500/20 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform"><i class="fa-solid fa-power-off text-xl text-orange-500"></i></div>
+                                <h4 class="font-bold text-gray-900 dark:text-white mb-1 tracking-wide" data-fa="ریستارت پروتکل‌ها" data-en="Restart Protocols">ریستارت پروتکل‌ها</h4>
+                                <p class="text-[10px] text-gray-500 text-center" data-fa="ری‌استارت سرویس‌های VPN" data-en="Restart VPN services">ری‌استارت سرویس‌های VPN</p>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- ۷: خطر (نمایشی) -->
+                <div class="glass-card p-6 lg:p-8 rounded-3xl relative overflow-hidden h-fit border border-red-500/30 dark:border-red-500/20 bg-red-50/30 dark:bg-red-900/5 xl:col-span-2 opacity-80">
+                    <div class="absolute top-0 right-0 w-full h-full bg-red-500/5 blur-3xl pointer-events-none"></div>
+                    <div class="flex items-center gap-3 mb-6 relative z-10 border-b border-red-200/50 dark:border-red-500/10 pb-4">
+                        <div class="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-500/20 flex items-center justify-center text-red-600 dark:text-red-400"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                        <h3 class="font-bold text-lg text-red-600 dark:text-red-400" data-fa="منطقه خطر" data-en="Danger Zone">منطقه خطر</h3>
+                        <span class="px-2 py-0.5 rounded bg-red-100 text-red-500 text-[9px] font-bold mr-auto">SOON</span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
+                        <div class="flex items-center justify-between p-4 bg-white/50 dark:bg-black/20 border border-red-200/50 dark:border-red-500/10 rounded-2xl">
+                            <div>
+                                <h4 class="font-bold text-sm text-gray-900 dark:text-white" data-fa="حذف تمامی کلاینت‌ها" data-en="Purge All Clients">حذف تمامی کلاینت‌ها</h4>
+                                <p class="text-[10px] text-gray-500 mt-1" data-fa="غیرقابل بازگشت" data-en="Irreversible">غیرقابل بازگشت</p>
+                            </div>
+                            <button disabled class="px-4 py-2 rounded-lg bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 font-bold opacity-50 cursor-not-allowed text-xs" data-fa="اجرا" data-en="Execute">اجرا</button>
+                        </div>
+                        <div class="flex items-center justify-between p-4 bg-white/50 dark:bg-black/20 border border-red-200/50 dark:border-red-500/10 rounded-2xl">
+                            <div>
+                                <h4 class="font-bold text-sm text-gray-900 dark:text-white" data-fa="بازگشت به تنظیمات کارخانه" data-en="Factory Reset">ریست کارخانه</h4>
+                                <p class="text-[10px] text-gray-500 mt-1" data-fa="ریست کامل" data-en="Full reset">ریست کامل</p>
+                            </div>
+                            <button disabled class="px-4 py-2 rounded-lg bg-red-600 text-white font-bold opacity-50 cursor-not-allowed text-xs shadow-lg">SOON</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const av = document.getElementById("userAvatar");
+            const un = document.getElementById("usernameText");
+            if(av && un) { av.innerText = un.innerText.trim().charAt(0).toUpperCase(); }
+        });
+        (function(){ var t=null; try{t=localStorage.getItem('l2tp-theme');}catch(e){} if(!t){t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark';} document.documentElement.classList.toggle('dark',t!=='light'); })();
+        function toggleTheme(){ var h=document.documentElement; h.classList.toggle('dark'); try{localStorage.setItem('l2tp-theme',h.classList.contains('dark')?'dark':'light');}catch(e){} }
+        function toggleSidebar(){ const s=document.getElementById('sidebar'),o=document.getElementById('sidebarOverlay'); o.classList.toggle('hidden'); s.classList.toggle('open'); }
+        function flashI18n(){ var lang=document.documentElement.getAttribute('lang')||'fa'; document.querySelectorAll('.flash-msg').forEach(function(el){ var raw=el.getAttribute('data-msg')||''; var isErr=raw.indexOf('ERR_FA:')===0; var body=isErr?raw.substring(7):(raw.indexOf('FA:')===0?raw.substring(3):raw); var sep=body.indexOf('|EN:'); var fa=sep>-1?body.substring(0,sep):body; var en=sep>-1?body.substring(sep+4):fa; var span=el.querySelector('.flash-text'); if(span){span.textContent=(lang==='en'&&en)?en:fa;} }); }
+        flashI18n();
+        function generatePSK(){ const c='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789',a=new Uint32Array(20); window.crypto.getRandomValues(a); let p=''; for(let i=0;i<20;i++){p+=c[a[i]%c.length];} document.getElementById('pskInput').value=p; }
+        function pwValidate(){ var pw=document.getElementById('newPw'),pw2=document.getElementById('newPw2'); if(!pw)return; var v=pw.value; if(v.length===0){pw.classList.remove('border-red-500','ring-red-500','border-green-500');return;} if(v.length<6){pw.classList.add('border-red-500','ring-2','ring-red-500/30');pw.classList.remove('border-green-500');}else{pw.classList.remove('border-red-500','ring-red-500/30');pw.classList.add('border-green-500','ring-2','ring-green-500/30');} if(pw2&&pw2.value.length>0){ if(pw2.value!==v){pw2.classList.add('border-red-500','ring-2','ring-red-500/30');pw2.classList.remove('border-green-500');}else{pw2.classList.remove('border-red-500','ring-red-500/30');pw2.classList.add('border-green-500','ring-2','ring-green-500/30');} } }
+        function onRestorePick(inp){ if(!inp.files||!inp.files[0])return; if(!confirm('Restore '+inp.files[0].name+' ?')){inp.value='';return;} document.getElementById('restoreForm').submit(); }
+    </script>
+</body>
+</html>

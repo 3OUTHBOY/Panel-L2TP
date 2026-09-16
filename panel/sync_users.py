@@ -148,7 +148,13 @@ def main():
     for username, password, expires_at, limit_mb, used, dns1, dns2 in rows:
         time_ok = expires_at > now
         quota_ok = (limit_mb <= 0) or (used < limit_mb * 1024 * 1024)
-        if time_ok and quota_ok:
+        proto_ok = True
+        try:
+            proto_row = conn.execute('SELECT protocol FROM users WHERE username = ?', (username,)).fetchone()
+            proto_ok = (not proto_row) or (proto_row[0] in ('all', 'l2tp'))
+        except Exception:
+            pass
+        if time_ok and quota_ok and proto_ok:
             active.append((username, password))
             target = (dns1 or '').strip() or (dns2 or '').strip()
             if target: dns_targets[username] = target
@@ -167,6 +173,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 

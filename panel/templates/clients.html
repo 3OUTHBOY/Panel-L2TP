@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}" dir="{{ dir }}" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3OUTHBOY | Clients Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { 
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: { darkBg: '#030303', darkCard: '#0c0c0c', darkBorder: '#1f1f1f' },
+                    backgroundImage: {
+                        'grid-pattern': "url('data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h40v40H0V0zm20 20h20v20H20V20zM0 20h20v20H0V20z' fill='%23ffffff' fill-opacity='0.02' fill-rule='evenodd'/%3E%3C/svg%3E')"
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body { font-family: 'Vazirmatn', 'Inter', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+        .dark ::-webkit-scrollbar-thumb:hover { background: #555; }
+        .glass-card { background: rgba(255,255,255,0.6); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.4); transition: all .3s ease; }
+        .dark .glass-card { background: rgba(12,12,12,0.6); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 4px 30px rgba(0,0,0,0.5); }
+        table { border-collapse: separate; border-spacing: 0; }
+        .table-row-hover:hover { background-color: rgba(255,255,255,0.4); }
+        .dark .table-row-hover:hover { background-color: rgba(255,255,255,0.03); }
+        input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        /* sidebar-css */
+        .sidebar-panel { transform: translateX(-100%); position: fixed; display: flex; }
+        html[dir="rtl"] .sidebar-panel { transform: translateX(100%); }
+        html[dir="ltr"] .sidebar-panel { transform: translateX(-100%); }
+        .sidebar-panel.open { transform: translateX(0) !important; }
+        @media (min-width: 1024px) {
+            .sidebar-panel { position: static !important; transform: none !important; }
+        }
+        .dark select option { background-color: #0c0c0c; color: #f3f4f6; }
+        select { color-scheme: light dark; }
+        .dark select { color-scheme: dark; }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-darkBg text-gray-900 dark:text-gray-100 transition-colors duration-300 flex h-screen overflow-hidden relative">
+
+    <div class="absolute inset-0 bg-grid-pattern z-0 pointer-events-none"></div>
+    <div class="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
+        <div class="absolute -top-[20%] -right-[10%] w-[50%] h-[50%] bg-blue-600/10 rounded-full blur-[120px]"></div>
+        <div class="absolute bottom-[10%] -left-[10%] w-[40%] h-[40%] bg-purple-600/10 rounded-full blur-[120px]"></div>
+    </div>
+
+    <div id="sidebarOverlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 hidden transition-opacity lg:hidden"></div>
+
+    <!-- سایدبار -->
+    <aside id="sidebar" class="sidebar-panel fixed inset-y-0 start-0 z-50 w-72 bg-white/70 dark:bg-[#0a0a0a]/80 backdrop-blur-3xl border-e border-gray-200 dark:border-white/5 flex flex-col transition-transform duration-300 ease-out shadow-[4px_0_24px_rgba(0,0,0,0.2)]">
+        <div class="h-[88px] flex items-center justify-between px-6 border-b border-gray-200/50 dark:border-white/5">
+            <div class="flex items-center gap-4">
+                <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-gray-900 to-black dark:from-white dark:to-gray-300 flex items-center justify-center shadow-lg border border-gray-700 dark:border-gray-100">
+                    <span class="text-white dark:text-black font-black text-2xl font-sans tracking-tighter">3</span>
+                </div>
+                <div class="flex flex-col">
+                    <span class="font-bold text-lg tracking-widest bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-500 dark:from-white dark:to-gray-500">3OUTHBOY</span>
+                    <span class="text-[10px] text-green-500 font-mono tracking-widest flex items-center gap-1"><span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span> v{{ panel_version }}</span>
+                </div>
+            </div>
+            <button onclick="toggleSidebar()" class="lg:hidden text-gray-500 hover:text-white">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+        </div>
+        
+        <nav class="flex-1 p-5 space-y-2.5 overflow-y-auto">
+            <p class="text-[10px] font-bold text-gray-400 dark:text-gray-500 tracking-widest px-2 mb-2" data-fa="منوی اصلی" data-en="MAIN MENU">منوی اصلی</p>
+            <a href="/" class="flex items-center gap-4 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/5 rounded-2xl text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all font-medium group">
+                <i class="fa-solid fa-chart-line w-5 text-lg group-hover:text-blue-400 transition-colors"></i>
+                <span data-fa="مانیتورینگ شبکه" data-en="Network Monitor">مانیتورینگ شبکه</span>
+            </a>
+            <a href="/clients" class="flex items-center gap-4 px-4 py-3 bg-purple-500/10 rounded-2xl text-purple-600 dark:text-purple-400 font-bold transition-all border border-purple-500/20 shadow-inner">
+                <i class="fa-solid fa-users-gear w-5 text-lg"></i>
+                <span data-fa="مدیریت کلاینت‌ها" data-en="Clients Manager">مدیریت کلاینت‌ها</span>
+            </a>
+            <a href="/nodes" class="flex items-center gap-4 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/5 rounded-2xl text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all font-medium group">
+                <i class="fa-solid fa-network-wired w-5 text-lg group-hover:text-cyan-400 transition-colors"></i>
+                <span data-fa="نودها و سرورها" data-en="Nodes & Servers">نودها و سرورها</span>
+            </a>
+            <a href="/settings" class="flex items-center gap-4 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/5 rounded-2xl text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all font-medium group">
+                <i class="fa-solid fa-sliders w-5 text-lg group-hover:text-orange-400 transition-colors"></i>
+                <span data-fa="تنظیمات هسته" data-en="Core Settings">تنظیمات هسته</span>
+            </a>
+        </nav>
+        
+        <div class="p-6 border-t border-gray-200/50 dark:border-white/5">
+            <div class="flex items-center gap-3 p-3 rounded-2xl hover:bg-gray-100 dark:hover:bg-white/5 transition-colors cursor-pointer">
+                <div id="userAvatar" class="w-12 h-12 rounded-xl bg-gray-900 dark:bg-white flex items-center justify-center text-white dark:text-black font-black text-xl shadow-lg font-sans"></div>
+                <div class="flex-1 overflow-hidden">
+                    <p id="usernameText" class="text-sm font-bold truncate text-gray-900 dark:text-white">{{ admin_user }}</p>
+                    <p class="text-xs text-gray-500 font-mono mt-0.5">Root Admin</p>
+                </div>
+            </div>
+            <a href="/logout" class="mt-3 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 font-bold text-sm hover:bg-red-500/20 transition-all">
+                <i class="fa-solid fa-right-from-bracket"></i>
+                <span data-fa="خروج" data-en="Logout">خروج</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- محتوا -->
+    <main class="flex-1 flex flex-col h-screen overflow-hidden relative z-10 w-full">
+        <header class="h-[88px] px-6 lg:px-10 flex items-center justify-between border-b border-gray-200/50 dark:border-white/5 bg-white/30 dark:bg-[#030303]/50 backdrop-blur-md z-30 sticky top-0">
+            <div class="flex items-center gap-4">
+                <button onclick="toggleSidebar()" class="lg:hidden w-10 h-10 rounded-xl bg-white dark:bg-darkCard border border-gray-200 dark:border-darkBorder flex items-center justify-center text-gray-600 dark:text-gray-300">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+                <div class="flex flex-col">
+                    <h1 class="text-xl font-bold tracking-wide" data-fa="مدیریت کلاینت‌ها" data-en="Clients Manager">مدیریت کلاینت‌ها</h1>
+                    <p class="text-[11px] text-gray-500 font-mono hidden sm:block mt-0.5">{{ active_count }} / {{ total_count }}</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <a href="/lang/{{ 'en' if lang == 'fa' else 'fa' }}" class="w-10 h-10 rounded-xl bg-white dark:bg-[#0f0f0f] border border-gray-200 dark:border-white/10 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-white/5 transition-all font-bold text-xs shadow-sm font-mono no-underline text-gray-700 dark:text-gray-200">
+                    {{ 'EN' if lang == 'fa' else 'FA' }}
+                </a>
+                <button onclick="toggleTheme()" id="theme-icon" class="w-10 h-10 rounded-xl bg-white dark:bg-[#0f0f0f] border border-gray-200 dark:border-white/10 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-white/5 transition-all text-gray-600 dark:text-gray-300 shadow-sm cursor-pointer">
+                    <i class="fa-solid fa-sun"></i>
+                </button>
+            </div>
+        </header>
+
+        <div class="flex-1 overflow-y-auto p-4 lg:p-8 pb-20 lg:pb-10 space-y-6">
+            
+            <!-- flash -->
+            {% with msgs = get_flashed_messages() %}
+              {% for m in msgs %}
+              <div class="flash-msg p-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300 text-sm font-bold flex items-center gap-2 flash-i18n" data-msg="{{ m }}">
+                  <i class="fa-solid fa-circle-check"></i> <span class="flash-text">{{ m }}</span>
+              </div>
+              {% endfor %}
+            {% endwith %}
+
+            <!-- آمار -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="glass-card p-4 lg:p-5 rounded-2xl flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400 text-lg border border-blue-100 dark:border-blue-500/20"><i class="fa-solid fa-users"></i></div>
+                    <div>
+                        <p class="text-[10px] lg:text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest" data-fa="کل کلاینت‌ها" data-en="Total Clients">کل کلاینت‌ها</p>
+                        <p class="text-xl lg:text-2xl font-bold font-mono mt-0.5">{{ total_count }}</p>
+                    </div>
+                </div>
+                <div class="glass-card p-4 lg:p-5 rounded-2xl flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 text-lg border border-emerald-100 dark:border-emerald-500/20 relative">
+                        <span class="absolute top-2 right-2 w-2 h-2 bg-emerald-500 rounded-full animate-ping opacity-75"></span>
+                        <i class="fa-solid fa-bolt"></i>
+                    </div>
+                    <div>
+                        <p class="text-[10px] lg:text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest" data-fa="آنلاین لحظه‌ای" data-en="Online Now">آنلاین لحظه‌ای</p>
+                        <p class="text-xl lg:text-2xl font-bold font-mono mt-0.5">{{ online_count }}</p>
+                    </div>
+                </div>
+                <div class="glass-card p-4 lg:p-5 rounded-2xl flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-orange-50 dark:bg-orange-500/10 flex items-center justify-center text-orange-600 dark:text-orange-400 text-lg border border-orange-100 dark:border-orange-500/20">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                    </div>
+                    <div>
+                        <p class="text-[10px] lg:text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest" data-fa="در آستانه انقضا" data-en="Expiring Soon">در آستانه انقضا</p>
+                        <p class="text-xl lg:text-2xl font-bold font-mono mt-0.5 text-orange-500">{{ expiring_count }}</p>
+                    </div>
+                </div>
+                <div class="glass-card p-4 lg:p-5 rounded-2xl flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-red-50 dark:bg-red-500/10 flex items-center justify-center text-red-600 dark:text-red-400 text-lg border border-red-100 dark:border-red-500/20">
+                        <i class="fa-solid fa-ban"></i>
+                    </div>
+                    <div>
+                        <p class="text-[10px] lg:text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest" data-fa="مسدود شده" data-en="Suspended">مسدود شده</p>
+                        <p class="text-xl lg:text-2xl font-bold font-mono mt-0.5 text-red-500">{{ expired_count }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- نوار ابزار -->
+            <div class="glass-card p-4 rounded-2xl flex flex-col md:flex-row gap-4 justify-between items-center z-20 relative">
+                <div class="flex w-full md:w-auto gap-3 flex-1">
+                    <div class="relative w-full md:w-72">
+                        <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none text-gray-400">
+                            <i class="fa-solid fa-search"></i>
+                        </div>
+                        <input type="text" id="searchInput" onkeyup="filterTable()" class="bg-gray-100/50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl focus:ring-purple-500 focus:border-purple-500 block w-full ps-10 p-2.5 text-gray-900 dark:text-white dark:placeholder-gray-400 transition-all outline-none" data-fa="جستجو..." data-en="Search..." placeholder="جستجو..." data-fa-ph="جستجو..." data-en-ph="Search...">
+                    </div>
+                </div>
+                
+                <button onclick="toggleAddClientModal()" class="w-full md:w-auto bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-bold py-2.5 px-6 rounded-xl shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-all flex items-center justify-center gap-2 tracking-wide cursor-pointer">
+                    <i class="fa-solid fa-user-plus text-sm"></i>
+                    <span data-fa="افزودن کلاینت" data-en="Add Client">افزودن کلاینت</span>
+                </button>
+            </div>
+
+            <!-- جدول -->
+            <div class="glass-card rounded-3xl overflow-hidden relative">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-start whitespace-nowrap" id="usersTable">
+                        <thead class="text-[11px] text-gray-500 dark:text-gray-400 uppercase bg-gray-100/50 dark:bg-white/5 border-b border-gray-200 dark:border-white/5">
+                            <tr>
+                                <th scope="col" class="px-6 py-4 font-bold" data-fa="کاربر" data-en="USER">کاربر</th>
+                                <th scope="col" class="px-6 py-4 font-bold" data-fa="وضعیت" data-en="STATUS">وضعیت</th>
+                                <th scope="col" class="px-6 py-4 font-bold" data-fa="سرویس" data-en="SERVICE">سرویس</th>
+                                <th scope="col" class="px-6 py-4 font-bold" data-fa="مصرف داده" data-en="DATA USAGE">مصرف داده</th>
+                                <th scope="col" class="px-6 py-4 font-bold" data-fa="انقضا" data-en="EXPIRY">انقضا</th>
+                                <th scope="col" class="px-6 py-4 font-bold text-center" data-fa="عملیات" data-en="ACTIONS">عملیات</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200/50 dark:divide-white/5">
+                        {% for u in users %}
+                            <tr class="table-row-hover transition-colors search-row" data-name="{{ u.username|lower }}">
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400 font-bold font-sans">{{ u.username[0]|upper }}</div>
+                                        <div>
+                                            <p class="font-bold text-gray-900 dark:text-white">{{ u.username }}</p>
+                                            <p class="text-[10px] font-mono text-gray-400 mt-0.5 cursor-pointer hover:text-blue-500 transition-colors select-none" onclick="revealPw(this)" data-pw="{{ u.password }}" data-shown="0" title="Click to reveal password">••••••</p>
+                                            
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    {% if u.online %}
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                        <span class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">Online</span>
+                                    </div>
+                                    {% elif u.expired or u.quota_exceeded %}
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                                        <span class="text-[11px] font-bold text-red-600 dark:text-red-400 uppercase"><span data-fa="منقضی" data-en="Expired" class="inline"><span data-fa="منقضی" data-en="Expired" class="inline">{{ t.badge_expired if u.expired else t.badge_quota }}</span></span></span>
+                                    </div>
+                                    {% else %}
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="w-2 h-2 rounded-full bg-gray-400"></span>
+                                        <span class="text-[11px] font-bold text-gray-500 uppercase">Offline</span>
+                                    </div>
+                                    {% endif %}
+                                </td>
+                                <td class="px-6 py-4">
+                                    {% if u.protocol == 'all' %}<span class="px-2.5 py-1 bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 text-[10px] rounded-lg font-mono border border-gray-200 dark:border-white/10">Multi</span>
+                                    {% elif u.protocol == 'openconnect' %}<span class="px-2.5 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[10px] rounded-lg font-mono border border-blue-200 dark:border-blue-500/20">OpenConnect</span>
+                                    {% elif u.protocol == 'l2tp' %}<span class="px-2.5 py-1 bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[10px] rounded-lg font-mono border border-purple-200 dark:border-purple-500/20">L2TP</span>
+                                    {% elif u.protocol == 'ikev2' %}<span class="px-2.5 py-1 bg-pink-50 dark:bg-pink-500/10 text-pink-600 dark:text-pink-400 text-[10px] rounded-lg font-mono border border-pink-200 dark:border-pink-500/20">IKEv2</span>
+                                    {% else %}<span class="px-2.5 py-1 bg-gray-100 dark:bg-white/10 text-gray-700 text-[10px] rounded-lg font-mono border border-gray-200 dark:border-white/10">Multi</span>{% endif %}
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center justify-between text-[10px] font-mono mb-1" style="min-width:130px">
+                                        <span class="text-purple-600 dark:text-purple-400 font-bold">{{ u.traffic }}</span>
+                                    </div>
+                                    {% if u.limit_gb > 0 %}
+                                    <div class="w-32 bg-gray-200 dark:bg-gray-800/80 rounded-full h-1.5 overflow-hidden">
+                                        <div class="bg-gradient-to-r from-purple-500 to-indigo-500 h-1.5 rounded-full" style="width: {{ u.traffic_pct }}%"></div>
+                                    </div>
+                                    {% endif %}
+                                </td>
+                                <td class="px-6 py-4">
+                                    <p class="text-xs text-gray-900 dark:text-white font-mono">{{ u.expires }}</p>
+                                    <p class="text-[10px] text-gray-500 mt-0.5">{{ u.remaining }}</p>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center justify-center gap-2">
+                                        <form method="post" action="/renew/{{ u.id }}" class="inline">
+                                            <input type="number" name="days" value="30" class="hidden">
+                                            <button type="submit" class="w-8 h-8 rounded-lg bg-gray-100 dark:bg-white/5 flex items-center justify-center text-gray-500 hover:text-green-500 transition-colors cursor-pointer" title="Renew 30d"><i class="fa-solid fa-arrows-rotate"></i></button>
+                                        </form>
+                                        <button onclick='openEditModal({{ u.id }}, "{{ u.expires_input }}", "{{ u.dns1 }}", "{{ u.dns2 }}", "{{ u.key }}", "{{ u.telegram }}", "{{ u.protocol }}", {{ u.max_devices }}, "{{ u.note }}")' class="w-8 h-8 rounded-lg bg-gray-100 dark:bg-white/5 flex items-center justify-center text-gray-500 hover:text-blue-500 transition-colors cursor-pointer"><i class="fa-solid fa-pen"></i></button>
+                                        <button onclick="copySubLink('{{ u.key }}')" class="w-8 h-8 rounded-lg bg-gray-100 dark:bg-white/5 flex items-center justify-center text-gray-500 hover:text-cyan-500 transition-colors cursor-pointer" title="Copy subscription link"><i class="fa-solid fa-link"></i></button>
+                                        <form method="post" action="/delete/{{ u.id }}" class="inline" onsubmit="return confirm('{{ t.delete_confirm }}')">
+                                            <button type="submit" class="w-8 h-8 rounded-lg bg-gray-100 dark:bg-white/5 flex items-center justify-center text-gray-500 hover:text-red-500 transition-colors cursor-pointer"><i class="fa-solid fa-trash"></i></button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="6" class="px-6 py-10 text-center text-gray-500">{{ t.no_users }}</td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- MODAL افزودن -->
+    <div id="addClientModal" class="fixed inset-0 z-[100] hidden items-center justify-center opacity-0 transition-opacity duration-300">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-md" onclick="toggleAddClientModal()"></div>
+        
+        <div class="glass-card relative w-[95%] max-w-2xl rounded-3xl p-6 md:p-8 shadow-[0_10px_50px_rgba(0,0,0,0.5)] transform scale-95 transition-transform duration-300 max-h-[90vh] overflow-y-auto z-10 border-t border-t-white/20">
+            <div class="flex justify-between items-center mb-6 border-b border-gray-200/50 dark:border-white/10 pb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-purple-500/30">
+                        <i class="fa-solid fa-user-plus"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-900 dark:text-white" data-fa="ایجاد کلاینت جدید" data-en="Create New Client">ایجاد کلاینت جدید</h2>
+                        <p class="text-[11px] text-gray-500 mt-0.5 font-mono">Multi-Protocol Access</p>
+                    </div>
+                </div>
+                <button onclick="toggleAddClientModal()" class="w-8 h-8 rounded-full bg-gray-100 dark:bg-white/5 flex items-center justify-center text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/20 transition-colors cursor-pointer">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <form class="space-y-5" method="post" action="/add">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider" data-fa="نام کاربری" data-en="USERNAME">نام کاربری</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none text-gray-400"><i class="fa-solid fa-at"></i></div>
+                            <input type="text" name="username" required pattern="[A-Za-z0-9_.\-]{3,32}" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl focus:ring-purple-500 focus:border-purple-500 block w-full ps-10 p-3 text-gray-900 dark:text-white transition-all outline-none font-mono" placeholder="username">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider" data-fa="رمز عبور" data-en="PASSWORD">رمز عبور</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none text-gray-400"><i class="fa-solid fa-key"></i></div>
+                            <input type="text" name="password" id="clientPassword" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl focus:ring-purple-500 focus:border-purple-500 block w-full ps-10 pe-10 p-3 text-gray-900 dark:text-white transition-all outline-none font-mono" placeholder="Auto">
+                            <button type="button" onclick="generatePassword()" class="absolute inset-y-0 end-0 flex items-center pe-3 text-purple-500 hover:text-purple-400 transition-colors cursor-pointer"><i class="fa-solid fa-dice"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider" data-fa="حجم (GB)" data-en="TRAFFIC (GB)">حجم (GB)</label>
+                        <input type="number" name="traffic" min="0" step="0.1" placeholder="Unlimited" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl focus:ring-purple-500 focus:border-purple-500 block w-full p-3 text-gray-900 dark:text-white transition-all outline-none font-mono text-center">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider" data-fa="اعتبار (روز)" data-en="VALIDITY (DAYS)">اعتبار (روز)</label>
+                        <input type="number" name="days" value="30" min="1" max="3650" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl focus:ring-purple-500 focus:border-purple-500 block w-full p-3 text-gray-900 dark:text-white transition-all outline-none font-mono text-center">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">DNS 1</label>
+                        <input type="text" name="dns1" placeholder="8.8.8.8" inputmode="numeric" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl focus:ring-purple-500 focus:border-purple-500 block w-full p-3 text-gray-900 dark:text-white transition-all outline-none font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">DNS 2</label>
+                        <input type="text" name="dns2" placeholder="1.1.1.1" inputmode="numeric" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl focus:ring-purple-500 focus:border-purple-500 block w-full p-3 text-gray-900 dark:text-white transition-all outline-none font-mono">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider" data-fa="تلگرام" data-en="TELEGRAM">تلگرام</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none text-blue-500"><i class="fa-brands fa-telegram"></i></div>
+                            <input type="text" name="telegram" placeholder="@username" data-fa-ph="@username" data-en-ph="@username" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl focus:ring-purple-500 focus:border-purple-500 block w-full ps-10 p-3 text-gray-900 dark:text-white transition-all outline-none font-mono">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider" data-fa="پروتکل" data-en="PROTOCOL">پروتکل</label>
+                        <select name="protocol" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl focus:ring-purple-500 focus:border-purple-500 block w-full p-3 text-gray-900 dark:text-white transition-all outline-none font-mono font-bold">
+                            <option value="all" data-fa="همه (Multi)" data-en="All (Multi)">همه (Multi)</option>
+                            <option value="openconnect">OpenConnect</option>
+                            <option value="l2tp">L2TP</option>
+                            <option value="ikev2">IKEv2</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider" data-fa="دستگاه‌های همزمان" data-en="MAX DEVICES">دستگاه‌های همزمان</label>
+                        <input type="number" name="max_devices" value="0" min="0" max="10" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl focus:ring-purple-500 focus:border-purple-500 block w-full p-3 text-gray-900 dark:text-white transition-all outline-none font-mono text-center">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider" data-fa="انقضای دقیق" data-en="EXACT EXPIRY">انقضای دقیق</label>
+                        <input type="datetime-local" name="expires_at" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl focus:ring-purple-500 focus:border-purple-500 block w-full p-3 text-gray-900 dark:text-white transition-all outline-none font-mono">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider" data-fa="یادداشت" data-en="NOTES">یادداشت</label>
+                    <textarea rows="2" name="note" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl focus:ring-purple-500 focus:border-purple-500 block w-full p-3 text-gray-900 dark:text-white transition-all outline-none" placeholder="..." data-fa-ph="..." data-en-ph="..."></textarea>
+                </div>
+
+                <div class="flex items-center justify-end gap-3 pt-4 border-t border-gray-200/50 dark:border-white/10">
+                    <button type="button" onclick="toggleAddClientModal()" class="px-5 py-2.5 rounded-xl border border-gray-300 dark:border-white/10 text-gray-700 dark:text-gray-300 font-bold hover:bg-gray-100 dark:hover:bg-white/5 transition-all text-sm cursor-pointer" data-fa="انصراف" data-en="Cancel">انصراف</button>
+                    <button type="submit" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-bold shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-all flex items-center gap-2 text-sm cursor-pointer">
+                        <i class="fa-solid fa-check"></i> <span data-fa="ایجاد و فعال‌سازی" data-en="Create & Activate">ایجاد و فعال‌سازی</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL ویرایش -->
+    <div id="editModal" class="fixed inset-0 z-[100] hidden items-center justify-center opacity-0 transition-opacity duration-300">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-md" onclick="closeEditModal()"></div>
+        <div class="glass-card relative w-[95%] max-w-md rounded-3xl p-6 md:p-8 shadow-2xl transform scale-95 transition-transform duration-300 max-h-[90vh] overflow-y-auto z-10">
+            <div class="flex justify-between items-center mb-5 border-b border-gray-200/50 dark:border-white/10 pb-4">
+                <h2 class="text-lg font-bold text-gray-900 dark:text-white"><i class="fa-solid fa-pen text-blue-500 me-2"></i>Edit User</h2>
+                <button onclick="closeEditModal()" class="w-8 h-8 rounded-full bg-gray-100 dark:bg-white/5 flex items-center justify-center text-gray-500 hover:text-red-500 transition-colors cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form method="post" id="editForm" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-2 uppercase">New Password</label>
+                    <input type="text" name="password" id="editPass" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl w-full p-3 text-gray-900 dark:text-white outline-none font-mono" placeholder="unchanged">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-2 uppercase">New Expiry</label>
+                    <input type="datetime-local" name="expires_at" id="editExp" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl w-full p-3 text-gray-900 dark:text-white outline-none font-mono">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-2 uppercase">Traffic (GB)</label>
+                    <input type="number" step="0.1" min="0" name="traffic" id="editTraffic" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl w-full p-3 text-gray-900 dark:text-white outline-none font-mono text-center">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 mb-2 uppercase">DNS 1</label>
+                        <input type="text" name="dns1" id="editDns1" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl w-full p-3 text-gray-900 dark:text-white outline-none font-mono" placeholder="8.8.8.8">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 mb-2 uppercase">DNS 2</label>
+                        <input type="text" name="dns2" id="editDns2" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl w-full p-3 text-gray-900 dark:text-white outline-none font-mono" placeholder="1.1.1.1">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-2 uppercase">Telegram</label>
+                    <input type="text" name="telegram" id="editTg" placeholder="@username" data-fa-ph="@username" data-en-ph="@username" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl w-full p-3 text-gray-900 dark:text-white outline-none font-mono">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-2 uppercase">Protocol</label>
+                    <select name="protocol" id="editProto" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl w-full p-3 text-gray-900 dark:text-white outline-none font-mono font-bold">
+                        <option value="all">All (Multi)</option>
+                        <option value="openconnect">OpenConnect</option>
+                        <option value="l2tp">L2TP</option>
+                        <option value="ikev2">IKEv2</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-2 uppercase">Max Devices</label>
+                    <input type="number" name="max_devices" id="editDev" min="0" max="10" value="0" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl w-full p-3 text-gray-900 dark:text-white outline-none font-mono text-center">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-2 uppercase">Note</label>
+                    <textarea rows="2" name="note" id="editNote" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl w-full p-3 text-gray-900 dark:text-white outline-none font-mono"></textarea>
+                </div>
+                <div class="flex gap-3 pt-3">
+                    <button type="button" onclick="closeEditModal()" class="flex-1 px-4 py-2.5 rounded-xl border border-gray-300 dark:border-white/10 text-gray-700 dark:text-gray-300 font-bold text-sm hover:bg-gray-100 dark:hover:bg-white/5 transition-all cursor-pointer">Cancel</button>
+                    <button type="submit" class="flex-1 px-4 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-sm hover:bg-blue-500 transition-all cursor-pointer">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    
+
+<script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const av = document.getElementById("userAvatar");
+            const un = document.getElementById("usernameText");
+            if(av && un) { av.innerText = un.innerText.trim().charAt(0).toUpperCase(); }
+        });
+
+        (function(){
+            var t = null;
+            try { t = localStorage.getItem('l2tp-theme'); } catch(e) {}
+            if(!t) { t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark'; }
+            document.documentElement.classList.toggle('dark', t !== 'light');
+        })();
+
+        function toggleTheme() {
+            var html = document.documentElement;
+            html.classList.toggle('dark');
+            try { localStorage.setItem('l2tp-theme', html.classList.contains('dark') ? 'dark' : 'light'); } catch(e) {}
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            overlay.classList.toggle('hidden');
+            sidebar.classList.toggle('open');
+        }
+
+        // ===== Language =====
+        let currentLang = '{{ lang }}';
+        function setLang(l) {
+            currentLang = l;
+            document.cookie = 'l2tp_lang=' + l + ';path=/;max-age=31536000';
+            const html = document.documentElement;
+            const btn = document.querySelector('button[onclick="toggleLanguage()"]');
+            if (l === 'en') {
+                html.setAttribute('dir', 'ltr');
+                html.setAttribute('lang', 'en');
+                if (btn) btn.innerText = 'FA';
+                document.querySelectorAll('[data-en]').forEach(el => el.innerText = el.getAttribute('data-en'));
+                document.querySelectorAll('input[data-en-ph]').forEach(el => el.placeholder = el.getAttribute('data-en-ph'));
+                translateFlash();
+            } else {
+                html.setAttribute('dir', 'rtl');
+                html.setAttribute('lang', 'fa');
+                if (btn) btn.innerText = 'EN';
+                document.querySelectorAll('[data-fa]').forEach(el => el.innerText = el.getAttribute('data-fa'));
+                document.querySelectorAll('input[data-fa-ph]').forEach(el => el.placeholder = el.getAttribute('data-fa-ph'));
+                setTimeout(function(){ location.reload(); }, 50);
+            }
+        }
+        function toggleLanguage() {
+            if (currentLang === 'fa') { setLang('en'); } else { setLang('fa'); }
+        }
+        
+
+        // ===== Flash messages EN translation =====
+        function translateFlash() {
+            var pairs = [
+                ['اعتبار کاربر', 'User renewed successfully.'],
+                ['تغییرات ذخیره شد', 'Changes saved.'],
+                ['کاربر حذف شد', 'User deleted.'],
+                ['شمارنده حجم', 'Traffic counter reset.'],
+                ['کد جدید', 'New key generated.'],
+                ['همگام‌سازی', 'Sync completed.'],
+                ['اضافه شد', 'added.'],
+                ['قبلاً ثبت شده', 'already exists.']
+            ];
+            document.querySelectorAll('.flash-msg').forEach(el => {
+                var t = el.textContent;
+                for (var i = 0; i < pairs.length; i++) {
+                    if (t.indexOf(pairs[i][0]) !== -1) {
+                        el.textContent = pairs[i][1];
+                        return;
+                    }
+                }
+            });
+        }
+
+        // ===== Add Client Modal =====
+        function toggleAddClientModal() {
+            const modal = document.getElementById('addClientModal');
+            const modalBody = modal.querySelector('.glass-card');
+            if (modal.classList.contains('hidden')) {
+                modal.classList.remove('hidden');
+                modal.style.display = 'flex';
+                setTimeout(() => {
+                    modal.classList.remove('opacity-0');
+                    if(modalBody) { modalBody.classList.remove('scale-95'); modalBody.classList.add('scale-100'); }
+                }, 10);
+            } else {
+                modal.classList.add('opacity-0');
+                if(modalBody) { modalBody.classList.remove('scale-100'); modalBody.classList.add('scale-95'); }
+                setTimeout(() => { modal.classList.add('hidden'); modal.style.display = ''; }, 300);
+            }
+        }
+
+        // ===== Edit Modal =====
+        function openEditModal(id, exp, dns1, dns2, key, tg, proto, dev, note) {
+            document.getElementById('editForm').action = '/edit/' + id;
+            document.getElementById('editExp').value = exp;
+            document.getElementById('editPass').value = '';
+            document.getElementById('editTraffic').value = '';
+            document.getElementById('editDns1').value = dns1;
+            document.getElementById('editDns2').value = dns2;
+            document.getElementById('editTg').value = tg || '';
+            document.getElementById('editProto').value = proto || 'all';
+            document.getElementById('editDev').value = dev || 0;
+            document.getElementById('editNote').value = note || '';
+            const modal = document.getElementById('editModal');
+            modal.classList.remove('hidden');
+            modal.style.display = 'flex';
+            setTimeout(() => { modal.classList.remove('opacity-0'); }, 10);
+        }
+        function closeEditModal() {
+            const modal = document.getElementById('editModal');
+            modal.classList.add('opacity-0');
+            setTimeout(() => { modal.classList.add('hidden'); modal.style.display = ''; }, 300);
+        }
+
+        // ===== Table search =====
+        function filterTable() {
+            const q = document.getElementById('searchInput').value.toLowerCase();
+            document.querySelectorAll('.search-row').forEach(row => {
+                row.style.display = row.dataset.name.includes(q) ? '' : 'none';
+            });
+        }
+
+        // ===== Password generator =====
+        function generatePassword() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+            const arr = new Uint32Array(12);
+            window.crypto.getRandomValues(arr);
+            let pass = '';
+            for (let i = 0; i < 12; i++) { pass += chars[arr[i] % chars.length]; }
+            document.getElementById('clientPassword').value = pass;
+        }
+    
+function revealPw(el){
+    if(el.getAttribute('data-shown')==='1'){
+        el.textContent='\u2022\u2022\u2022\u2022\u2022\u2022';
+        el.setAttribute('data-shown','0');
+    } else {
+        el.textContent=el.getAttribute('data-pw');
+        el.setAttribute('data-shown','1');
+    }
+}
+function copySubLink(key){
+    var url=location.origin+'/u/'+key;
+    var done=function(){alert('Subscription link copied!\n'+url);};
+    if(navigator.clipboard&&window.isSecureContext){
+        navigator.clipboard.writeText(url).then(done);
+    } else {
+        var a=document.createElement('textarea');
+        a.value=url;document.body.appendChild(a);a.select();
+        document.execCommand('copy');a.remove();done();
+    }
+}
+
+
+// Flash i18n: پیام سرور FA:xxx → اگر EN فعاله، متن EN از سرور (flash_i18n format: FA:...|EN:...)
+function flashI18nApply(){
+    var lang = currentLang || 'fa';
+    document.querySelectorAll('.flash-i18n').forEach(function(el){
+        var raw = el.getAttribute('data-msg') || '';
+        // فرمت: FA:متن فارسی (en متن در |EN: بعدش اگه باشه)
+        var sep = raw.indexOf('|EN:');
+        var fa = sep > -1 ? raw.substring(3, sep) : raw.replace(/^FA:/,'');
+        var en = sep > -1 ? raw.substring(sep+4) : '';
+        var span = el.querySelector('.flash-text');
+        if(span){
+            if(lang === 'en' && en){ span.textContent = en; }
+            else { span.textContent = fa; }
+        }
+    });
+}
+flashI18nApply();
+
+
+// Restore lang from COOKIE (server already rendered with it — this is just UI sync)
+
+    </script>
+
+<script>
+// Auto-translate: سرور با lang درست رندر کرده (dir هم درسته)
+// فقط متن‌های data-attr رو sync کن
+(function autoTranslate(){
+    var lang = document.documentElement.getAttribute('lang') || 'fa';
+    if (lang === 'en') {
+        document.querySelectorAll('[data-en]').forEach(function(el){
+            el.innerText = el.getAttribute('data-en');
+        });
+        document.querySelectorAll('input[data-en-ph]').forEach(function(el){
+            el.placeholder = el.getAttribute('data-en-ph');
+        });
+        // placeholder فارسی بدون data-attr:
+        document.querySelectorAll('input[placeholder]').forEach(function(el){
+            var p = el.getAttribute('placeholder');
+            if (p === 'جستجو...') el.placeholder = 'Search...';
+        });
+        // فلش پیام‌ها:
+        document.querySelectorAll('.flash-msg').forEach(function(el){
+            var raw = el.getAttribute('data-msg') || el.textContent;
+            var sep = raw.indexOf('|EN:');
+            if (sep > -1) {
+                var fa = raw.replace(/^ERR_FA:|^FA:/, '').substring(0, sep).replace(/^ERR_FA:|^FA:/,'');
+                var en = raw.substring(sep + 4);
+                var span = el.querySelector('.flash-text');
+                if (span) span.textContent = en;
+            }
+        });
+    }
+})();
+</script>
+</body>
+</html>

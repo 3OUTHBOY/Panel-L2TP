@@ -17,7 +17,7 @@ KEY_RE = re.compile(r'^[A-Za-z0-9]{8,32}$')
 IPV4_RE = re.compile(r'^(\d{1,3}\.){3}\d{1,3}$')
 BAD_PW_CHARS = set(' \t\n\r"\'\\*:;#')
 DEFAULT_LANG = 'fa'
-PANEL_VERSION = '2.2.0'
+PANEL_VERSION = '3.0.0'
 UPDATE_URL = 'https://raw.githubusercontent.com/3OUTHBOY/Panel-L2TP/main/install.sh'
 UPDATE_LOG = '/var/log/l2tp-panel-update.log'
 
@@ -151,7 +151,16 @@ app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax')
 _attempts = {}
 _lock = threading.Lock()
 
-def get_lang(): return session.get('lang', DEFAULT_LANG)
+def get_lang():
+    # cookie همیشه تازه‌ترین انتخاب کاربره (JS سوییچ زبان همون لحظه ست می‌کنه)
+    cookie_lang = request.cookies.get('l2tp_lang')
+    if cookie_lang in ('fa', 'en'):
+        if session.get('lang') != cookie_lang:
+            session['lang'] = cookie_lang
+        return cookie_lang
+    # fallback: session → default
+    return session.get('lang', DEFAULT_LANG)
+
 
 def T(key, **kwargs):
     text = TRANSLATIONS.get(get_lang(), TRANSLATIONS[DEFAULT_LANG]).get(key) \
@@ -160,10 +169,10 @@ def T(key, **kwargs):
 
 def fmt_remaining(secs, lang):
     d, h, m = int(secs // 86400), int((secs % 86400) // 3600), int((secs % 3600) // 60)
-    if lang == 'fa':
-        if d > 0: return '{} روز و {} ساعت'.format(d, h)
-        if h > 0: return '{} ساعت و {} دقیقه'.format(h, m)
-        return '{} دقیقه'.format(max(m, 1))
+    if lang == 'en':
+        if d > 0: return '{}d {}h'.format(d, h)
+        if h > 0: return '{}h {}m'.format(h, m)
+        return '{}m'.format(max(m, 1))
     if d > 0: return '{}d {}h'.format(d, h)
     if h > 0: return '{}h {}m'.format(h, m)
     return '{}m'.format(max(m, 1))
@@ -225,7 +234,18 @@ def init_db():
             used_bytes INTEGER NOT NULL DEFAULT 0,
             dns1 TEXT NOT NULL DEFAULT '',
             dns2 TEXT NOT NULL DEFAULT '',
-            dns_key TEXT NOT NULL DEFAULT '')''')
+            dns_key TEXT NOT NULL DEFAULT '',
+            telegram TEXT NOT NULL DEFAULT '',
+            protocol TEXT NOT NULL DEFAULT 'all',
+            max_devices INTEGER NOT NULL DEFAULT 0,
+            note TEXT NOT NULL DEFAULT '')''')
+        cols = [r[1] for r in conn.execute('PRAGMA table_info(users)')]
+        for col, ddl in (('telegram', "TEXT NOT NULL DEFAULT ''"),
+                         ('protocol', "TEXT NOT NULL DEFAULT 'all'"),
+                         ('max_devices', 'INTEGER NOT NULL DEFAULT 0'),
+                         ('note', "TEXT NOT NULL DEFAULT ''")):
+            if col not in cols:
+                conn.execute('ALTER TABLE users ADD COLUMN %s %s' % (col, ddl))
         conn.commit()
     finally:
         conn.close()
@@ -293,7 +313,7 @@ def user_row_to_dict(row):
     traffic_pct = min(int(used * 100 / limit_bytes), 100) if limit_bytes > 0 else 0
     traffic = ('{} / {}'.format(fmt_traffic(used), fmt_traffic(limit_bytes))
                if limit_mb > 0 else '{} / ∞'.format(fmt_traffic(used)))
-    remaining = fmt_remaining(secs, lang) if not expired and not quota_exceeded else '—'
+    remaining = fmt_remaining(secs, session.get('lang', 'fa')) if not expired and not quota_exceeded else '—'
     return {'id': row['id'], 'username': row['username'], 'password': row['password'],
             'expires': row['expires_at'],
             'expires_input': row['expires_at'][:16].replace(' ', 'T'),
@@ -302,7 +322,11 @@ def user_row_to_dict(row):
             'traffic': traffic, 'quota_exceeded': quota_exceeded,
             'limit_gb': round(limit_mb / 1024.0, 2), 'traffic_pct': traffic_pct,
             'dns1': row['dns1'] or '', 'dns2': row['dns2'] or '',
-            'key': row['dns_key'] or ''}
+            'key': row['dns_key'] or '',
+            'telegram': row['telegram'] or '',
+            'protocol': row['protocol'] or 'all',
+            'max_devices': row['max_devices'] or 0,
+            'note': row['note'] or ''}
 
 def login_required(view):
     @wraps(view)
@@ -318,20 +342,46 @@ def csrf_protect():
     src = request.headers.get('Origin') or request.headers.get('Referer')
     if not src: return None
     if urlparse(src).netloc and urlparse(src).netloc != request.host:
-        flash(T('invalid_request'))
+        flash_i18n("درخواست نامعتبر رد شد.", "Invalid request rejected.")
         return redirect(url_for('index') if session.get('admin') else url_for('login'))
     return None
+
+
+# دو زبانه: پیام با کلید — JS سمت کلاینت متن درست رو انتخاب می‌کنه
+def flash_i18n(fa_text, en_text):
+    session['flash_msg'] = {'fa': fa_text, 'en': en_text}
+    flash('FA:' + fa_text)
+
+
+
+def flash_bi(fa, en):
+    flash('FA:' + str(fa) + '|EN:' + str(en))
+
+
+
+def flash_err(fa, en):
+    flash('ERR_FA:' + str(fa) + '|EN:' + str(en))
+
 
 @app.route('/lang/<string:code>')
 def set_lang(code):
     if code in TRANSLATIONS:
         session['lang'] = code
-    return redirect(request.referrer or url_for('index'))
-
+    resp = redirect(request.referrer or url_for('index'))
+    resp.set_cookie('l2tp_lang', code, max_age=365*24*3600)
+    return resp
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     error = None
     if request.method == 'POST':
+        # زبان انتخاب‌شده روی صفحه لاگین — قبل از هرچیز اعمال شه
+        _lg = request.form.get('login_lang', '')
+        if _lg in ('fa', 'en'):
+            session['lang'] = _lg
+        # کوکی هم چک شه (اگه JS ست کرده باشه)
+        _ck = request.cookies.get('l2tp_lang', '')
+        if _ck in ('fa', 'en') and not _lg:
+            session['lang'] = _ck
         username = request.form.get('username', '')
         password = request.form.get('password', '')
         ip = request.remote_addr or '?'
@@ -387,8 +437,7 @@ def _get_chart_data():
             row = conn.execute('SELECT total_bytes FROM daily_stats WHERE day=?',
                                (key,)).fetchone()
             total = row['total_bytes'] if row else 0
-            label = ('امروز' if i == 0 else str(i)) if get_lang() == 'fa' \
-                    else ('Today' if i == 0 else str(i))
+            label = 'Today' if i == 0 else str(i)
             days.append({'label': label, 'bytes': total})
         top = conn.execute('SELECT username, used_bytes, traffic_limit_mb FROM users '
                            'WHERE used_bytes > 0 ORDER BY used_bytes DESC LIMIT 5').fetchall()
@@ -407,6 +456,46 @@ def _get_chart_data():
         return days, top_users
     except Exception:
         return [], []
+
+
+
+def _hardware_stats():
+    import os
+    try:
+        # CPU: sample /proc/stat twice over 200ms
+        def cpu_times():
+            with open('/proc/stat') as fh:
+                parts = fh.readline().split()[1:]
+            vals = [int(x) for x in parts]
+            idle = vals[3] + (vals[4] if len(vals) > 4 else 0)
+            return sum(vals), idle
+        import time
+        t1, i1 = cpu_times()
+        time.sleep(0.2)
+        t2, i2 = cpu_times()
+        cpu = int((1 - (i2 - i1) / max(t2 - t1, 1)) * 100)
+        cpu = max(0, min(cpu, 100))
+    except Exception:
+        cpu = 0
+    try:
+        with open('/proc/meminfo') as fh:
+            mem = {}
+            for line in fh:
+                p = line.split(':')
+                if len(p) == 2:
+                    mem[p[0]] = int(p[1].strip().split()[0])
+        total = mem.get('MemTotal', 0)
+        avail = mem.get('MemAvailable', 0)
+        used = total - avail
+        ram = int(used * 100 / total) if total else 0
+        def fmt(kb):
+            gb = kb / (1024 * 1024)
+            return ('%.1f GB' % gb) if gb < 10 else ('%d GB' % round(gb))
+        ram_used = fmt(used)
+        ram_total = fmt(total)
+    except Exception:
+        ram, ram_used, ram_total = 0, '?', '?'
+    return {'cpu': cpu, 'ram': ram, 'ram_used': ram_used, 'ram_total': ram_total}
 
 
 @app.route('/')
@@ -438,8 +527,8 @@ def index():
     svc = {'ipsec': service_active('strongswan-starter') or service_active('ipsec'), 'xl2tpd': service_active('xl2tpd'), 'nat': service_active('l2tp-nat'), 'ocserv': service_active('ocserv'), 'ikev2': service_active('strongswan-starter') or service_active('ipsec')}
     return render_template('index.html', users=users, server_ip=SERVER_IP, psk=CFG['psk'],
                            active_count=active_count, total_count=len(users),
-                           online_count=len(online_users), svc=svc,
-                           total_used=fmt_traffic(total_used),
+                           online_count=len(online_users), svc=svc, hw=_hardware_stats(),
+                           total_used=fmt_traffic(total_used), total_used_gb=fmt_gb(total_used),
                            total_limit=(fmt_traffic(total_limit_mb * 1024 * 1024) if total_limit_mb else None),
                            default_dns1=def_dns[0], default_dns2=def_dns[1],
                            admin_user=CFG['admin_user'], panel_port=_panel_port(),
@@ -469,37 +558,49 @@ def add_user():
     dns1 = request.form.get('dns1', '').strip()
     dns2 = request.form.get('dns2', '').strip()
     if not USERNAME_RE.match(username):
-        flash(T('invalid_username')); return redirect(url_for('index'))
+        flash_i18n("نام کاربری نامعتبر است.", "Invalid username."); return redirect(url_for('clients_page'))
     if BAD_PW_CHARS & set(password):
-        flash(T('bad_pw_chars')); return redirect(url_for('index'))
+        flash(T('bad_pw_chars')); return redirect(url_for('clients_page'))
     if not password: password = gen_password()
     for d in (dns1, dns2):
         if d and not IPV4_RE.match(d):
-            flash(T('invalid_dns')); return redirect(url_for('index'))
+            flash_i18n("آدرس DNS نامعتبر است.", "Invalid DNS address."); return redirect(url_for('clients_page'))
     limit_mb = parse_traffic_gb(traffic_raw)
     if traffic_raw and limit_mb is None:
-        flash(T('invalid_traffic')); return redirect(url_for('index'))
+        flash_i18n("محدودیت حجم نامعتبر است.", "Invalid traffic limit."); return redirect(url_for('clients_page'))
     now = datetime.now()
     if exact:
         expires_dt = parse_dt(exact)
         if expires_dt is None:
-            flash(T('invalid_expiry')); return redirect(url_for('index'))
+            flash_i18n("قالب تاریخ انقضا نامعتبر است.", "Invalid expiry format."); return redirect(url_for('clients_page'))
     else:
         try: days = int(days_raw)
         except ValueError: days = 0
         if days <= 0 or days > 3650:
-            flash(T('invalid_days')); return redirect(url_for('index'))
+            flash(T('invalid_days')); return redirect(url_for('clients_page'))
         expires_dt = now + timedelta(days=days)
+    telegram = request.form.get('telegram', '').strip()[:64]
+    protocol = request.form.get('protocol', 'all').strip()
+    if protocol not in ('all', 'openconnect', 'l2tp', 'ikev2'):
+        protocol = 'all'
+    try:
+        max_dev = int(request.form.get('max_devices', '0') or '0')
+    except ValueError:
+        max_dev = 0
+    if max_dev < 0 or max_dev > 10:
+        max_dev = 0
+    note = request.form.get('note', '').strip()[:500]
     try:
         db_execute('INSERT INTO users (username, password, expires_at, created_at, '
-                   'traffic_limit_mb, dns1, dns2, dns_key) VALUES (?,?,?,?,?,?,?,?)',
+                   'traffic_limit_mb, dns1, dns2, dns_key, telegram, protocol, max_devices, note) '
+                   'VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
                    (username, password, expires_dt.strftime(DT_FMT), now.strftime(DT_FMT),
-                    limit_mb, dns1, dns2, gen_key(20)))
+                    limit_mb, dns1, dns2, gen_key(20), telegram, protocol, max_dev, note))
     except sqlite3.IntegrityError:
-        flash(T('user_exists', username=username)); return redirect(url_for('index'))
+        flash_i18n("نام کاربری «" + username + "» قبلاً ثبت شده است.", "Username "" + username + "" already exists."); return redirect(url_for('clients_page'))
     run_sync()
-    flash(T('user_added', username=username, password=password))
-    return redirect(url_for('index'))
+    flash_i18n("کاربر «" + username + "» اضافه شد. رمز عبور: " + password + "", "User "" + username + "" added. Password: " + password + "")
+    return redirect(url_for('clients_page'))
 
 @app.route('/renew/<int:user_id>', methods=['POST'])
 @login_required
@@ -507,20 +608,23 @@ def renew_user(user_id):
     try: days = int(request.form.get('days', ''))
     except ValueError: days = 0
     if days <= 0 or days > 3650:
-        flash(T('invalid_days_short')); return redirect(url_for('index'))
+        flash_i18n("تعداد روز نامعتبر است.", "Invalid number of days."); return redirect(url_for('clients_page'))
     conn = get_db()
     try:
         row = conn.execute('SELECT expires_at FROM users WHERE id = ?', (user_id,)).fetchone()
     finally:
         conn.close()
     if row is None:
-        flash(T('user_not_found')); return redirect(url_for('index'))
+        flash_i18n("کاربر پیدا نشد.", "User not found."); return redirect(url_for('clients_page'))
     current = datetime.strptime(row['expires_at'], DT_FMT)
     base = current if current > datetime.now() else datetime.now()
     db_execute('UPDATE users SET expires_at = ? WHERE id = ?',
                ((base + timedelta(days=days)).strftime(DT_FMT), user_id))
-    run_sync(); flash(T('renewed'))
-    return redirect(url_for('index'))
+    run_sync()
+    # rebuild ocpasswd so renewed user can reconnect (without restarting ocserv)
+    subprocess.Popen(['/usr/bin/python3', '/root/ocserv-enforce.py'],
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); flash_i18n("اعتبار کاربر تمدید شد.", "User renewed successfully.")
+    return redirect(url_for('clients_page'))
 
 @app.route('/edit/<int:user_id>', methods=['POST'])
 @login_required
@@ -532,55 +636,66 @@ def edit_user(user_id):
     dns2 = request.form.get('dns2', '').strip()
     key_raw = request.form.get('key', '').strip()
     if not any((exact, password, traffic_raw, dns1, dns2, key_raw)):
-        flash(T('nothing_changed')); return redirect(url_for('index'))
+        flash_i18n("چیزی برای تغییر وارد نشده است.", "Nothing to change."); return redirect(url_for('clients_page'))
     conn = get_db()
     try:
         row = conn.execute('SELECT username FROM users WHERE id = ?', (user_id,)).fetchone()
     finally:
         conn.close()
     if row is None:
-        flash(T('user_not_found')); return redirect(url_for('index'))
+        flash_err("کاربر پیدا نشد.", "User not found."); return redirect(url_for('clients_page'))
     changed_pw = False
     if exact:
         dt = parse_dt(exact)
         if dt is None:
-            flash(T('invalid_date')); return redirect(url_for('index'))
+            flash_i18n("قالب تاریخ نامعتبر است.", "Invalid date format."); return redirect(url_for('clients_page'))
         db_execute('UPDATE users SET expires_at = ? WHERE id = ?', (dt.strftime(DT_FMT), user_id))
     if password:
         if BAD_PW_CHARS & set(password):
-            flash(T('bad_pw_chars_short')); return redirect(url_for('index'))
+            flash_i18n("رمز عبور دارای کاراکترهای غیرمجاز است.", "Password contains invalid characters."); return redirect(url_for('clients_page'))
         db_execute('UPDATE users SET password = ? WHERE id = ?', (password, user_id))
         changed_pw = True
     if traffic_raw:
         limit_mb = parse_traffic_gb(traffic_raw)
         if limit_mb is None:
-            flash(T('invalid_traffic')); return redirect(url_for('index'))
+            flash_err("محدودیت حجم نامعتبر است.", "Invalid traffic limit."); return redirect(url_for('clients_page'))
         db_execute('UPDATE users SET traffic_limit_mb = ? WHERE id = ?', (limit_mb, user_id))
     for d in (dns1, dns2):
         if d and not IPV4_RE.match(d):
-            flash(T('invalid_dns')); return redirect(url_for('index'))
+            flash_err("آدرس DNS نامعتبر است.", "Invalid DNS address."); return redirect(url_for('clients_page'))
     db_execute('UPDATE users SET dns1 = ?, dns2 = ? WHERE id = ?', (dns1, dns2, user_id))
+    telegram = request.form.get('telegram', '').strip()[:64]
+    protocol = request.form.get('protocol', 'all').strip()
+    if protocol not in ('all', 'openconnect', 'l2tp', 'ikev2'):
+        protocol = 'all'
+    try:
+        max_dev = int(request.form.get('max_devices', '0') or '0')
+    except ValueError:
+        max_dev = 0
+    note = request.form.get('note', '').strip()[:500]
+    db_execute('UPDATE users SET telegram = ?, protocol = ?, max_devices = ?, note = ? WHERE id = ?',
+               (telegram, protocol, max_dev, note, user_id))
     if key_raw:
         if not KEY_RE.match(key_raw):
-            flash(T('invalid_key')); return redirect(url_for('index'))
+            flash_i18n("کد کاربر نامعتبر است.", "Invalid user key."); return redirect(url_for('clients_page'))
         db_execute('UPDATE users SET dns_key = ? WHERE id = ?', (key_raw, user_id))
     if changed_pw: kill_session(row['username'])
-    run_sync(); flash(T('changes_saved'))
-    return redirect(url_for('index'))
+    run_sync(); flash_i18n("تغییرات ذخیره شد.", "Changes saved.")
+    return redirect(url_for('clients_page'))
 
 @app.route('/regen-key/<int:user_id>', methods=['POST'])
 @login_required
 def regen_key(user_id):
     db_execute('UPDATE users SET dns_key = ? WHERE id = ?', (gen_key(20), user_id))
-    flash(T('key_regenerated'))
-    return redirect(url_for('index'))
+    flash_i18n("کد جدید تولید شد (لینک قبلی دیگر کار نمی‌کند).", "New key generated (old link is invalid now).")
+    return redirect(url_for('clients_page'))
 
 @app.route('/reset-traffic/<int:user_id>', methods=['POST'])
 @login_required
 def reset_traffic(user_id):
     db_execute('UPDATE users SET used_bytes = 0 WHERE id = ?', (user_id,))
-    run_sync(); flash(T('traffic_reset'))
-    return redirect(url_for('index'))
+    run_sync(); flash_i18n("شمارنده حجم کاربر صفر شد.", "Traffic counter reset.")
+    return redirect(url_for('clients_page'))
 
 @app.route('/delete/<int:user_id>', methods=['POST'])
 @login_required
@@ -592,14 +707,14 @@ def delete_user(user_id):
         conn.close()
     db_execute('DELETE FROM users WHERE id = ?', (user_id,))
     if row: kill_session(row['username'])
-    run_sync(); flash(T('user_deleted'))
-    return redirect(url_for('index'))
+    run_sync(); flash_i18n("کاربر حذف شد.", "User deleted.")
+    return redirect(url_for('clients_page'))
 
 @app.route('/sync', methods=['POST'])
 @login_required
 def sync_now():
-    run_sync(); flash(T('sync_done'))
-    return redirect(url_for('index'))
+    run_sync(); flash_i18n("همگام‌سازی انجام شد.", "Sync completed.")
+    return redirect(url_for('clients_page'))
 
 @app.route('/restart-vpn', methods=['POST'])
 @login_required
@@ -696,20 +811,20 @@ def settings_credentials():
     new_pass2 = request.form.get('new_password2', '')
     if new_pass or new_pass2:
         if new_pass != new_pass2:
-            flash(T('password_mismatch'))
-            return redirect(url_for('index'))
+            flash_i18n("رمزهای جدید یکسان نیستند.", "Passwords do not match.")
+            return redirect(url_for('settings_page'))
         if BAD_PW_CHARS & set(new_pass):
             flash(T('bad_pw_chars'))
-            return redirect(url_for('index'))
+            return redirect(url_for('settings_page'))
         if len(new_pass) < 6:
-            flash(T('invalid_password_short'))
-            return redirect(url_for('index'))
+            flash_err("رمز جدید باید حداقل ۶ کاراکتر باشد.", "Password must be at least 6 characters.")
+            return redirect(url_for('settings_page'))
     if new_user and not USERNAME_RE.match(new_user):
-        flash(T('invalid_username'))
-        return redirect(url_for('index'))
+        flash_err("نام کاربری نامعتبر است.", "Invalid username.")
+        return redirect(url_for('settings_page'))
     if not new_user and not new_pass:
-        flash(T('nothing_changed'))
-        return redirect(url_for('index'))
+        flash_err("چیزی برای تغییر وارد نشده است.", "Nothing to change.")
+        return redirect(url_for('settings_page'))
     changed = False
     if new_user and new_user != CFG['admin_user']:
         CFG['admin_user'] = new_user
@@ -721,8 +836,8 @@ def settings_credentials():
     if changed:
         session.clear()
         return redirect(url_for('login') + '?relogin=1')
-    flash(T('changes_saved'))
-    return redirect(url_for('index'))
+    flash_bi("تغییرات ذخیره شد.", "Changes saved.")
+    return redirect(url_for('settings_page'))
 
 
 @app.route('/settings/psk', methods=['POST'])
@@ -730,8 +845,8 @@ def settings_credentials():
 def settings_psk():
     new_psk = request.form.get('new_psk', '').strip()
     if not new_psk or len(new_psk) < 8 or BAD_PW_CHARS & set(new_psk):
-        flash(T('invalid_psk'))
-        return redirect(url_for('index'))
+        flash_i18n("PSK نامعتبر است.", "Invalid PSK.")
+        return redirect(url_for('settings_page'))
     CFG['psk'] = new_psk
     _save_config()
     try:
@@ -742,8 +857,8 @@ def settings_psk():
                        capture_output=True, timeout=60)
     except Exception:
         pass
-    flash(T('psk_saved'))
-    return redirect(url_for('index'))
+    flash_i18n("PSK جدید ذخیره شد و سرویس IPSec ریستارت شد.", "New PSK saved; IPSec restarted.")
+    return redirect(url_for('settings_page'))
 
 
 @app.route('/settings/dns', methods=['POST'])
@@ -753,8 +868,8 @@ def settings_dns():
     dns2 = request.form.get('dns2', '').strip()
     for d in (dns1, dns2):
         if d and not IPV4_RE.match(d):
-            flash(T('invalid_dns'))
-            return redirect(url_for('index'))
+            flash_err("آدرس DNS نامعتبر است.", "Invalid DNS address.")
+            return redirect(url_for('settings_page'))
     try:
         path = '/etc/ppp/options.xl2tpd'
         with open(path) as fh:
@@ -780,10 +895,10 @@ def settings_dns():
         subprocess.run(['systemctl', 'restart', 'xl2tpd'],
                        capture_output=True, timeout=60)
     except Exception:
-        flash(T('vpn_restart_failed'))
-        return redirect(url_for('index'))
-    flash(T('dns_saved'))
-    return redirect(url_for('index'))
+        flash_bi("ریستارت ناموفق!", "Restart failed!")
+        return redirect(url_for('settings_page'))
+    flash_bi("DNS پیش‌فرض ذخیره شد.", "Default DNS saved.")
+    return redirect(url_for('settings_page'))
 
 
 @app.route('/settings/port', methods=['POST'])
@@ -791,11 +906,11 @@ def settings_dns():
 def settings_port():
     port = request.form.get('port', '').strip()
     if not port.isdigit() or not (1024 <= int(port) <= 65535):
-        flash(T('invalid_port'))
-        return redirect(url_for('index'))
+        flash_err("پورت نامعتبر است.", "Invalid port.")
+        return redirect(url_for('settings_page'))
     if port == _panel_port():
-        flash(T('nothing_changed'))
-        return redirect(url_for('index'))
+        flash_err("چیزی برای تغییر وارد نشده است.", "Nothing to change.")
+        return redirect(url_for('settings_page'))
     try:
         svc_path = '/etc/systemd/system/l2tp-panel.service'
         with open(svc_path) as fh:
@@ -806,8 +921,8 @@ def settings_port():
         subprocess.run(['systemctl', 'daemon-reload'], capture_output=True, timeout=30)
         subprocess.run(['ufw', 'allow', port + '/tcp'], capture_output=True, timeout=30)
     except Exception:
-        flash(T('vpn_restart_failed'))
-        return redirect(url_for('index'))
+        flash_bi("ریستارت ناموفق!", "Restart failed!")
+        return redirect(url_for('settings_page'))
     new_url = 'http://%s:%s/' % (request.host.split(':')[0], port)
     try:
         subprocess.run(['systemd-run', '--collect', '--unit=l2tp-portchg',
@@ -915,10 +1030,328 @@ def restore_backup():
         return redirect(url_for('login') + '?relogin=1')
     return redirect(url_for('index'))
 
+
+@app.route('/clients')
+@login_required
+def clients_page():
+    now = datetime.now()
+    conn = get_db()
+    try:
+        rows = conn.execute('SELECT * FROM users ORDER BY created_at ASC, id ASC').fetchall()
+    finally:
+        conn.close()
+    try:
+        online_users = set(os.listdir(SESS_DIR))
+    except OSError:
+        online_users = set()
+    users, active_count, expiring, expired_c = [], 0, 0, 0
+    for row in rows:
+        u = user_row_to_dict(row)
+        u['online'] = row['username'] in online_users
+        if not u['expired'] and not u['quota_exceeded']:
+            active_count += 1
+            if u['soon']:
+                expiring += 1
+        if u['expired'] or u['quota_exceeded']:
+            expired_c += 1
+        users.append(u)
+    svc = {'ipsec': service_active('strongswan-starter') or service_active('ipsec'),
+           'xl2tpd': service_active('xl2tpd'), 'nat': service_active('l2tp-nat'),
+           'ocserv': service_active('ocserv'),
+           'ikev2': service_active('strongswan-starter') or service_active('ipsec')}
+    return render_template('clients.html', admin_user=CFG['admin_user'], users=users, server_ip=SERVER_IP, psk=CFG['psk'],
+                           active_count=active_count, total_count=len(users),
+                           online_count=len(online_users),
+                           expiring_count=expiring, expired_count=expired_c, svc=svc)
+
+
+
+@app.route('/nodes')
+@login_required
+def nodes_page():
+    svc = {'ipsec': service_active('strongswan-starter') or service_active('ipsec'),
+           'xl2tpd': service_active('xl2tpd'), 'nat': service_active('l2tp-nat'),
+           'ocserv': service_active('ocserv'),
+           'ikev2': service_active('strongswan-starter') or service_active('ipsec')}
+    return render_template('nodes.html', server_ip=SERVER_IP, psk=CFG['psk'],
+                           admin_user=CFG['admin_user'], hw=_hardware_stats(),
+                           active_count=0, total_count=0, online_count=0, svc=svc)
+
+
+
+
+
+def _firewall_state():
+    fw = CFG.get('firewall', {})
+    return {'block_ir': fw.get('block_ir', False),
+            'block_p2p': fw.get('block_p2p', False),
+            'block_ads': fw.get('block_ads', False)}
+
+
+@app.route('/settings/ocserv-ports', methods=['POST'])
+@login_required
+def settings_ocserv_ports():
+    import subprocess as sp
+    tcp = request.form.get('ocserv_tcp', '').strip()
+    udp = request.form.get('ocserv_udp', '').strip()
+    for p in (tcp, udp):
+        if not p.isdigit() or not (1 <= int(p) <= 65535):
+            flash_err("پورت نامعتبر است (۱ تا ۶۵۵۳۵).", "Invalid port (1-65535).")
+            return redirect(url_for('settings_page'))
+    if tcp == udp:
+        flash_err("پورت TCP و UDP نمی‌توانند یکسان باشند.", "TCP and UDP ports cannot be the same.")
+        return redirect(url_for('settings_page'))
+    try:
+        conf = '/etc/ocserv/ocserv.conf'
+        with open(conf) as fh:
+            content = fh.read()
+        content = re.sub(r'^tcp-port\s*=\s*\d+', 'tcp-port = ' + tcp, content, flags=re.M)
+        content = re.sub(r'^udp-port\s*=\s*\d+', 'udp-port = ' + udp, content, flags=re.M)
+        with open(conf, 'w') as fh:
+            fh.write(content)
+        # فایروال: پورت‌های جدید باز
+        sp.run(['ufw', 'allow', tcp + '/tcp'], capture_output=True, timeout=30)
+        sp.run(['ufw', 'allow', udp + '/udp'], capture_output=True, timeout=30)
+        # ری‌استارت ocserv
+        sp.run(['systemctl', 'restart', 'ocserv'], capture_output=True, timeout=30)
+        import time as _t
+        _t.sleep(2)
+        ok = sp.run(['systemctl', 'is-active', 'ocserv'], capture_output=True, text=True).stdout.strip() == 'active'
+        if ok:
+            flash_bi("پورت‌های OpenConnect تغییر کرد: TCP " + tcp + " / UDP " + udp,
+                     "OpenConnect ports changed: TCP " + tcp + " / UDP " + udp)
+        else:
+            flash_err("پورت تغییر یافت اما ocserv بالا نیامد! لاگ: journalctl -u ocserv",
+                      "Port changed but ocserv failed! Check: journalctl -u ocserv")
+    except Exception as e:
+        flash_err("خطا: " + str(e)[:80], "Error: " + str(e)[:80])
+    return redirect(url_for('settings_page'))
+
+
+
+@app.route('/settings/ipsec-params', methods=['POST'])
+@login_required
+def settings_ipsec_params():
+    import subprocess as sp
+    mtu = request.form.get('mtu', '').strip()
+    cipher = request.form.get('cipher', 'aes256').strip()
+    if not mtu.isdigit() or not (1200 <= int(mtu) <= 1500):
+        flash_err("MTU نامعتبر است (۱۲۰۰ تا ۱۵۰۰).", "Invalid MTU (1200-1500).")
+        return redirect(url_for('settings_page'))
+    new_psk = request.form.get('new_psk', '').strip()
+    if new_psk and (len(new_psk) < 8 or BAD_PW_CHARS & set(new_psk)):
+        flash_err("PSK نامعتبر است (حداقل ۸ کاراکتر).", "Invalid PSK (min 8 chars).")
+        return redirect(url_for('settings_page'))
+    if not new_psk and not mtu and not cipher:
+        flash_bi("چیزی تغییر نکرد.", "Nothing changed.")
+        return redirect(url_for('settings_page'))
+    if cipher not in ('aes256', 'aes128', 'aes256gcm'):
+        flash_err("Cipher نامعتبر است.", "Invalid cipher.")
+        return redirect(url_for('settings_page'))
+    try:
+        # ---- ۱) xl2tpd MTU (L2TP) ----
+        opts = '/etc/ppp/options.xl2tpd'
+        with open(opts) as fh:
+            content = fh.read()
+        content = re.sub(r'^mtu\s+\d+', 'mtu ' + mtu, content, flags=re.M)
+        content = re.sub(r'^mru\s+\d+', 'mru ' + mtu, content, flags=re.M)
+        with open(opts, 'w') as fh:
+            fh.write(content)
+        # ---- ۲) ocserv MTU ----
+        oc = '/etc/ocserv/ocserv.conf'
+        try:
+            with open(oc) as fh:
+                occ = fh.read()
+            if re.search(r'^mtu\s*=', occ, re.M):
+                occ = re.sub(r'^mtu\s*=\s*\d+', 'mtu = ' + mtu, occ, flags=re.M)
+            else:
+                occ += '\nmtu = ' + mtu + '\n'
+            with open(oc, 'w') as fh:
+                fh.write(occ)
+        except Exception:
+            pass
+        # ---- ۳) Cipher (ipsec.conf esp) ----
+        cipher_map = {
+            'aes256': 'aes256-sha2_256,aes128-sha2_256,aes256-sha1,aes128-sha1',
+            'aes128': 'aes128-sha2_256,aes128-sha1',
+            'aes256gcm': 'aes256gcm16,aes128gcm16,aes256-sha2_256',
+        }
+        ipsec_f = '/etc/ipsec.conf'
+        with open(ipsec_f) as fh:
+            ic = fh.read()
+        ic = re.sub(r'(\s*esp\s*=\s*)[^\n]+', r'\1' + cipher_map[cipher], ic)
+        with open(ipsec_f, 'w') as fh:
+            fh.write(ic)
+        # ---- ۳.۵) PSK (اگه تغییر کرده) ----
+        if new_psk:
+            CFG['psk'] = new_psk
+            _save_config()
+            with open('/etc/ipsec.secrets', 'w') as fh:
+                fh.write('%%any %%any : PSK "%s"\n' % new_psk)
+            os.chmod('/etc/ipsec.secrets', 0o600)
+        # ---- ۴) ری‌استارت سرویس‌ها ----
+        sp.run(['systemctl', 'restart', 'xl2tpd'], capture_output=True, timeout=30)
+        sp.run(['systemctl', 'restart', 'ocserv'], capture_output=True, timeout=30)
+        sp.run(['systemctl', 'restart', 'strongswan-starter'], capture_output=True, timeout=30)
+        flash_bi(("PSK، " if new_psk else "") + "MTU به " + mtu + " و Cipher به " + cipher + " تغییر کرد.",
+                 "PSK, " * (1 if new_psk else 0) + "MTU to " + mtu + ", cipher: " + cipher + ".")
+    except Exception as e:
+        flash_err("خطا: " + str(e)[:80], "Error: " + str(e)[:80])
+    return redirect(url_for('settings_page'))
+
+
+
+def _ocserv_ports():
+    tcp, udp = '555', '555'
+    try:
+        with open('/etc/ocserv/ocserv.conf') as fh:
+            for line in fh:
+                if line.startswith('tcp-port'):
+                    tcp = line.split('=')[1].strip()
+                elif line.startswith('udp-port'):
+                    udp = line.split('=')[1].strip()
+    except Exception:
+        pass
+    return tcp, udp
+
+
+def _ipsec_params():
+    mtu = '1420'
+    try:
+        with open('/etc/ppp/options.xl2tpd') as fh:
+            m = re.search(r'^mtu\s+(\d+)', fh.read(), re.M)
+            if m:
+                mtu = m.group(1)
+    except Exception:
+        pass
+    cipher = 'aes256'
+    try:
+        with open('/etc/ipsec.conf') as fh:
+            content = fh.read()
+        if 'esp=' in content:
+            esp_val = content.split('esp=')[1].split('\n')[0]
+            if 'gcm' in esp_val:
+                cipher = 'aes256gcm'
+            elif esp_val.strip().startswith('aes128'):
+                cipher = 'aes128'
+    except Exception:
+        pass
+    return mtu, cipher
+
+
+@app.route('/settings')
+@login_required
+def settings_page():
+    svc = {'ipsec': service_active('strongswan-starter') or service_active('ipsec'),
+           'xl2tpd': service_active('xl2tpd'), 'nat': service_active('l2tp-nat'),
+           'ocserv': service_active('ocserv'),
+           'ikev2': service_active('strongswan-starter') or service_active('ipsec')}
+    def_dns = _default_dns()
+    ocp = _ocserv_ports()
+    ip = _ipsec_params()
+    return render_template('settings.html', fw_state=_firewall_state(), server_ip=SERVER_IP, psk=CFG['psk'],
+                           admin_user=CFG['admin_user'], panel_port=_panel_port(),
+                           default_dns1=def_dns[0], default_dns2=def_dns[1], svc=svc,
+                           ocserv_tcp=ocp[0], ocserv_udp=ocp[1],
+                           ipsec_mtu=ip[0], ipsec_cipher=ip[1])
+
+
+
+
+@app.route('/settings/firewall', methods=['POST'])
+@login_required
+def settings_firewall():
+    import subprocess as sp
+    key = request.form.get('fw_key', '').strip()
+    state = request.form.get('fw_state', '').strip()
+    if key not in ('block_ir', 'block_p2p', 'block_ads') or state not in ('on', 'off'):
+        flash_err("درخواست نامعتبر.", "Invalid request.")
+        return redirect(url_for('settings_page'))
+    what = {'block_ir': 'ir', 'block_p2p': 'p2p', 'block_ads': 'ads'}[key]
+    try:
+        r = sp.run(['/bin/bash', '/root/firewall-apply.sh', what, state],
+                   capture_output=True, text=True, timeout=60)
+        ok = r.returncode == 0
+    except Exception:
+        ok = False
+    if ok:
+        fw_cfg = CFG.get('firewall', {})
+        fw_cfg[key] = (state == 'on')
+        CFG['firewall'] = fw_cfg
+        _save_config()
+        names = {'block_ir': ('مسدودسازی سایت‌های ایرانی', 'Iranian domains block'),
+                 'block_p2p': ('مسدودسازی تورنت', 'P2P block'),
+                 'block_ads': ('بلاک تبلیغات یوتیوب', 'YouTube ads block')}
+        fa, en = names[key]
+        if state == 'on':
+            flash_bi(fa + " فعال شد.", en + " enabled.")
+        else:
+            flash_bi(fa + " غیرفعال شد.", en + " disabled.")
+    else:
+        flash_err("اعمال قانون فایروال ناموفق بود!", "Firewall rule failed!")
+    return redirect(url_for('settings_page'))
+
+
+
+@app.route('/settings/firewall-save', methods=['POST'])
+@login_required
+def settings_firewall_save():
+    import subprocess as sp
+    # خواندن وضعیت toggle ها از فرم (checkbox → on)
+    block_ir = 'block_ir' in request.form
+    block_p2p = 'block_p2p' in request.form
+    block_ads = 'block_ads' in request.form
+
+    names = {'ir': ('مسدودسازی سایت‌های ایرانی', 'Iranian domains block'),
+             'p2p': ('مسدودسازی تورنت', 'P2P block'),
+             'ads': ('بلاک تبلیغات', 'YouTube ads block')}
+    actions = [('ir', 'block_ir', block_ir),
+               ('p2p', 'block_p2p', block_p2p),
+               ('ads', 'block_ads', block_ads)]
+
+    applied = []
+    failed = []
+    for what, key, state in actions:
+        try:
+            r = sp.run(['/bin/bash', '/root/firewall-apply.sh', what, 'on' if state else 'off'],
+                       capture_output=True, text=True, timeout=120)
+            if r.returncode == 0:
+                applied.append(names[what])
+            else:
+                failed.append(names[what])
+        except Exception:
+            failed.append(names[what])
+
+    # ذخیره وضعیت در config:
+    CFG['firewall'] = {'block_ir': block_ir,
+                        'block_p2p': block_p2p,
+                        'block_ads': block_ads}
+    _save_config()
+
+    if failed:
+        flash_err("برخی قوانین اعمال نشد: " + '، '.join(f[0] for f in failed),
+                  "Some rules failed: " + ', '.join(f[1] for f in failed))
+    else:
+        enabled = [n[0] for n in applied if n in [('ir', block_ir), ('p2p', block_p2p), ('ads', block_ads)] and dict(zip(['ir','p2p','ads'], [block_ir, block_p2p, block_ads]))[n]]
+        # ساده‌تر — لیست فعال‌ها:
+        on_list = []
+        if block_ir: on_list.append(names['ir'][0])
+        if block_p2p: on_list.append(names['p2p'][0])
+        if block_ads: on_list.append(names['ads'][0])
+        msg_fa = 'قوانین فایروال ذخیره شد.'
+        msg_en = 'Firewall rules saved.'
+        if on_list:
+            msg_fa += ' فعال: ' + '، '.join(on_list)
+            msg_en += ' Enabled: ' + ', '.join(names[k][1] for k in ['ir','p2p','ads'] if {'ir':block_ir,'p2p':block_p2p,'ads':block_ads}[k])
+        flash_bi(msg_fa, msg_en)
+    return redirect(url_for('settings_page'))
+
+
 init_db()
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5000)
+
 
 
 

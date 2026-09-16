@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}" dir="{{ dir }}" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="8;url={{ new_url }}">
+    <title>Port Changed</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 dark:bg-[#030303] text-gray-900 dark:text-gray-100 flex items-center justify-center min-h-screen font-sans">
+    <div class="glass-card w-full max-w-md p-8 rounded-3xl border border-gray-200 dark:border-white/10 text-center">
+        <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white text-2xl shadow-lg">
+            <svg class="w-8 h-8 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+        </div>
+        <h1 class="text-xl font-bold mb-2" data-fa="پورت با موفقیت تغییر کرد" data-en="Port changed successfully">پورت با موفقیت تغییر کرد</h1>
+        <p class="text-sm text-gray-500 mb-6" data-fa="پنل در حال ری‌استارت است..." data-en="Panel is restarting...">پنل در حال ری‌استارت است...</p>
+        <div class="bg-gray-100 dark:bg-white/5 rounded-xl p-4 border border-gray-200 dark:border-white/10 mb-6">
+            <p class="text-[10px] text-gray-500 uppercase tracking-widest mb-1" data-fa="آدرس جدید" data-en="New address">آدرس جدید</p>
+            <p class="font-mono font-bold text-blue-500 text-sm break-all">{{ new_url }}</p>
+        </div>
+        <p class="text-[11px] text-gray-400 mb-4" data-fa="۶ ثانیه دیگر به صورت خودکار منتقل می‌شوید..." data-en="Redirecting automatically in a few seconds...">۶ ثانیه دیگر به صورت خودکار منتقل می‌شوید...</p>
+        <a href="{{ new_url }}" class="inline-block px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-bold text-sm shadow-lg hover:opacity-90 transition-all no-underline" data-fa="رفتن الان" data-en="Go now">رفتن الان</a>
+        <script>
+        (function(){
+            var lang = document.documentElement.getAttribute('lang') || 'fa';
+            if (lang === 'en') {
+                document.querySelectorAll('[data-en]').forEach(function(el){ el.innerText = el.getAttribute('data-en'); });
+            }
+        })();
+        </script>
+    </div>
+</body>
+</html>
