@@ -544,8 +544,21 @@ def user_status(key):
     finally:
         conn.close()
     if row is None: abort(404)
-    return render_template('user.html', u=user_row_to_dict(row),
-                           server_ip=SERVER_IP, psk=CFG['psk'])
+    ud = user_row_to_dict(row)
+    used_b = row['used_bytes'] or 0
+    limit_b = (row['traffic_limit_mb'] or 0) * 1024 * 1024
+    used_gb = round(used_b / (1024.0 ** 3), 2)
+    left_gb = round(max(limit_b - used_b, 0) / (1024.0 ** 3), 2)
+    oc_tcp = ''
+    try:
+        import re as _re
+        _conf = open('/etc/ocserv/ocserv.conf').read()
+        _m = _re.search(r'^\s*tcp-port\s*=\s*(\d+)', _conf, _re.M)
+        if _m: oc_tcp = _m.group(1)
+    except Exception:
+        pass
+    return render_template('user.html', u=ud, server_ip=SERVER_IP, psk=CFG['psk'],
+                           used_gb=used_gb, left_gb=left_gb, oc_tcp=oc_tcp)
 
 @app.route('/add', methods=['POST'])
 @login_required

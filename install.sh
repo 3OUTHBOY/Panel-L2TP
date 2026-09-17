@@ -885,8 +885,21 @@ def user_status(key):
     finally:
         conn.close()
     if row is None: abort(404)
-    return render_template('user.html', u=user_row_to_dict(row),
-                           server_ip=SERVER_IP, psk=CFG['psk'])
+    ud = user_row_to_dict(row)
+    used_b = row['used_bytes'] or 0
+    limit_b = (row['traffic_limit_mb'] or 0) * 1024 * 1024
+    used_gb = round(used_b / (1024.0 ** 3), 2)
+    left_gb = round(max(limit_b - used_b, 0) / (1024.0 ** 3), 2)
+    oc_tcp = ''
+    try:
+        import re as _re
+        _conf = open('/etc/ocserv/ocserv.conf').read()
+        _m = _re.search(r'^\s*tcp-port\s*=\s*(\d+)', _conf, _re.M)
+        if _m: oc_tcp = _m.group(1)
+    except Exception:
+        pass
+    return render_template('user.html', u=ud, server_ip=SERVER_IP, psk=CFG['psk'],
+                           used_gb=used_gb, left_gb=left_gb, oc_tcp=oc_tcp)
 
 @app.route('/add', methods=['POST'])
 @login_required
@@ -3263,294 +3276,561 @@ cat > "${PANEL_DIR}/templates/index.html" <<'ZQ_index_html'
 ZQ_index_html
 
 cat > "${PANEL_DIR}/templates/user.html" <<'ZQ_user_html'
-{% extends 'base.html' %}
-{% block title %}{{ t.status_title }}{% endblock %}
-{% block body %}
-<style>
-.sub-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px}
-.sub-card{width:100%;max-width:480px;animation:subIn .5s ease}
+<!DOCTYPE html>
+<html lang="{{ lang or 'fa' }}" dir="{{ 'ltr' if (lang or 'fa') == 'en' else 'rtl' }}" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3OUTHBOY | Client Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { 
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#030303',
+                        darkCard: '#0c0c0c',
+                        darkBorder: '#1f1f1f'
+                    },
+                    backgroundImage: {
+                        'grid-pattern': "url('data:image/svg+xml,%3Csvg width=\\'40\\' height=\\'40\\' viewBox=\\'0 0 40 40\\' xmlns=\\'http://www.w3.org/2000/svg\\'%3E%3Cpath d=\\'M0 0h40v40H0V0zm20 20h20v20H20V20zM0 20h20v20H0V20z\\' fill=\\'%23ffffff\\' fill-opacity=\\'0.02\\' fill-rule=\\'evenodd\\'/%3E%3C/svg%3E')"
+                    },
+                    animation: {
+                        'fade-in-up': 'fadeInUp 0.6s ease-out forwards'
+                    },
+                    keyframes: {
+                        fadeInUp: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body { font-family: 'Vazirmatn', 'Inter', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+        .dark ::-webkit-scrollbar-thumb:hover { background: #555; }
+        
+        /* افکت‌های شیشه‌ای */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            transition: all 0.3s ease;
+        }
+        .dark .glass-card {
+            background: rgba(12, 12, 12, 0.65);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-darkBg text-gray-900 dark:text-gray-100 transition-colors duration-300 flex flex-col min-h-screen relative">
 
-/* ---- status banner (logo + status text) ---- */
-.status-banner{display:flex;align-items:center;gap:16px;padding:16px 20px;border-radius:18px;
-  margin-bottom:18px;border:1px solid}
-.status-banner.active{background:rgba(0,255,157,.07);border-color:rgba(0,255,157,.35);
-  box-shadow:0 0 24px rgba(0,255,157,.12)}
-.status-banner.expired{background:rgba(255,77,109,.07);border-color:rgba(255,77,109,.35);
-  box-shadow:0 0 24px rgba(255,77,109,.12)}
-.status-banner.quota{background:rgba(255,176,32,.07);border-color:rgba(255,176,32,.35);
-  box-shadow:0 0 24px rgba(255,176,32,.12)}
-[data-theme=light] .status-banner.active{background:#f0fdf4;border-color:#bbf7d0;box-shadow:none}
-[data-theme=light] .status-banner.expired{background:#fef2f2;border-color:#fecaca;box-shadow:none}
-[data-theme=light] .status-banner.quota{background:#fffbeb;border-color:#fde68a;box-shadow:none}
-.sub-logo{width:56px;height:56px;border-radius:17px;display:grid;place-items:center;flex:none;
-  background:var(--card3);border:1px solid var(--bd2);box-shadow:0 0 18px rgba(0,229,255,.2)}
-.sub-logo .logo-svg{width:37px;height:37px}
-.sb-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
-.sb-title{font-weight:800;font-size:1.06rem}
-.sb-sub{font-size:.86rem;color:var(--mu)}
-
-/* ---- gauge zone ---- */
-.gauge-zone{display:flex;align-items:center;justify-content:space-between;gap:16px;
-  padding:8px 24px 4px}
-.gauge{position:relative;width:150px;height:150px;flex:none}
-.gauge svg{transform:rotate(-90deg)}
-.gauge .g-bg{fill:none;stroke:rgba(255,255,255,.07);stroke-width:11}
-[data-theme=light] .gauge .g-bg{stroke:#e5eaf4}
-.gauge .g-fill{fill:none;stroke:url(#gaugeGrad);stroke-width:11;stroke-linecap:round;
-  transition:stroke-dashoffset 1.2s cubic-bezier(.22,1,.36,1)}
-.gauge .g-fill.warn{stroke:url(#gaugeWarn)}
-.gauge .g-fill.danger{stroke:url(#gaugeDanger)}
-.gauge-center{position:absolute;inset:0;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;text-align:center}
-.gauge-center b{font-size:1.5rem;font-weight:800;
-  background:linear-gradient(90deg,var(--neon-cyan),var(--neon-purple));
-  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-.gauge-center span{font-size:.68rem;color:var(--mu);margin-top:3px}
-
-.gauge-side{flex:1;min-width:0;display:flex;flex-direction:column;gap:12px}
-.mini-stat{background:var(--card3);border:1px solid var(--bd);border-radius:14px;
-  padding:12px 14px;overflow:hidden}
-.mini-stat .ms-label{font-size:.7rem;color:var(--mu);font-weight:700;margin-bottom:7px;
-  display:flex;align-items:center;gap:6px}
-.mini-stat .ms-value{font-size:1.02rem;font-weight:700;word-break:break-word}
-.mini-stat .ms-value.pw{font-weight:400}
-
-/* ---- countdown ---- */
-.countdown{display:flex;flex-wrap:nowrap;gap:6px;margin-top:2px;align-items:stretch}
-.cd-box{flex:1 1 0;min-width:0;background:var(--bg-deep);
-  border:1px solid var(--bd);border-radius:9px;padding:7px 4px;text-align:center}
-[data-theme=light] .cd-box{background:var(--card2)}
-.cd-box b{display:block;font-size:.84rem;font-weight:800;font-variant-numeric:tabular-nums;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.2}
-.cd-box span{display:block;font-size:.52rem;color:var(--mu);line-height:1.4;margin-top:2px}
-
-/* ---- divider ---- */
-.sub-divider{display:flex;align-items:center;gap:12px;padding:16px 24px 6px}
-.sub-divider::before,.sub-divider::after{content:'';flex:1;height:1px;
-  background:linear-gradient(90deg,transparent,var(--bd2),transparent)}
-.sub-divider span{font-size:.72rem;color:var(--mu);letter-spacing:1.5px;font-weight:700}
-
-/* ---- info rows (dashboard-style icons) ---- */
-.info-row{display:flex;justify-content:space-between;align-items:center;gap:12px;
-  padding:12px 0;padding-inline-start:48px;border-bottom:1px dashed var(--bd);position:relative}
-.info-row:last-child{border-bottom:none}
-.info-row>span.lbl{color:var(--mu);font-size:.82rem;font-weight:600;flex:none}
-.info-row>div,.info-row>b.val{word-break:break-all;text-align:end;font-size:.9rem;min-width:0}
-.stat-icon{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;
-  font-size:1rem;background:var(--card3);border:1px solid var(--bd);flex:none;
-  transition:transform .25s,opacity .25s,border-color .25s,box-shadow .25s}
-.info-row .stat-icon{position:absolute;inset-inline-start:0;top:50%;margin-top:-18px}
-.info-row:hover .stat-icon{transform:scale(1.1);border-color:rgba(0,229,255,.45);
-  box-shadow:0 0 14px rgba(0,229,255,.25)}
-
-.sub-footer{padding:12px 24px 20px;text-align:center}
-.sub-footer .muted{font-size:.72rem}
-
-@keyframes subIn{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
-
-@media(max-width:430px){
-  .gauge-zone{flex-direction:column}
-  .gauge-side{width:100%}
-}
-
-/* ===== sub-glow: neon life for sub page icons ===== */
-/* info-row icon boxes (emoji inside) — glow + hover pop */
-.info-row .stat-icon{
-  filter:drop-shadow(0 0 4px color-mix(in srgb,var(--neon-cyan) 42%,transparent));
-  transition:transform .25s,opacity .25s,border-color .25s,box-shadow .25s cubic-bezier(.22,1,.36,1)}
-.info-row:hover .stat-icon{
-  transform:scale(1.16);
-  border-color:rgba(0,229,255,.55);
-  box-shadow:0 0 16px rgba(0,229,255,.3),inset 0 0 8px rgba(0,229,255,.08);
-  filter:drop-shadow(0 0 8px color-mix(in srgb,var(--neon-cyan) 72%,transparent))}
-
-/* light theme: softer blue glow */
-[data-theme=light] .info-row .stat-icon{
-  filter:drop-shadow(0 0 3px color-mix(in srgb,var(--acc) 30%,transparent))}
-[data-theme=light] .info-row:hover .stat-icon{
-  filter:drop-shadow(0 0 6px color-mix(in srgb,var(--acc) 55%,transparent));
-  box-shadow:0 0 12px color-mix(in srgb,var(--acc) 22%,transparent)}
-
-/* mini-stat labels (⏱ 📅) — subtle glow */
-.mini-stat .ms-label{
-  filter:drop-shadow(0 0 3px color-mix(in srgb,var(--neon-cyan) 30%,transparent))}
-
-/* countdown boxes — top edge neon line */
-.cd-box{position:relative}
-.cd-box::before{content:'';position:absolute;inset-inline:6px;top:0;height:2px;
-  border-radius:99px;background:linear-gradient(90deg,transparent,var(--neon-cyan),transparent);
-  opacity:.55;transition:opacity .3s}
-.cd-box:hover::before{opacity:1}
-#cdS::before{opacity:.9;animation:cdPulse 2s ease-in-out infinite}
-@keyframes cdPulse{0%,100%{opacity:.45}50%{opacity:1}}
-
-/* banner logo — breathing glow */
-.sub-logo{animation:subGlow 3s ease-in-out infinite}
-@keyframes subGlow{
-  0%,100%{box-shadow:0 0 14px rgba(0,229,255,.2)}
-  50%{box-shadow:0 0 24px rgba(0,229,255,.4)}}
-
-/* dns row icon gets purple tint glow (🔀) */
-.info-row:last-child .stat-icon{
-  filter:drop-shadow(0 0 4px color-mix(in srgb,var(--neon-purple) 45%,transparent))}
-.info-row:last-child:hover .stat-icon{
-  filter:drop-shadow(0 0 8px color-mix(in srgb,var(--neon-purple) 72%,transparent));
-  border-color:rgba(176,38,255,.55);
-  box-shadow:0 0 16px rgba(176,38,255,.3)}
-</style>
-
-<!-- shared gradients -->
-<svg width="0" height="0" style="position:absolute">
-  <defs>
-    <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" class="lg-a"/><stop offset="100%" class="lg-b"/>
-    </linearGradient>
-    <linearGradient id="gaugeWarn" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#f97316"/>
-    </linearGradient>
-    <linearGradient id="gaugeDanger" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#ef4444"/><stop offset="100%" stop-color="#dc2626"/>
-    </linearGradient>
-    <linearGradient id="lgu" x1="10" y1="6" x2="54" y2="58" gradientUnits="userSpaceOnUse">
-      <stop class="lg-a" offset="0"/><stop class="lg-b" offset="1"/>
-    </linearGradient>
-  </defs>
-</svg>
-
-<div class="sub-wrap">
-  <div class="card sub-card">
-
-    {% set pct = u.traffic_pct %}
-    {% set CIRC = 314 %}
-
-    <div class="status-banner {{ 'expired' if u.expired else ('quota' if u.quota_exceeded else 'active') }}">
-      <div class="sub-logo">
-        <svg class="logo-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="L2TP"><path d="M32 4 L55.5 12.5 V28 C55.5 42.5 46 52.5 32 59.5 C18 52.5 8.5 42.5 8.5 28 V12.5 Z" stroke="url(#lgu)" stroke-width="3.4" stroke-linejoin="round" fill="url(#lgu)" fill-opacity="0.08"/><path d="M22 46.5 V29 C22 21.8 26.4 16 32 16 C37.6 16 42 21.8 42 29 V46.5" stroke="url(#lgu)" stroke-width="2.6" stroke-linecap="round"/><path d="M28 46.5 V31.5 C28 27 29.7 23.5 32 23.5 C34.3 23.5 36 27 36 31.5 V46.5" stroke="url(#lgu)" stroke-width="2" stroke-linecap="round" opacity="0.6"/><circle cx="32" cy="36.5" r="3" fill="url(#lgu)"/></svg>
-      </div>
-      <div class="sb-text">
-        <span class="sb-title">{{ t.badge_expired if u.expired else (t.badge_quota if u.quota_exceeded else t.badge_active) }}</span>
-        <span class="sb-sub">{{ u.username }} · L2TP/IPSec</span>
-      </div>
+    <!-- پترن و نورهای پس‌زمینه -->
+    <div class="absolute inset-0 bg-grid-pattern z-0 pointer-events-none fixed"></div>
+    <div class="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none fixed">
+        <div class="absolute top-[-10%] right-[-5%] w-[300px] h-[300px] md:w-[500px] md:h-[500px] bg-purple-600/20 rounded-full blur-[100px] animate-pulse"></div>
+        <div class="absolute bottom-[-10%] left-[-5%] w-[300px] h-[300px] md:w-[500px] md:h-[500px] bg-cyan-600/20 rounded-full blur-[100px] animate-pulse" style="animation-delay: 2s;"></div>
     </div>
 
-    <div class="gauge-zone">
-      <div class="gauge">
-        <svg width="150" height="150" viewBox="0 0 150 150">
-          <circle class="g-bg" cx="75" cy="75" r="52"/>
-          <circle class="g-fill {{ 'danger' if pct >= 90 else ('warn' if pct >= 70 else '') }}"
-                  cx="75" cy="75" r="52"
-                  stroke-dasharray="{{ CIRC }}"
-                  stroke-dashoffset="{{ CIRC - (CIRC * pct / 100) if u.limit_gb > 0 else CIRC }}"/>
-        </svg>
-        <div class="gauge-center">
-          {% if u.limit_gb > 0 %}
-            <b>{{ pct }}%</b>
-          {% else %}
-            <b>∞</b>
-          {% endif %}
-          <span>{{ u.traffic }}</span>
-        </div>
-      </div>
-
-      <div class="gauge-side">
-        <div class="mini-stat">
-          <div class="ms-label">⏱ {{ t.st_remaining }}</div>
-          {% if u.expired or u.quota_exceeded %}
-            <div class="ms-value muted">—</div>
-          {% else %}
-            <div class="countdown" id="liveCountdown" data-expires="{{ u.expires }}">
-              <div class="cd-box"><b id="cdD">—</b><span>{{ 'روز' if lang=='fa' else 'D' }}</span></div>
-              <div class="cd-box"><b id="cdH">—</b><span>{{ 'ساعت' if lang=='fa' else 'H' }}</span></div>
-              <div class="cd-box"><b id="cdM">—</b><span>{{ 'دقیقه' if lang=='fa' else 'M' }}</span></div>
-              <div class="cd-box"><b id="cdS">—</b><span>{{ 'ثانیه' if lang=='fa' else 'S' }}</span></div>
+    <!-- هدر پورتال کاربری -->
+    <header class="w-full px-6 py-4 flex items-center justify-between z-30 relative border-b border-gray-200/50 dark:border-white/5 bg-white/30 dark:bg-black/20 backdrop-blur-md">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-cyan-600 flex items-center justify-center shadow-lg border border-gray-700 dark:border-gray-100">
+                <span class="text-white font-black text-xl font-sans tracking-tighter">3</span>
             </div>
-          {% endif %}
+            <div class="flex flex-col">
+                <span class="font-bold tracking-widest bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-cyan-500 text-lg">3OUTHBOY</span>
+                <span class="text-[9px] text-gray-500 font-mono tracking-widest">CLIENT PORTAL</span>
+            </div>
         </div>
-        <div class="mini-stat">
-          <div class="ms-label">📅 {{ t.st_expiry }}</div>
-          <div class="ms-value pw">{{ u.expires }}</div>
+        
+        <div class="flex items-center gap-2">
+            <button onclick="toggleLanguage()" class="w-9 h-9 rounded-xl bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-white/10 transition-all font-bold text-[10px] shadow-sm font-mono">EN</button>
+            <button onclick="toggleTheme()" id="theme-icon" class="w-9 h-9 rounded-xl bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-white/10 transition-all text-gray-600 dark:text-gray-300 shadow-sm">
+                <i class="fa-solid fa-sun text-sm"></i>
+            </button>
         </div>
-      </div>
+    </header>
+
+    <!-- محتوای اصلی -->
+    <main class="flex-1 w-full max-w-3xl mx-auto px-4 py-8 z-10 relative space-y-6 animate-fade-in-up">
+        
+        <!-- کارت وضعیت سرویس -->
+        <div class="glass-card rounded-[2rem] p-6 sm:p-8 relative overflow-hidden">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+                <div class="flex items-center gap-4">
+                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 dark:from-white/10 dark:to-white/5 flex items-center justify-center text-gray-800 dark:text-white border border-gray-300 dark:border-white/10 shadow-inner text-2xl font-bold font-sans">
+                        {{ u.username[0]|upper }}
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                            <span data-fa="سلام،" data-en="Hello,">سلام،</span> {{ u.username }}
+                        </h2>
+                        <div class="flex items-center gap-1.5 mt-1">
+                            <span class="w-2 h-2 {{ 'bg-red-500' if u.expired else ('bg-orange-500' if u.quota_exceeded else 'bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]') }} rounded-full"></span>
+                            {% if u.expired %}
+                            <span class="text-xs text-red-600 dark:text-red-400 font-bold tracking-wider uppercase" data-fa="سرویس منقضی شده است" data-en="Service Expired">سرویس منقضی شده است</span>
+                            {% elif u.quota_exceeded %}
+                            <span class="text-xs text-orange-600 dark:text-orange-400 font-bold tracking-wider uppercase" data-fa="حجم سرویس به پایان رسیده" data-en="Quota Exhausted">حجم سرویس به پایان رسیده</span>
+                            {% else %}
+                            <span id="protocol-status-badge" class="text-xs text-emerald-600 dark:text-emerald-400 font-bold tracking-wider uppercase" data-fa="سرویس مولتی فعال است" data-en="Multi Service Active">سرویس مولتی فعال است</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="text-start sm:text-end">
+                    <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1" data-fa="انقضا سرویس" data-en="Expiration Date">انقضا سرویس</p>
+                    <p class="text-lg font-bold font-mono text-gray-900 dark:text-white">{{ u.expires[:10]|replace('-', '/') }}</p>
+                    {% if u.remaining and u.remaining != '—' %}
+                    <p class="text-xs text-orange-500 mt-0.5 font-bold">{{ u.remaining }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- نمودار ترافیک -->
+            <div class="bg-gray-50 dark:bg-black/30 p-5 rounded-2xl border border-gray-200/50 dark:border-white/5">
+                <div class="flex justify-between items-end mb-3">
+                    <div>
+                        <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1" data-fa="ترافیک مصرفی" data-en="Data Usage">ترافیک مصرفی</p>
+                        <p class="text-2xl font-black font-mono tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-purple-500 to-cyan-500">{{ used_gb }} <span class="text-sm text-gray-500 font-bold ml-1">GB</span></p>
+                    </div>
+                    <div class="text-end">
+                        <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1" data-fa="ترافیک کل" data-en="Total Quota">ترافیک کل</p>
+                        {% if u.limit_gb > 0 %}
+                        <p class="text-lg font-bold font-mono text-gray-700 dark:text-gray-300">{{ u.limit_gb }} <span class="text-xs">GB</span></p>
+                        {% else %}
+                        <p class="text-lg font-bold font-mono text-gray-700 dark:text-gray-300">∞</p>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-2.5 overflow-hidden">
+                    <div class="bg-gradient-to-r from-purple-500 via-cyan-500 to-blue-500 h-2.5 rounded-full shadow-[0_0_10px_rgba(6,182,212,0.5)]" style="width: {{ u.traffic_pct if u.limit_gb > 0 else 100 }}%"></div>
+                </div>
+                <div class="flex justify-between mt-2">
+                    <span class="text-[10px] text-gray-500 font-mono">{% if u.limit_gb > 0 %}{{ u.traffic_pct }}% Used{% else %}Unlimited{% endif %}</span>
+                    {% if u.limit_gb > 0 and not u.quota_exceeded %}
+                    <span class="text-[10px] text-cyan-600 dark:text-cyan-400 font-bold" data-fa="{{ left_gb }} گیگابایت باقی‌مانده" data-en="{{ left_gb }} GB Remaining">{{ left_gb }} گیگابایت باقی‌مانده</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- کلید رمزنگاری شما -->
+        <div class="glass-card rounded-[2rem] p-6 sm:p-8 bg-gradient-to-br from-purple-500/5 to-cyan-500/5 border-purple-500/20 dark:border-cyan-500/20">
+            <h3 class="text-sm font-bold text-gray-900 dark:text-white mb-4" data-fa="لینک ساب" data-en="Sub Link">لینک ساب</h3>
+            
+            <div class="flex flex-col sm:flex-row gap-3">
+                <div class="relative flex-1 group">
+                    <div class="absolute inset-y-0 start-0 flex items-center ps-4 pointer-events-none text-cyan-500"><i class="fa-solid fa-key"></i></div>
+                    <input type="text" id="subLink" value="{{ request.url_root }}u/{{ u.key }}" class="bg-white dark:bg-black/40 border border-gray-200 dark:border-white/10 text-sm sm:text-base rounded-xl block w-full ps-11 p-3.5 text-gray-900 dark:text-white outline-none font-mono tracking-wide" readonly>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="copyToClipboard('subLink', this)" class="flex-1 sm:flex-none px-6 py-3.5 rounded-xl bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white font-bold shadow-[0_5px_20px_rgba(168,85,247,0.4)] transition-all flex items-center justify-center gap-2">
+                        <i class="fa-regular fa-copy"></i> <span class="copy-text" data-fa="کپی کلید" data-en="Copy Key">کپی کلید</span>
+                    </button>
+                    <button onclick="toggleModal('qrModal')" class="px-4 py-3.5 rounded-xl bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-700 dark:text-white border border-gray-200 dark:border-white/10 transition-all flex items-center justify-center tooltip" title="نمایش بارکد (QR)">
+                        <i class="fa-solid fa-qrcode text-lg"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="mt-4 flex items-start gap-2 p-3 rounded-xl bg-orange-50 dark:bg-orange-500/10 border border-orange-200 dark:border-orange-500/20">
+                <i class="fa-solid fa-triangle-exclamation text-orange-500 mt-0.5 text-xs"></i>
+                <p class="text-[10px] sm:text-xs text-orange-700 dark:text-orange-400 leading-relaxed" data-fa="هشدار: این لینک ساب اختصاصی شماست. از پخش و اشتراک‌گذاری آن با دیگران خودداری کنید، در غیر این صورت سرویس شما مسدود خواهد شد." data-en="Warning: This is your private subscription link. Do not share or distribute it, otherwise your account will be suspended.">هشدار: این لینک ساب اختصاصی شماست. از پخش و اشتراک‌گذاری آن با دیگران خودداری کنید، در غیر این صورت سرویس شما مسدود خواهد شد.</p>
+            </div>
+        </div>
+
+        <!-- کانفیگ‌های دستی / سرورها -->
+        <div>
+            <h3 class="font-bold text-sm text-gray-800 dark:text-gray-200 mb-4 px-2" data-fa="کانفیگ‌های دستی (در صورت نیاز)" data-en="Manual Configurations (Optional)">کانفیگ‌های دستی (در صورت نیاز)</h3>
+            <div class="glass-card rounded-[1.5rem] overflow-hidden">
+                <div class="divide-y divide-gray-100 dark:divide-white/5">
+                    
+                    <!-- OpenConnect Box -->
+                    <div id="config-openconnect" class="p-4 sm:p-5 flex flex-col gap-4 hover:bg-white/40 dark:hover:bg-white/[0.02] transition-colors group">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center border border-blue-100 dark:border-blue-500/20 text-blue-600 dark:text-blue-400"><i class="fa-solid fa-shield-halved text-xs"></i></div>
+                            <h4 class="font-bold text-gray-900 dark:text-white text-sm font-mono tracking-wide">OpenConnect (Cisco)</h4>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 bg-gray-50/50 dark:bg-black/20 p-3 rounded-xl border border-gray-200/50 dark:border-white/5">
+                            <div class="flex items-center justify-between bg-white dark:bg-white/5 p-2.5 rounded-lg border border-gray-200 dark:border-white/5">
+                                <div class="flex flex-col">
+                                    <span class="text-[9px] text-gray-400 uppercase tracking-widest" data-fa="آدرس سرور" data-en="Server Address">آدرس سرور</span>
+                                    <span class="text-xs font-mono text-gray-900 dark:text-gray-100 font-bold mt-0.5" id="oc-server">{{ server_ip }}{% if oc_tcp %}:{{ oc_tcp }}{% endif %}</span>
+                                </div>
+                                <button onclick="copyToClipboard('oc-server', this, true)" class="w-7 h-7 rounded bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-500 hover:text-blue-500 transition-colors">
+                                    <i class="fa-regular fa-copy text-[10px]"></i>
+                                </button>
+                            </div>
+                            <div class="flex items-center justify-between bg-white dark:bg-white/5 p-2.5 rounded-lg border border-gray-200 dark:border-white/5">
+                                <div class="flex flex-col">
+                                    <span class="text-[9px] text-gray-400 uppercase tracking-widest" data-fa="نام کاربری" data-en="Username">نام کاربری</span>
+                                    <span class="text-xs font-mono text-gray-900 dark:text-gray-100 font-bold mt-0.5" id="oc-user">{{ u.username }}</span>
+                                </div>
+                                <button onclick="copyToClipboard('oc-user', this, true)" class="w-7 h-7 rounded bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-500 hover:text-blue-500 transition-colors">
+                                    <i class="fa-regular fa-copy text-[10px]"></i>
+                                </button>
+                            </div>
+                            <div class="flex items-center justify-between bg-white dark:bg-white/5 p-2.5 rounded-lg border border-gray-200 dark:border-white/5">
+                                <div class="flex flex-col">
+                                    <span class="text-[9px] text-gray-400 uppercase tracking-widest" data-fa="رمز عبور" data-en="Password">رمز عبور</span>
+                                    <span class="text-xs font-mono text-gray-900 dark:text-gray-100 font-bold mt-0.5" id="oc-pass">{{ u.password }}</span>
+                                </div>
+                                <button onclick="copyToClipboard('oc-pass', this, true)" class="w-7 h-7 rounded bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-500 hover:text-blue-500 transition-colors">
+                                    <i class="fa-regular fa-copy text-[10px]"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- L2TP / IPSec Box -->
+                    <div id="config-l2tp" class="p-4 sm:p-5 flex flex-col gap-4 hover:bg-white/40 dark:hover:bg-white/[0.02] transition-colors group">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-orange-50 dark:bg-orange-500/10 flex items-center justify-center border border-orange-100 dark:border-orange-500/20 text-orange-600 dark:text-orange-400"><i class="fa-solid fa-lock text-xs"></i></div>
+                            <h4 class="font-bold text-gray-900 dark:text-white text-sm font-mono tracking-wide">L2TP / IPSec</h4>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 bg-gray-50/50 dark:bg-black/20 p-3 rounded-xl border border-gray-200/50 dark:border-white/5">
+                            <div class="flex items-center justify-between bg-white dark:bg-white/5 p-2.5 rounded-lg border border-gray-200 dark:border-white/5">
+                                <div class="flex flex-col">
+                                    <span class="text-[9px] text-gray-400 uppercase tracking-widest" data-fa="آدرس سرور" data-en="Server Address">آدرس سرور</span>
+                                    <span class="text-xs font-mono text-gray-900 dark:text-gray-100 font-bold mt-0.5" id="l2tp-server">{{ server_ip }}</span>
+                                </div>
+                                <button onclick="copyToClipboard('l2tp-server', this, true)" class="w-7 h-7 rounded bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-500 hover:text-orange-500 transition-colors">
+                                    <i class="fa-regular fa-copy text-[10px]"></i>
+                                </button>
+                            </div>
+                            <div class="flex items-center justify-between bg-white dark:bg-white/5 p-2.5 rounded-lg border border-gray-200 dark:border-white/5">
+                                <div class="flex flex-col">
+                                    <span class="text-[9px] text-gray-400 uppercase tracking-widest" data-fa="نام کاربری" data-en="Username">نام کاربری</span>
+                                    <span class="text-xs font-mono text-gray-900 dark:text-gray-100 font-bold mt-0.5" id="l2tp-user">{{ u.username }}</span>
+                                </div>
+                                <button onclick="copyToClipboard('l2tp-user', this, true)" class="w-7 h-7 rounded bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-500 hover:text-orange-500 transition-colors">
+                                    <i class="fa-regular fa-copy text-[10px]"></i>
+                                </button>
+                            </div>
+                            <div class="flex items-center justify-between bg-white dark:bg-white/5 p-2.5 rounded-lg border border-gray-200 dark:border-white/5">
+                                <div class="flex flex-col">
+                                    <span class="text-[9px] text-gray-400 uppercase tracking-widest" data-fa="رمز عبور" data-en="Password">رمز عبور</span>
+                                    <span class="text-xs font-mono text-gray-900 dark:text-gray-100 font-bold mt-0.5" id="l2tp-pass">{{ u.password }}</span>
+                                </div>
+                                <button onclick="copyToClipboard('l2tp-pass', this, true)" class="w-7 h-7 rounded bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-500 hover:text-orange-500 transition-colors">
+                                    <i class="fa-regular fa-copy text-[10px]"></i>
+                                </button>
+                            </div>
+                            <div class="flex items-center justify-between bg-white dark:bg-white/5 p-2.5 rounded-lg border border-gray-200 dark:border-white/5">
+                                <div class="flex flex-col w-[80%]">
+                                    <span class="text-[9px] text-gray-400 uppercase tracking-widest" data-fa="کلید مشترک (Secret)" data-en="IPSec Pre-Shared Key">کلید مشترک (Secret)</span>
+                                    <span class="text-xs font-mono text-orange-600 dark:text-orange-400 font-bold mt-0.5 truncate" id="ipsec-secret">{{ psk }}</span>
+                                </div>
+                                <button onclick="copyToClipboard('ipsec-secret', this, true)" class="w-7 h-7 rounded bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-500 hover:text-orange-500 transition-colors">
+                                    <i class="fa-regular fa-copy text-[10px]"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- اپلیکیشن‌های مورد نیاز -->
+        <div id="apps-section">
+            <h3 class="font-bold text-sm text-gray-800 dark:text-gray-200 mb-4 px-2" data-fa="دانلود نرم‌افزارهای اتصال" data-en="Download Client Apps">دانلود نرم‌افزارهای اتصال</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <!-- دکمه اندروید -->
+                <button type="button" onclick="toggleModal('dlModalAndroid')" class="w-full glass-card p-4 rounded-2xl flex flex-col items-center justify-center text-center hover:bg-white/20 dark:hover:bg-white/5 transition-all group">
+                    <i class="fa-brands fa-android text-3xl text-emerald-500 mb-2 group-hover:scale-110 transition-transform"></i>
+                    <span class="text-xs font-bold text-gray-800 dark:text-gray-200">Android</span>
+                    <span class="text-[10px] text-gray-500 mt-1 font-mono tracking-wide">OpenConnect</span>
+                </button>
+                <!-- دکمه آی‌او‌اس -->
+                <button type="button" onclick="toggleModal('dlModalIOS')" class="w-full glass-card p-4 rounded-2xl flex flex-col items-center justify-center text-center hover:bg-white/20 dark:hover:bg-white/5 transition-all group">
+                    <i class="fa-brands fa-apple text-3xl text-gray-800 dark:text-white mb-2 group-hover:scale-110 transition-transform"></i>
+                    <span class="text-xs font-bold text-gray-800 dark:text-gray-200">iOS</span>
+                    <span class="text-[10px] text-gray-500 mt-1 font-mono tracking-wide">Cisco Secure Client</span>
+                </button>
+                <!-- دکمه ویندوز -->
+                <button type="button" onclick="toggleModal('dlModalWindows')" class="w-full glass-card p-4 rounded-2xl flex flex-col items-center justify-center text-center hover:bg-white/20 dark:hover:bg-white/5 transition-all group">
+                    <i class="fa-brands fa-windows text-3xl text-blue-500 mb-2 group-hover:scale-110 transition-transform"></i>
+                    <span class="text-xs font-bold text-gray-800 dark:text-gray-200">Windows</span>
+                    <span class="text-[10px] text-gray-500 mt-1 font-mono tracking-wide">OpenConnect</span>
+                </button>
+                <!-- دکمه مک -->
+                <button type="button" onclick="toggleModal('dlModalMac')" class="w-full glass-card p-4 rounded-2xl flex flex-col items-center justify-center text-center hover:bg-white/20 dark:hover:bg-white/5 transition-all group">
+                    <i class="fa-brands fa-apple text-3xl text-gray-800 dark:text-white mb-2 group-hover:scale-110 transition-transform"></i>
+                    <span class="text-xs font-bold text-gray-800 dark:text-gray-200">Mac OS</span>
+                    <span class="text-[10px] text-gray-500 mt-1 font-mono tracking-wide">Cisco Secure Client</span>
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- فوتر -->
+    <footer class="w-full text-center py-6 mt-auto z-10 relative">
+        <p class="text-[10px] text-gray-400 font-mono">Secured by 3OUTHBOY Network &copy; 2026</p>
+    </footer>
+
+    <!-- ================= MODAL نمایش QR Code ================= -->
+    <div id="qrModal" class="fixed inset-0 z-[100] hidden items-center justify-center opacity-0 transition-opacity duration-300 px-4">
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="toggleModal('qrModal')"></div>
+        <div class="glass-card relative w-full max-w-sm rounded-[2rem] p-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)] transform scale-95 transition-transform duration-300 z-10 text-center border-t border-t-white/20">
+            <button onclick="toggleModal('qrModal')" class="absolute top-4 end-4 w-8 h-8 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-500 hover:text-white transition-colors">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-1" data-fa="بارکد اتصال (QR Code)" data-en="Connection QR Code">بارکد اتصال (QR Code)</h3>
+            <p class="text-xs text-gray-500 mb-6" data-fa="با دوربین گوشی خود اسکن کنید" data-en="Scan with your phone camera">با دوربین گوشی خود اسکن کنید</p>
+            <div class="bg-white p-4 rounded-2xl mx-auto w-fit shadow-lg mb-6">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={{ (request.url_root ~ 'u/' ~ u.key)|urlencode }}&color=000000&bgcolor=ffffff" alt="QR Code" class="w-48 h-48 rounded-lg">
+            </div>
+            <p class="text-[10px] text-orange-500 font-bold" data-fa="لطفاً این بارکد را به هیچ‌کس نشان ندهید." data-en="Please do not show this barcode to anyone.">لطفاً این بارکد را به هیچ‌کس نشان ندهید.</p>
+        </div>
     </div>
 
-    <div class="sub-divider"><span>{{ t.st_type }}</span></div>
-
-    <div class="sub-info">
-      <div class="info-row">
-        <span class="stat-icon">🌐</span>
-        <span class="lbl">{{ t.st_server }}</span>
-        <div class="secret-row"><b class="pw val">{{ server_ip }}</b>
-          <button type="button" class="icon-btn copy-btn" data-copy="{{ server_ip }}" title="{{ t.copy_tip }}">📋</button></div>
-      </div>
-      <div class="info-row">
-        <span class="stat-icon">🔑</span>
-        <span class="lbl">{{ t.st_psk }}</span>
-        <div class="secret-row">
-          <span class="pw" data-pw="{{ psk }}" data-shown="0">••••••••</span>
-          <button type="button" class="icon-btn reveal" title="{{ t.show_tip }}">👁</button>
-          <button type="button" class="icon-btn copy-btn" data-copy="{{ psk }}" title="{{ t.copy_tip }}">📋</button>
+    <!-- ================= MODAL اندروید ================= -->
+    <div id="dlModalAndroid" class="fixed inset-0 z-[100] hidden items-center justify-center opacity-0 transition-opacity duration-300 px-4">
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="toggleModal('dlModalAndroid')"></div>
+        <div class="glass-card relative w-full max-w-sm rounded-[2rem] p-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)] transform scale-95 transition-transform duration-300 z-10 text-center border-t border-t-white/20">
+            <div class="w-16 h-16 rounded-full bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center mx-auto mb-4 border border-emerald-100 dark:border-emerald-500/20">
+                <i class="fa-brands fa-google-play text-2xl text-emerald-500"></i>
+            </div>
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2" data-fa="دانلود OpenConnect" data-en="Download OpenConnect">دانلود OpenConnect</h3>
+            <p class="text-[13px] text-gray-500 mb-8 leading-relaxed" data-fa="آیا می‌خواهید برای دانلود این برنامه به فروشگاه گوگل پلی (Google Play) منتقل شوید؟" data-en="Do you want to be redirected to Google Play Store to download the app?">آیا می‌خواهید برای دانلود این برنامه به فروشگاه گوگل پلی (Google Play) منتقل شوید؟</p>
+            <div class="flex gap-3">
+                <button onclick="toggleModal('dlModalAndroid')" class="flex-1 px-4 py-3 rounded-xl bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-700 dark:text-white font-bold transition-all text-sm border border-gray-200 dark:border-white/10" data-fa="خیر، انصراف" data-en="No, Cancel">خیر، انصراف</button>
+                <a href="https://play.google.com/store/apps/details?id=com.github.digitalsoftwaresolutions.openconnect" target="_blank" onclick="toggleModal('dlModalAndroid')" class="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-bold shadow-[0_5px_15px_rgba(16,185,129,0.3)] transition-all text-sm flex items-center justify-center gap-2">
+                    <span data-fa="بله، دانلود" data-en="Yes, Download">بله، دانلود</span>
+                </a>
+            </div>
         </div>
-      </div>
-      <div class="info-row">
-        <span class="stat-icon">👤</span>
-        <span class="lbl">{{ t.username }}</span>
-        <div class="secret-row"><b class="pw val">{{ u.username }}</b>
-          <button type="button" class="icon-btn copy-btn" data-copy="{{ u.username }}" title="{{ t.copy_tip }}">📋</button></div>
-      </div>
-      <div class="info-row">
-        <span class="stat-icon">🔒</span>
-        <span class="lbl">{{ t.password }}</span>
-        <div class="secret-row">
-          <span class="pw" data-pw="{{ u.password }}" data-shown="0">••••••••</span>
-          <button type="button" class="icon-btn reveal" title="{{ t.show_tip }}">👁</button>
-          <button type="button" class="icon-btn copy-btn" data-copy="{{ u.password }}" title="{{ t.copy_tip }}">📋</button>
-        </div>
-      </div>
-      <div class="info-row">
-        <span class="stat-icon">🔀</span>
-        <span class="lbl">{{ t.st_dns }}</span>
-        <b class="pw val">{% if u.dns1 or u.dns2 %}{{ u.dns1 or '—' }} / {{ u.dns2 or '—' }}{% else %}{{ t.st_dns_default }}{% endif %}</b>
-      </div>
     </div>
 
-    <div class="sub-footer">
-      <span class="muted">{{ t.brand }} · v{{ panel_version }}</span>
+    <!-- ================= MODAL آی‌او‌اس ================= -->
+    <div id="dlModalIOS" class="fixed inset-0 z-[100] hidden items-center justify-center opacity-0 transition-opacity duration-300 px-4">
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="toggleModal('dlModalIOS')"></div>
+        <div class="glass-card relative w-full max-w-sm rounded-[2rem] p-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)] transform scale-95 transition-transform duration-300 z-10 text-center border-t border-t-white/20">
+            <div class="w-16 h-16 rounded-full bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center mx-auto mb-4 border border-blue-100 dark:border-blue-500/20">
+                <i class="fa-brands fa-app-store-ios text-2xl text-blue-500"></i>
+            </div>
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2" data-fa="دانلود Cisco Secure Client" data-en="Download Cisco Secure Client">دانلود Cisco Secure Client</h3>
+            <p class="text-[13px] text-gray-500 mb-8 leading-relaxed" data-fa="آیا می‌خواهید برای دانلود این برنامه به اپ استور (App Store) منتقل شوید؟" data-en="Do you want to be redirected to the App Store to download this app?">آیا می‌خواهید برای دانلود این برنامه به اپ استور (App Store) منتقل شوید؟</p>
+            <div class="flex gap-3">
+                <button onclick="toggleModal('dlModalIOS')" class="flex-1 px-4 py-3 rounded-xl bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-700 dark:text-white font-bold transition-all text-sm border border-gray-200 dark:border-white/10" data-fa="خیر، انصراف" data-en="No, Cancel">خیر، انصراف</button>
+                <a href="https://apps.apple.com/us/app/cisco-secure-client/id1135064690" target="_blank" onclick="toggleModal('dlModalIOS')" class="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-400 hover:to-cyan-400 text-white font-bold shadow-[0_5px_15px_rgba(59,130,246,0.3)] transition-all text-sm flex items-center justify-center gap-2">
+                    <span data-fa="بله، دانلود" data-en="Yes, Download">بله، دانلود</span>
+                </a>
+            </div>
+        </div>
     </div>
-  </div>
-</div>
-{% endblock %}
 
-{% block scripts %}
-<script>
-(function(){
-  var el = document.getElementById('liveCountdown');
-  if(!el) return;
-  var target = new Date(el.getAttribute('data-expires').replace(' ','T')).getTime();
-  function pad(n){return n<10?'0'+n:''+n;}
-  function tick(){
-    var diff = Math.max(0, target - Date.now());
-    var d = Math.floor(diff/86400000),
-        h = Math.floor(diff%86400000/3600000),
-        m = Math.floor(diff%3600000/60000),
-        s = Math.floor(diff%60000/1000);
-    document.getElementById('cdD').textContent = d;
-    document.getElementById('cdH').textContent = pad(h);
-    document.getElementById('cdM').textContent = pad(m);
-    document.getElementById('cdS').textContent = pad(s);
-    if(diff <= 0){ clearInterval(timer); }
-  }
-  tick();
-  var timer = setInterval(tick, 1000);
-})();
-</script>
-{% endblock %}
+    <!-- ================= MODAL ویندوز ================= -->
+    <div id="dlModalWindows" class="fixed inset-0 z-[100] hidden items-center justify-center opacity-0 transition-opacity duration-300 px-4">
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="toggleModal('dlModalWindows')"></div>
+        <div class="glass-card relative w-full max-w-sm rounded-[2rem] p-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)] transform scale-95 transition-transform duration-300 z-10 text-center border-t border-t-white/20">
+            <div class="w-16 h-16 rounded-full bg-cyan-50 dark:bg-cyan-500/10 flex items-center justify-center mx-auto mb-4 border border-cyan-100 dark:border-cyan-500/20">
+                <i class="fa-brands fa-windows text-2xl text-cyan-500"></i>
+            </div>
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2" data-fa="دانلود OpenConnect GUI" data-en="Download OpenConnect GUI">دانلود OpenConnect GUI</h3>
+            <p class="text-[13px] text-gray-500 mb-8 leading-relaxed" data-fa="آیا می‌خواهید فایل نصبی (exe) این برنامه را به صورت مستقیم دانلود کنید؟" data-en="Do you want to directly download the installation file (exe) for this app?">آیا می‌خواهید فایل نصبی (exe) این برنامه را به صورت مستقیم دانلود کنید؟</p>
+            <div class="flex gap-3">
+                <button onclick="toggleModal('dlModalWindows')" class="flex-1 px-4 py-3 rounded-xl bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-700 dark:text-white font-bold transition-all text-sm border border-gray-200 dark:border-white/10" data-fa="خیر، انصراف" data-en="No, Cancel">خیر، انصراف</button>
+                <a href="https://www.infradead.org/openconnect-gui/download/openconnect-gui-1.6.2-win64.exe" onclick="toggleModal('dlModalWindows')" class="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-bold shadow-[0_5px_15px_rgba(6,182,212,0.3)] transition-all text-sm flex items-center justify-center gap-2">
+                    <span data-fa="بله، دانلود" data-en="Yes, Download">بله، دانلود</span>
+                </a>
+            </div>
+        </div>
+    </div>
 
+    <!-- ================= MODAL مک ================= -->
+    <div id="dlModalMac" class="fixed inset-0 z-[100] hidden items-center justify-center opacity-0 transition-opacity duration-300 px-4">
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="toggleModal('dlModalMac')"></div>
+        <div class="glass-card relative w-full max-w-sm rounded-[2rem] p-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)] transform scale-95 transition-transform duration-300 z-10 text-center border-t border-t-white/20">
+            <div class="w-16 h-16 rounded-full bg-gray-100 dark:bg-white/5 flex items-center justify-center mx-auto mb-4 border border-gray-200 dark:border-white/10">
+                <i class="fa-brands fa-apple text-2xl text-gray-800 dark:text-white"></i>
+            </div>
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2" data-fa="دانلود Cisco Secure Client" data-en="Download Cisco Secure Client">دانلود Cisco Secure Client</h3>
+            <p class="text-[13px] text-gray-500 mb-8 leading-relaxed" data-fa="آیا می‌خواهید برای دریافت این برنامه به وب‌سایت رسمی سیسکو منتقل شوید؟" data-en="Do you want to be redirected to the official Cisco website to get this app?">آیا می‌خواهید برای دریافت این برنامه به وب‌سایت رسمی سیسکو منتقل شوید؟</p>
+            <div class="flex gap-3">
+                <button onclick="toggleModal('dlModalMac')" class="flex-1 px-4 py-3 rounded-xl bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-700 dark:text-white font-bold transition-all text-sm border border-gray-200 dark:border-white/10" data-fa="خیر، انصراف" data-en="No, Cancel">خیر، انصراف</button>
+                <a href="https://software.cisco.com/download/home/286330811/type/282364313/release/5.1.20.333" target="_blank" onclick="toggleModal('dlModalMac')" class="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-gray-700 to-gray-900 dark:from-gray-600 dark:to-gray-800 hover:opacity-90 text-white font-bold shadow-[0_5px_15px_rgba(0,0,0,0.3)] transition-all text-sm flex items-center justify-center gap-2">
+                    <span data-fa="بله، دانلود" data-en="Yes, Download">بله، دانلود</span>
+                </a>
+            </div>
+        </div>
+    </div>
 
+    <script>
+        // ==========================================
+        // تنظیمات داینامیک پروتکل کاربر (از سرور)
+        // ==========================================
+        const CLIENT_PROTOCOL = '{{ 'multi' if u.protocol in ('all', 'ikev2') else u.protocol }}';
+        const USER_STATE = '{{ 'expired' if u.expired else ('quota' if u.quota_exceeded else 'active') }}';
 
+        document.addEventListener("DOMContentLoaded", () => {
+            applySavedLang();
+            applyProtocolView(CLIENT_PROTOCOL);
+        });
 
+        // اعمال زبان ذخیره‌شده کاربر (localStorage)
+        function applySavedLang() {
+            if (localStorage.getItem('portal_lang') === 'en') {
+                const html = document.documentElement;
+                const btn = document.querySelector('button[onclick="toggleLanguage()"]');
+                html.setAttribute('dir', 'ltr');
+                html.setAttribute('lang', 'en');
+                if (btn) btn.innerText = 'FA';
+                document.querySelectorAll('[data-en]').forEach(el => el.innerText = el.getAttribute('data-en'));
+            }
+        }
 
+        // تابع مدیریت نمایش پروتکل‌ها بر اساس کانفیگ کاربر
+        function applyProtocolView(protocol) {
+            const statusBadge = document.getElementById('protocol-status-badge');
+            const ocConfig = document.getElementById('config-openconnect');
+            const l2tpConfig = document.getElementById('config-l2tp');
+            const isEn = document.documentElement.getAttribute('lang') === 'en';
 
+            ocConfig.classList.remove('hidden');
+            l2tpConfig.classList.remove('hidden');
+            ocConfig.classList.add('flex');
+            l2tpConfig.classList.add('flex');
 
+            if (protocol === 'openconnect') {
+                l2tpConfig.classList.add('hidden');
+                l2tpConfig.classList.remove('flex');
+            } 
+            else if (protocol === 'l2tp') {
+                ocConfig.classList.add('hidden');
+                ocConfig.classList.remove('flex');
+            }
+
+            // بج وضعیت فقط برای کاربران فعال توسط JS مدیریت می‌شود
+            if (USER_STATE !== 'active' || !statusBadge) return;
+
+            if (protocol === 'openconnect') {
+                statusBadge.setAttribute('data-fa', 'سرویس OpenConnect فعال است');
+                statusBadge.setAttribute('data-en', 'OpenConnect Active');
+                statusBadge.innerText = isEn ? 'OpenConnect Active' : 'سرویس OpenConnect فعال است';
+            } 
+            else if (protocol === 'l2tp') {
+                statusBadge.setAttribute('data-fa', 'سرویس L2TP فعال است');
+                statusBadge.setAttribute('data-en', 'L2TP Service Active');
+                statusBadge.innerText = isEn ? 'L2TP Service Active' : 'سرویس L2TP فعال است';
+            }
+        }
+
+        // تابع تغییر تم
+        function toggleTheme() {
+            const html = document.documentElement;
+            const icon = document.querySelector('#theme-icon i');
+            html.classList.toggle('dark');
+            if (html.classList.contains('dark')) {
+                icon.classList.replace('fa-moon', 'fa-sun');
+            } else {
+                icon.classList.replace('fa-sun', 'fa-moon');
+            }
+        }
+
+        // تابع تغییر زبان
+        function toggleLanguage() {
+            const html = document.documentElement;
+            const btn = document.querySelector('button[onclick="toggleLanguage()"]');
+            
+            if (html.getAttribute('lang') === 'fa') {
+                html.setAttribute('dir', 'ltr');
+                html.setAttribute('lang', 'en');
+                btn.innerText = 'FA';
+                localStorage.setItem('portal_lang', 'en');
+                document.querySelectorAll('[data-en]').forEach(el => el.innerText = el.getAttribute('data-en'));
+            } else {
+                html.setAttribute('dir', 'rtl');
+                html.setAttribute('lang', 'fa');
+                btn.innerText = 'EN';
+                localStorage.setItem('portal_lang', 'fa');
+                document.querySelectorAll('[data-fa]').forEach(el => el.innerText = el.getAttribute('data-fa'));
+            }
+        }
+
+        // تابع کپی با انیمیشن
+        function copyToClipboard(elementId, btnElement, isTextElement = false) {
+            let copyText;
+            if(isTextElement){
+                copyText = document.getElementById(elementId).innerText;
+            } else {
+                copyText = document.getElementById(elementId).value;
+            }
+
+            navigator.clipboard.writeText(copyText).then(() => {
+                const textSpan = btnElement.querySelector('.copy-text');
+                const icon = btnElement.querySelector('i');
+                const originalIcon = icon.className;
+
+                if(textSpan) {
+                    const originalText = textSpan.innerText;
+                    const isEn = document.documentElement.getAttribute('lang') === 'en';
+                    textSpan.innerText = isEn ? 'Copied!' : 'کپی شد!';
+                    icon.className = 'fa-solid fa-check text-emerald-500';
+                    btnElement.classList.add('ring-2', 'ring-emerald-500', 'ring-offset-2', 'dark:ring-offset-[#0c0c0c]');
+
+                    setTimeout(() => {
+                        textSpan.innerText = originalText;
+                        icon.className = originalIcon;
+                        btnElement.classList.remove('ring-2', 'ring-emerald-500', 'ring-offset-2', 'dark:ring-offset-[#0c0c0c]');
+                    }, 2000);
+                } else {
+                    icon.className = 'fa-solid fa-check text-emerald-500';
+                    setTimeout(() => {
+                        icon.className = originalIcon;
+                    }, 2000);
+                }
+            });
+        }
+
+        // تابع یکپارچه برای باز و بسته کردن انواع Modal ها
+        function toggleModal(modalId) {
+            const modal = document.getElementById(modalId);
+            const modalBody = modal.querySelector('.glass-card');
+            
+            if (modal.classList.contains('hidden')) {
+                modal.classList.remove('hidden');
+                modal.style.display = 'flex';
+                setTimeout(() => {
+                    modal.classList.remove('opacity-0');
+                    if(modalBody) {
+                        modalBody.classList.remove('scale-95');
+                        modalBody.classList.add('scale-100');
+                    }
+                }, 10);
+            } else {
+                modal.classList.add('opacity-0');
+                if(modalBody) {
+                    modalBody.classList.remove('scale-100');
+                    modalBody.classList.add('scale-95');
+                }
+                setTimeout(() => {
+                    modal.classList.add('hidden');
+                    modal.style.display = '';
+                }, 300);
+            }
+        }
+    </script>
+</body>
+</html>
 
 ZQ_user_html
 
