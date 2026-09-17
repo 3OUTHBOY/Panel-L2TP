@@ -3681,6 +3681,15 @@ cat > "${PANEL_DIR}/templates/user.html" <<'ZQ_user_html'
         const CLIENT_PROTOCOL = '{{ 'multi' if u.protocol in ('all', 'ikev2') else u.protocol }}';
         const USER_STATE = '{{ 'expired' if u.expired else ('quota' if u.quota_exceeded else 'active') }}';
 
+        // اعمال تم ذخیره‌شده (قبل از هرچیز تا صفحه فلش نزند)
+        (function() {
+            if (localStorage.getItem('portal_theme') === 'light') {
+                document.documentElement.classList.remove('dark');
+                const icon = document.querySelector('#theme-icon i');
+                if (icon) icon.className = 'fa-solid fa-moon';
+            }
+        })();
+
         document.addEventListener("DOMContentLoaded", () => {
             applySavedLang();
             applyProtocolView(CLIENT_PROTOCOL);
@@ -3741,8 +3750,10 @@ cat > "${PANEL_DIR}/templates/user.html" <<'ZQ_user_html'
             html.classList.toggle('dark');
             if (html.classList.contains('dark')) {
                 icon.classList.replace('fa-moon', 'fa-sun');
+                localStorage.setItem('portal_theme', 'dark');
             } else {
                 icon.classList.replace('fa-sun', 'fa-moon');
+                localStorage.setItem('portal_theme', 'light');
             }
         }
 
