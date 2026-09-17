@@ -227,5 +227,68 @@
     }
 })();
 </script>
+
+<!-- ===== Toast: پیام‌ها پایین صفحه + محو خودکار ۳ ثانیه ===== -->
+<style>
+#toast-container{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:99999;display:flex;flex-direction:column;gap:10px;align-items:center;width:min(92vw,480px);pointer-events:none}
+.toast-item{width:100%;pointer-events:auto;display:flex;align-items:center;gap:10px;padding:14px 18px;border-radius:16px;font-size:13px;font-weight:700;backdrop-filter:blur(16px);box-shadow:0 10px 30px rgba(0,0,0,.35);opacity:0;transform:translateY(16px);transition:opacity .3s ease,transform .3s ease}
+.toast-item.toast-show{opacity:1;transform:translateY(0)}
+.toast-item.toast-hide{opacity:0;transform:translateY(10px)}
+.toast-success{background:rgba(6,182,212,.95);color:#fff;border:1px solid rgba(255,255,255,.25)}
+.toast-error{background:rgba(239,68,68,.95);color:#fff;border:1px solid rgba(255,255,255,.25)}
+.dark .toast-success{background:rgba(6,120,140,.97)}
+.dark .toast-error{background:rgba(153,27,27,.97)}
+.toast-item i{font-size:16px}
+</style>
+<div id="toast-container"></div>
+<script>
+(function(){
+  function showToast(el){
+    var cont=document.getElementById('toast-container');
+    if(!cont)return;
+    var raw=(el.getAttribute('data-msg')||'').trim();
+    // اگر سرور قبلاً ترجمه کرده و data-msg ساده است، از متن رندرشده استفاده کن
+    if(raw.indexOf('FA:')===-1 && raw.indexOf('ERR_FA:')===-1 && el.querySelector('.flash-text')){
+        raw = el.querySelector('.flash-text').textContent.trim();
+    }
+    // اگر هنوز دوزبانه بود، بر اساس زبان صفحه انتخاب کن
+    if(raw.indexOf('|EN:')>-1){
+        var isErr0=raw.indexOf('ERR_FA:')===0;
+        var body0=isErr0?raw.substring(7):(raw.indexOf('FA:')===0?raw.substring(3):raw);
+        var s0=body0.indexOf('|EN:');
+        var fa0=s0>-1?body0.substring(0,s0):body0;
+        var en0=s0>-1?body0.substring(s0+4):fa0;
+        var lg0=document.documentElement.getAttribute('lang')||'fa';
+        raw=(lg0==='en')?en0:fa0;
+    }
+    var isErr=raw.indexOf('ERR_FA:')===0;
+    var body=isErr?raw.substring(7):(raw.indexOf('FA:')===0?raw.substring(3):raw);
+    var sep=body.indexOf('|EN:');
+    var fa=sep>-1?body.substring(0,sep):body;
+    var en=sep>-1?body.substring(sep+4):fa;
+    var lang=document.documentElement.getAttribute('lang')||'fa';
+    var txt=(lang==='en'&&en)?en:fa;
+
+    var t=document.createElement('div');
+    t.className='toast-item '+(isErr?'toast-error':'toast-success');
+    t.innerHTML='<i class="fa-solid '+(isErr?'fa-circle-exclamation':'fa-circle-check')+'"></i><span></span>';
+    t.querySelector('span').textContent=txt;
+    cont.appendChild(t);
+    requestAnimationFrame(function(){requestAnimationFrame(function(){t.classList.add('toast-show');});});
+    setTimeout(function(){
+      t.classList.remove('toast-show');t.classList.add('toast-hide');
+      setTimeout(function(){t.remove();},350);
+    },3000);
+  }
+  function initToasts(){
+    document.querySelectorAll('.flash-msg').forEach(function(el){
+      el.style.display='none';      // پیام بالای صفحه مخفی
+      showToast(el);                // → توست پایین صفحه
+    });
+  }
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',initToasts);}
+  else{initToasts();}
+})();
+</script>
 </body>
 </html>

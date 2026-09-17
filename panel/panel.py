@@ -350,7 +350,7 @@ def csrf_protect():
 # دو زبانه: پیام با کلید — JS سمت کلاینت متن درست رو انتخاب می‌کنه
 def flash_i18n(fa_text, en_text):
     session['flash_msg'] = {'fa': fa_text, 'en': en_text}
-    flash('FA:' + fa_text)
+    flash('FA:' + fa_text + '|EN:' + en_text)
 
 
 
