@@ -1,0 +1,32 @@
+#!/bin/sh
+SDIR=/run/l2tp-sessions
+PDIR=/run/l2tp-peerip
+IDIR=/run/l2tp-ifaces
+DMAP=/etc/ppp/dns-map
+[ -n "$PEERNAME" ] || exit 0
+mkdir -p "$SDIR" "$PDIR" "$IDIR" 2>/dev/null || exit 0
+
+# PID واقعی pppd والد را پیدا کن و ثبت کن
+P=$PPID; N=0
+while [ -n "$P" ] && [ "$P" != "1" ] && [ "$P" != "0" ] && [ "$N" -lt 6 ]; do
+    C=$(ps -o comm= -p "$P" 2>/dev/null)
+    case "$C" in
+        pppd*) echo "$P" > "$SDIR/$PEERNAME"; break ;;
+    esac
+    P=$(ps -o ppid= -p "$P" 2>/dev/null | tr -d ' '); N=$((N+1))
+done
+
+[ -n "$5" ] && echo "$5" > "$PDIR/$PEERNAME"
+[ -n "$1" ] && printf '%s 0\n' "$PEERNAME" > "$IDIR/$1"
+
+# DNAT اختصاصی DNS کاربر
+if [ -s "$DMAP/$PEERNAME" ] && [ -n "$5" ]; then
+    DNS1=$(awk '{print $1}' "$DMAP/$PEERNAME" 2>/dev/null)
+    if [ -n "$DNS1" ]; then
+        for PROTO in udp tcp; do
+            /sbin/iptables -t nat -C L2TP_DNS -s "$5" -p $PROTO --dport 53 -j DNAT --to-destination "$DNS1" 2>/dev/null || \
+            /sbin/iptables -t nat -A L2TP_DNS -s "$5" -p $PROTO --dport 53 -j DNAT --to-destination "$DNS1" 2>/dev/null
+        done
+    fi
+fi
+exit 0

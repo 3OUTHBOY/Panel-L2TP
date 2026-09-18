@@ -1,0 +1,21 @@
+#!/bin/sh
+SDIR=/run/l2tp-sessions
+PDIR=/run/l2tp-peerip
+IDIR=/run/l2tp-ifaces
+DMAP=/etc/ppp/dns-map
+
+# حذف قانون DNAT کاربر (ساختار درست)
+if [ -n "$PEERNAME" ] && [ -s "$DMAP/$PEERNAME" ] && [ -n "$5" ]; then
+    DNS1=$(awk '{print $1}' "$DMAP/$PEERNAME" 2>/dev/null)
+    if [ -n "$DNS1" ]; then
+        for PROTO in udp tcp; do
+            /sbin/iptables -t nat -D L2TP_DNS -s "$5" -p $PROTO --dport 53 -j DNAT --to-destination "$DNS1" 2>/dev/null
+        done
+    fi
+fi
+
+# حذف session و ردپاها
+rm -f "$SDIR/$PEERNAME" "$PDIR/$PEERNAME" 2>/dev/null
+/usr/bin/python3 /opt/l2tp-panel/iface_down.py "$1" >/dev/null 2>&1
+rm -f "$IDIR/$1" 2>/dev/null
+exit 0
