@@ -216,13 +216,18 @@
                         </thead>
                         <tbody class="divide-y divide-gray-200/50 dark:divide-white/5">
                         {% for u in users %}
-                            <tr class="table-row-hover transition-colors search-row" data-name="{{ u.username|lower }}">
+                            <tr class="table-row-hover transition-colors search-row group/row" data-name="{{ u.username|lower }}">
                                 <td class="px-6 py-4">
                                     <div class="flex items-center gap-3">
                                         <div class="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400 font-bold font-sans">{{ u.username[0]|upper }}</div>
                                         <div>
                                             <p class="font-bold text-gray-900 dark:text-white">{{ u.username }}</p>
-                                            <p class="text-[10px] font-mono text-gray-400 mt-0.5 cursor-pointer hover:text-blue-500 transition-colors select-none" onclick="revealPw(this)" data-pw="{{ u.password }}" data-shown="0" title="Click to reveal password">••••••</p>
+                                            <div class="flex items-center gap-1.5 mt-0.5">
+                                                <p class="text-[10px] font-mono text-gray-400 cursor-pointer hover:text-blue-500 transition-colors select-none" onclick="revealPw(this)" data-pw="{{ u.password }}" data-shown="0" title="Click to reveal password">••••••</p>
+                                                <button type="button" onclick="copyPw(this)" data-pw="{{ u.password }}" class="opacity-40 group-hover/row:opacity-100 hover:!opacity-100 w-6 h-6 rounded-md bg-gray-100 dark:bg-white/5 hover:bg-cyan-50 dark:hover:bg-cyan-500/10 flex items-center justify-center text-gray-400 hover:text-cyan-600 transition-all shrink-0" title="Copy password">
+                                                    <i class="fa-regular fa-copy text-[10px]"></i>
+                                                </button>
+                                            </div>
                                             
                                         </div>
                                     </div>
@@ -605,15 +610,9 @@ function revealPw(el){
     }
 }
 function copySubLink(key){
-    var url=location.origin+'/u/'+key;
-    var done=function(){alert('Subscription link copied!\n'+url);};
-    if(navigator.clipboard&&window.isSecureContext){
-        navigator.clipboard.writeText(url).then(done);
-    } else {
-        var a=document.createElement('textarea');
-        a.value=url;document.body.appendChild(a);a.select();
-        document.execCommand('copy');a.remove();done();
-    }
+    var url = location.origin + '/u/' + key;
+    var isEn = document.documentElement.getAttribute('lang')==='en';
+    copyRawText(url, null, isEn ? 'Subscription link copied!' : 'لینک ساب کپی شد!');
 }
 
 
@@ -733,6 +732,40 @@ flashI18nApply();
   if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',initToasts);}
   else{initToasts();}
 })();
+</script>
+<script>
+function pwToast(msg){
+    var c=document.getElementById('toast-container');
+    if(!c){ alert(msg); return; }
+    var t=document.createElement('div');
+    t.className='toast-item toast-success toast-show';
+    t.innerHTML='<i class="fa-solid fa-circle-check"></i><span></span>';
+    t.querySelector('span').textContent=msg;
+    c.appendChild(t);
+    setTimeout(function(){t.classList.remove('toast-show');t.classList.add('toast-hide');setTimeout(function(){t.remove();},350);},2000);
+}
+function fallbackCopy(text){
+    var ta=document.createElement('textarea');
+    ta.value=text; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); }catch(e){}
+    document.body.removeChild(ta);
+}
+function copyRawText(text, btn, msg){
+    var isEn=document.documentElement.getAttribute('lang')==='en';
+    var done=function(){
+        if(btn){
+            var ic=btn.querySelector('i'); var old=ic.className;
+            ic.className='fa-solid fa-check text-emerald-500';
+            setTimeout(function(){ic.className=old;},1500);
+        }
+        pwToast(msg || (isEn?'Password copied!':'رمز عبور کپی شد!'));
+    };
+    if(navigator.clipboard&&window.isSecureContext){
+        navigator.clipboard.writeText(text).then(done).catch(function(){fallbackCopy(text);done();});
+    } else { fallbackCopy(text); done(); }
+}
+function copyPw(btn){ copyRawText(btn.getAttribute('data-pw'), btn); }
 </script>
 </body>
 </html>

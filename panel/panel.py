@@ -1354,6 +1354,121 @@ def settings_firewall_save():
     return redirect(url_for('settings_page'))
 
 
+# ================= Danger Zone =================
+def _dz_cleanup_user(name):
+    """حذف کامل ردپاهای یک کاربر: session، peer-ip، dns-map و قانون DNAT"""
+    ip, dns1 = '', ''
+    try: ip = open('/run/l2tp-peerip/%s' % name).read().strip()
+    except Exception: pass
+    try: dns1 = open('/etc/ppp/dns-map/%s' % name).read().split()[0]
+    except Exception: pass
+    if ip and dns1:
+        for proto in ('udp', 'tcp'):
+            subprocess.run(['/sbin/iptables', '-t', 'nat', '-D', 'L2TP_DNS',
+                            '-s', ip, '-p', proto, '--dport', '53',
+                            '-j', 'DNAT', '--to-destination', dns1],
+                           capture_output=True)
+    for f in ('/run/l2tp-sessions/%s', '/run/l2tp-peerip/%s', '/etc/ppp/dns-map/%s'):
+        try: os.remove(f % name)
+        except OSError: pass
+
+
+@app.route('/danger/reset-traffic', methods=['POST'])
+@login_required
+def dz_reset_traffic():
+    import shutil
+    conn = get_db()
+    try:
+        conn.execute('UPDATE users SET used_bytes = 0')
+        conn.commit()
+    finally:
+        conn.close()
+    shutil.rmtree('/run/l2tp-ifaces', ignore_errors=True)
+    run_sync()
+    flash_bi('حجم مصرفی همه کاربران صفر شد.', 'All traffic counters were reset.')
+    return redirect(url_for('settings_page'))
+
+
+@app.route('/danger/purge-expired', methods=['POST'])
+@login_required
+def dz_purge_expired():
+    now = datetime.now().strftime(DT_FMT)
+    conn = get_db()
+    try:
+        rows = conn.execute('SELECT username FROM users WHERE expires_at < ?', (now,)).fetchall()
+        names = [r['username'] for r in rows]
+        conn.execute('DELETE FROM users WHERE expires_at < ?', (now,))
+        conn.commit()
+    finally:
+        conn.close()
+    for n in names:
+        _dz_cleanup_user(n)
+    if names:
+        run_sync()
+    flash_bi('%d کاربر منقضی حذف شد.' % len(names), '%d expired users deleted.' % len(names))
+    return redirect(url_for('settings_page'))
+
+
+@app.route('/danger/kill-sessions', methods=['POST'])
+@login_required
+def dz_kill_sessions():
+    import shutil
+    killed = 0
+    try:
+        for name in os.listdir(SESS_DIR):
+            p = os.path.join(SESS_DIR, name)
+            try:
+                pid = int(open(p).read().strip())
+                if open('/proc/%d/comm' % pid).read().strip() == 'pppd':
+                    os.kill(pid, 15)
+                    killed += 1
+            except Exception:
+                pass
+        shutil.rmtree(SESS_DIR, ignore_errors=True)
+        os.makedirs(SESS_DIR, exist_ok=True)
+    except Exception:
+        pass
+    try:
+        subprocess.run(['systemctl', 'restart', 'ocserv'], capture_output=True, timeout=60)
+    except Exception:
+        pass
+    flash_bi('همه اتصال‌ها قطع شد (%d PPP).' % killed, 'All sessions terminated (%d PPP).' % killed)
+    return redirect(url_for('settings_page'))
+
+
+@app.route('/danger/delete-all', methods=['POST'])
+@login_required
+def dz_delete_all():
+    if (request.form.get('confirm_text') or '').strip().upper() != 'DELETE':
+        flash_err('برای تأیید باید دقیقاً کلمه DELETE را تایپ کنید.',
+                  'You must type DELETE exactly to confirm.')
+        return redirect(url_for('settings_page'))
+    import shutil
+    conn = get_db()
+    try:
+        rows = conn.execute('SELECT username FROM users').fetchall()
+        names = [r['username'] for r in rows]
+        conn.execute('DELETE FROM users')
+        conn.commit()
+    finally:
+        conn.close()
+    for n in names:
+        _dz_cleanup_user(n)
+    shutil.rmtree('/etc/ppp/dns-map', ignore_errors=True)
+    subprocess.run(['/sbin/iptables', '-t', 'nat', '-F', 'L2TP_DNS'], capture_output=True)
+    shutil.rmtree('/run/l2tp-sessions', ignore_errors=True)
+    shutil.rmtree('/run/l2tp-ifaces', ignore_errors=True)
+    shutil.rmtree('/run/l2tp-peerip', ignore_errors=True)
+    os.makedirs('/run/l2tp-sessions', exist_ok=True)
+    try:
+        subprocess.run(['systemctl', 'restart', 'ocserv'], capture_output=True, timeout=60)
+    except Exception:
+        pass
+    run_sync()
+    flash_bi('همه کاربران حذف شدند.', 'All users were deleted.')
+    return redirect(url_for('settings_page'))
+
+
 init_db()
 
 if __name__ == '__main__':
