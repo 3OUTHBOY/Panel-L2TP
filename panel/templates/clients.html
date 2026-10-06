@@ -48,7 +48,7 @@
         .dark select { color-scheme: dark; }
     </style>
 </head>
-<body class="bg-gray-50 dark:bg-darkBg text-gray-900 dark:text-gray-100 transition-colors duration-300 flex h-screen overflow-hidden relative">
+<body class="bg-gray-50 dark:bg-darkBg text-gray-900 dark:text-gray-100 transition-colors duration-300 flex h-screen overflow-hidden relative" data-conn-domain="{{ CFG.get('conn_domain','') }}">
 
     <div class="absolute inset-0 bg-grid-pattern z-0 pointer-events-none"></div>
     <div class="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
@@ -610,7 +610,8 @@ function revealPw(el){
     }
 }
 function copySubLink(key){
-    var url = location.origin + '/u/' + key;
+    var dom = document.body.getAttribute('data-conn-domain');
+    var url = (dom ? 'https://' + dom + ':8448' : location.origin) + '/u/' + key;
     var isEn = document.documentElement.getAttribute('lang')==='en';
     copyRawText(url, null, isEn ? 'Subscription link copied!' : 'لینک ساب کپی شد!');
 }

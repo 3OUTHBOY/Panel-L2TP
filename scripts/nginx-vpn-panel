@@ -1,0 +1,41 @@
+server {
+    listen 8000 ssl;
+    listen [::]:8000 ssl;
+    server_name panel.bnd98.qzz.io;
+
+    ssl_certificate /etc/nginx/ssl/panel.crt;
+    ssl_certificate_key /etc/nginx/ssl/panel.key;
+
+    # --- مسیر مخفی ---
+    set $secret "B5KmgC7KnFeqisGkju-4GwPNA8yZo6ey";
+
+    # بدون secret (یا secret غلط) → 404 تمیز
+    location / {
+        return 404;
+    }
+
+    # ورود با secret:
+    location ~ ^/B5KmgC7KnFeqisGkju-4GwPNA8yZo6ey(?<rest>/.*)?$ {
+        # حذف prefix قبل از ارسال به پنل:
+        rewrite ^/B5KmgC7KnFeqisGkju-4GwPNA8yZo6ey(/.*)?$ $rest break;
+
+        proxy_pass http://127.0.0.1:9000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto https;
+
+        # ریدایرکت‌های پنل (/login و...) → با secret:
+        proxy_redirect ~^(https?://[^/]+)?/(.*)$ $1/B5KmgC7KnFeqisGkju-4GwPNA8yZo6ey/$2;
+
+        # لینک‌ها/فرم‌ها/اسکریپت‌های خروجی → با secret:
+        sub_filter_once off;
+        sub_filter_types text/html;
+        sub_filter 'href="/'    'href="/B5KmgC7KnFeqisGkju-4GwPNA8yZo6ey/';
+        sub_filter 'action="/'  'action="/B5KmgC7KnFeqisGkju-4GwPNA8yZo6ey/';
+        sub_filter 'src="/'     'src="/B5KmgC7KnFeqisGkju-4GwPNA8yZo6ey/';
+        sub_filter "href='"     "href='/B5KmgC7KnFeqisGkju-4GwPNA8yZo6ey/";
+        sub_filter "action='"   "action='/B5KmgC7KnFeqisGkju-4GwPNA8yZo6ey/";
+        sub_filter "fetch('/"   "fetch('/B5KmgC7KnFeqisGkju-4GwPNA8yZo6ey/";
+        sub_filter 'fetch("/'   'fetch("/B5KmgC7KnFeqisGkju-4GwPNA8yZo6ey/';
+    }
+}

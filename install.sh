@@ -29,12 +29,16 @@ sanitize(){ printf '%s' "$1" | LC_ALL=C tr -d '\042\047\134\052\072\073\040\011\
 ADMIN_USER="admin"; ADMIN_PASS="$(rand_str 12)"; PANEL_PORT="8080"
 PSK="$(rand_str 20)"; ADMIN_IP=""; SET_TZ="y"; ENABLE_UFW="y"
 OCSERV_PORT="555"
+VPN_DOMAIN=""; PANEL_DOMAIN=""; PORTAL_PORT="8448"; ACME_EMAIL=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --user) ADMIN_USER="$2"; shift 2 ;;
     --pass) ADMIN_PASS="$2"; shift 2 ;;
     --port) PANEL_PORT="$2"; shift 2 ;;
     --psk) PSK="$2"; shift 2 ;;
+    --vpn-domain) VPN_DOMAIN="$2"; shift 2 ;;
+    --panel-domain) PANEL_DOMAIN="$2"; shift 2 ;;
+    --portal-port) PORTAL_PORT="$2"; shift 2 ;;
     --admin-ip) ADMIN_IP="$2"; shift 2 ;;
     --tz) SET_TZ="$2"; shift 2 ;;
     --no-ufw) ENABLE_UFW="n"; shift ;;
@@ -52,12 +56,18 @@ if [ -t 0 ]; then
   read -rp "Timezone Asia/Tehran? [Y/n]: " v; SET_TZ="${v:-y}"
   read -rp "Enable UFW? [Y/n]: " v; ENABLE_UFW="${v:-y}"
   read -rp "OpenConnect port [${OCSERV_PORT}]: " v; OCSERV_PORT="${v:-$OCSERV_PORT}"
+read -rp "VPN domain for clients (empty=IP only) [${VPN_DOMAIN}]: " v; VPN_DOMAIN="${v:-$VPN_DOMAIN}"
+  read -rp "Panel domain (empty=IP only) [${PANEL_DOMAIN}]: " v; PANEL_DOMAIN="${v:-$PANEL_DOMAIN}"
+  read -rp "Portal/sub port [${PORTAL_PORT}]: " v; PORTAL_PORT="${v:-$PORTAL_PORT}"
+  read -rp "SSL email for certificates [${ACME_EMAIL}]: " v; ACME_EMAIL="${v:-$ACME_EMAIL}"
 fi
 
 ADMIN_USER="$(sanitize "$ADMIN_USER" | tr -cd 'A-Za-z0-9_.-')"
 ADMIN_PASS="$(sanitize "$ADMIN_PASS")"; PSK="$(sanitize "$PSK")"
 ADMIN_USER="${ADMIN_USER:-admin}"; ADMIN_PASS="${ADMIN_PASS:-$(rand_str 12)}"; PSK="${PSK:-$(rand_str 20)}"
 [[ "$PANEL_PORT" =~ ^[1-9][0-9]{1,4}$ ]] || PANEL_PORT="8080"
+VPN_DOMAIN="${VPN_DOMAIN,,}"; PANEL_DOMAIN="${PANEL_DOMAIN,,}"
+  [[ "$PORTAL_PORT" =~ ^[1-9][0-9]{1,4}$ ]] || PORTAL_PORT="8448"
 
 info "Installing packages..."
 export DEBIAN_FRONTEND=noninteractive
@@ -669,6 +679,8 @@ def user_row_to_dict(row):
             'max_devices': row['max_devices'] or 0,
             'note': row['note'] or ''}
 
+
+
 def login_required(view):
     @wraps(view)
     def w(*a, **k):
@@ -677,18 +689,6 @@ def login_required(view):
         return view(*a, **k)
     return w
 
-@app.before_request
-def csrf_protect():
-    if request.method != 'POST': return None
-    src = request.headers.get('Origin') or request.headers.get('Referer')
-    if not src: return None
-    if urlparse(src).netloc and urlparse(src).netloc != request.host:
-        flash_i18n("درخواست نامعتبر رد شد.", "Invalid request rejected.")
-        return redirect(url_for('index') if session.get('admin') else url_for('login'))
-    return None
-
-
-# دو زبانه: پیام با کلید — JS سمت کلاینت متن درست رو انتخاب می‌کنه
 def flash_i18n(fa_text, en_text):
     session['flash_msg'] = {'fa': fa_text, 'en': en_text}
     flash('FA:' + fa_text + '|EN:' + en_text)
@@ -898,8 +898,11 @@ def user_status(key):
         if _m: oc_tcp = _m.group(1)
     except Exception:
         pass
+    d = (CFG.get('conn_domain') or '').strip()
+    base = ('https://' + d + ':8448') if d else request.url_root.rstrip('/')
     return render_template('user.html', u=ud, server_ip=SERVER_IP, psk=CFG['psk'],
-                           used_gb=used_gb, left_gb=left_gb, oc_tcp=oc_tcp)
+                           used_gb=used_gb, left_gb=left_gb, oc_tcp=oc_tcp,
+                           sub_base=base, conn_domain=d)
 
 @app.route('/add', methods=['POST'])
 @login_required
@@ -1258,12 +1261,37 @@ def settings_dns():
 @app.route('/settings/port', methods=['POST'])
 @login_required
 def settings_port():
+    # ---- دامنه اتصال: از همان فرم ذخیره می‌شود ----
+    d = (request.form.get('domain') or '').strip().lower().rstrip('.')
+    domain_changed = False
+    if d and not DOMAIN_RE.match(d):
+        flash_err("فرمت دامنه نامعتبر است.", "Invalid domain format.")
+        return redirect(url_for('settings_page'))
+    if d != (CFG.get('conn_domain') or ''):
+        CFG['conn_domain'] = d
+        CFG.pop('conn_domain_cert', None)
+        domain_changed = True
+        _save_config()
+
     port = request.form.get('port', '').strip()
     if not port.isdigit() or not (1024 <= int(port) <= 65535):
-        flash_err("پورت نامعتبر است.", "Invalid port.")
+        if domain_changed:
+            _trigger_cert_bg(d)
+            flash_bi('دامنه ذخیره شد؛ گواهی در پس‌زمینه گرفته می‌شود.',
+                     'Domain saved; certificate is being issued in background.')
+        else:
+            flash_err("پورت نامعتبر است.", "Invalid port.")
         return redirect(url_for('settings_page'))
     if port == _panel_port():
-        flash_err("چیزی برای تغییر وارد نشده است.", "Nothing to change.")
+        if domain_changed or (d and CFG.get('conn_domain_cert') != d):
+            _trigger_cert_bg(d)
+            flash_bi('دامنه ذخیره شد؛ گواهی در پس‌زمینه گرفته می‌شود.',
+                     'Domain saved; certificate is being issued in background.')
+        elif d and CFG.get('conn_domain_cert') == d:
+            flash_bi('دامنه و گواهی از قبل فعال است. برای صدور مجدد دکمه «گرفتن گواهی» را بزنید.',
+                     'Domain and certificate already active. Use "Get Certificate" to re-issue.')
+        else:
+            flash_err("چیزی برای تغییر وارد نشده است.", "Nothing to change.")
         return redirect(url_for('settings_page'))
     try:
         svc_path = '/etc/systemd/system/l2tp-panel.service'
@@ -1277,6 +1305,8 @@ def settings_port():
     except Exception:
         flash_i18n("ریستارت ناموفق!", "Restart failed!")
         return redirect(url_for('settings_page'))
+    if CFG.get('conn_domain') and CFG.get('conn_domain_cert') != CFG.get('conn_domain'):
+        _trigger_cert_bg(CFG['conn_domain'])
     new_url = 'http://%s:%s/' % (request.host.split(':')[0], port)
     try:
         subprocess.run(['systemd-run', '--collect', '--unit=l2tp-portchg',
@@ -1362,7 +1392,6 @@ def restore_backup():
             for k in ('admin_user', 'admin_pass', 'psk'):
                 if cfg.get(k):
                     CFG[k] = cfg[k]
-            _save_config()
         except Exception:
             pass
     # restore PSK into ipsec.secrets
@@ -1413,7 +1442,7 @@ def clients_page():
            'xl2tpd': service_active('xl2tpd'), 'nat': service_active('l2tp-nat'),
            'ocserv': service_active('ocserv'),
            'ikev2': service_active('strongswan-starter') or service_active('ipsec')}
-    return render_template('clients.html', admin_user=CFG['admin_user'], users=users, server_ip=SERVER_IP, psk=CFG['psk'],
+    return render_template('clients.html', admin_user=CFG['admin_user'], users=users, server_ip=SERVER_IP, psk=CFG['psk'], CFG=CFG,
                            active_count=active_count, total_count=len(users),
                            online_count=len(online_users),
                            expiring_count=expiring, expired_count=expired_c, svc=svc)
@@ -1593,6 +1622,159 @@ def _ipsec_params():
     return mtu, cipher
 
 
+
+# ================= Connection Domain (SNI) + Auto-SSL =================
+DOMAIN_RE = re.compile(r'^(?=.{4,253}$)(?!-)[A-Za-z0-9-]{1,63}(\.[A-Za-z0-9-]{1,63})*\.[A-Za-z]{2,}$')
+
+def _trigger_cert_bg(d):
+    """صدور گواهی در پس‌زمینه + نصب در ocserv"""
+    try:
+        bg = ("#!/bin/bash\nS=/tmp/domain-cert-status; echo running > $S\nLOG=/tmp/acme-domain.log\n"
+              "/root/.acme.sh/acme.sh --issue -d " + d + " -w /var/www/html --server letsencrypt --keylength ec-256 --force >> $LOG 2>&1 && "
+              "/root/.acme.sh/acme.sh --install-cert -d " + d + " --ecc "
+              "--fullchain-file /etc/ocserv/certs/server-cert.pem --key-file /etc/ocserv/certs/server-key.pem "
+              "--reloadcmd 'mkdir -p /etc/nginx/ssl; cp /etc/ocserv/certs/server-cert.pem /etc/nginx/ssl/portal.crt; cp /etc/ocserv/certs/server-key.pem /etc/nginx/ssl/portal.key; systemctl reload nginx' "
+              "--reloadcmd 'systemctl restart ocserv; mkdir -p /etc/nginx/ssl; cp /etc/ocserv/certs/server-cert.pem /etc/nginx/ssl/portal.crt; cp /etc/ocserv/certs/server-key.pem /etc/nginx/ssl/portal.key; systemctl reload nginx' >> $LOG 2>&1 && echo ok > $S || echo fail > $S\n")
+        subprocess.Popen(['/bin/bash', '-c', bg], start_new_session=True,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
+
+
+# ================= Panel Domain + Secret Path =================
+import secrets as _secrets_mod
+
+def _panel_secret():
+    return (CFG.get('panel_secret') or '').strip('/')
+
+
+def _gen_secret():
+    return _secrets_mod.token_urlsafe(24)
+
+@app.route('/settings/panel-domain', methods=['POST'])
+@login_required
+def settings_panel_domain():
+    d = (request.form.get('panel_domain') or '').strip().lower().rstrip('.')
+    if d and not DOMAIN_RE.match(d):
+        flash_err('فرمت دامنه پنل نامعتبر است.', 'Invalid panel domain format.')
+        return redirect(url_for('settings_page'))
+    CFG['panel_domain'] = d
+    _save_config()
+    if d:
+        flash_bi('دامنه پنل ذخیره شد؛ گواهی پس‌زمینه.', 'Panel domain saved; cert in background.')
+        _trigger_panel_cert_bg(d)
+    else:
+        flash_bi('دامنه پنل حذف شد.', 'Panel domain cleared.')
+    return redirect(url_for('settings_page'))
+
+@app.route('/settings/panel-secret', methods=['POST'])
+@login_required
+def settings_panel_secret():
+    act = request.form.get('action', '')
+    if act == 'generate':
+        CFG['panel_secret'] = _gen_secret()
+        _save_config()
+        _nd = CFG.get('panel_domain') or request.host.split(':')[0]
+        flash_bi('Secret ساخته شد! آدرس ورود: https://' + _nd + ':8000/?key=' + CFG['panel_secret'],
+                 'Secret generated! Panel URL: https://' + _nd + ':8000/' + CFG['panel_secret'] + '/')
+    elif act == 'remove':
+        CFG['panel_secret'] = ''
+        _save_config()
+        flash_bi('Secret حذف شد.', 'Secret removed.')
+    return redirect(url_for('settings_page'))
+
+def _trigger_panel_cert_bg(d):
+    """گواهی دامنه پنل + ساخت nginx block اختصاصی با SNI"""
+    try:
+        # nginx block برای دامنه پنل (placeholder = گواهی فعلی تا واقعی بیاید)
+        nginx_conf = (
+            'server {\n'
+            '    listen 8000 ssl;\n    listen [::]:8000 ssl;\n'
+            '    server_name ' + d + ';\n'
+            '    ssl_certificate /etc/nginx/ssl/panel.crt;\n'
+            '    ssl_certificate_key /etc/nginx/ssl/panel.key;\n'
+            '    location / { proxy_pass http://127.0.0.1:9000; proxy_set_header Host $host; proxy_set_header X-Real-IP $remote_addr; proxy_set_header X-Forwarded-Proto https; proxy_redirect off; }\n'
+            '}\n')
+        bg = ("#!/bin/bash\nS=/tmp/panel-cert-status; echo running > $S\nLOG=/tmp/acme-panel.log\n"
+              "mkdir -p /etc/nginx/ssl\n"
+              "[ -f /etc/nginx/ssl/panel.crt ] || { cp /etc/ocserv/certs/server-cert.pem /etc/nginx/ssl/panel.crt; cp /etc/ocserv/certs/server-key.pem /etc/nginx/ssl/panel.key; }\n"
+              "printf '%s' " + repr(nginx_conf).replace("'", "'\\''") + " > /etc/nginx/sites-available/vpn-panel-domain\n"
+              "ln -sf /etc/nginx/sites-available/vpn-panel-domain /etc/nginx/sites-enabled/\n"
+              "nginx -t && systemctl reload nginx || systemctl restart nginx\n"
+              "/root/.acme.sh/acme.sh --issue -d " + d + " -w /var/www/html --server letsencrypt --keylength ec-256 --force >> $LOG 2>&1 && "
+              "/root/.acme.sh/acme.sh --install-cert -d " + d + " --ecc "
+              "--fullchain-file /etc/nginx/ssl/panel.crt --key-file /etc/nginx/ssl/panel.key "
+              "--reloadcmd 'systemctl reload nginx' >> $LOG 2>&1 && echo ok > $S || echo fail > $S\n")
+        subprocess.Popen(['/bin/bash', '-c', bg], start_new_session=True,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
+
+def _cert_info():
+    try:
+        out = subprocess.run(['openssl', 'x509', '-in', '/etc/ocserv/certs/server-cert.pem',
+                              '-noout', '-subject', '-enddate'],
+                             capture_output=True, text=True, timeout=8).stdout
+        exp = ''
+        for ln in out.splitlines():
+            if ln.startswith('notAfter='):
+                exp = ln.split('=', 1)[1].strip()
+        return {'expires': exp}
+    except Exception:
+        return {'expires': ''}
+
+@app.route('/settings/domain', methods=['POST'])
+@login_required
+def settings_domain():
+    d = (request.form.get('domain') or '').strip().lower().rstrip('.')
+    if d and not DOMAIN_RE.match(d):
+        flash_err('فرمت دامنه نامعتبر است. مثال: vpn.example.com',
+                  'Invalid domain format. Example: vpn.example.com')
+        return redirect(url_for('settings_page'))
+    CFG['conn_domain'] = d
+    _save_config()
+    if d:
+        flash_bi('دامنه ذخیره شد. حالا گواهی SSL بگیرید.', 'Domain saved. Now issue SSL certificate.')
+    else:
+        flash_bi('دامنه حذف شد — اتصال با IP.', 'Domain cleared — clients connect by IP.')
+    return redirect(url_for('settings_page'))
+
+@app.route('/settings/domain-cert', methods=['POST'])
+@login_required
+def settings_domain_cert():
+    d = (CFG.get('conn_domain') or '').strip()
+    if not d:
+        flash_err('اول دامنه را ذخیره کنید.', 'Save the domain first.')
+        return redirect(url_for('settings_page'))
+    LOG = '/tmp/acme-domain.log'
+    script = ("#!/bin/bash\nset -x\nexec > " + LOG + " 2>&1\n"
+              "/root/.acme.sh/acme.sh --issue -d " + d + " -w /var/www/html --server letsencrypt --keylength ec-256 --force || exit 1\n"
+              "/root/.acme.sh/acme.sh --install-cert -d " + d + " --ecc "
+              "--fullchain-file /etc/ocserv/certs/server-cert.pem --key-file /etc/ocserv/certs/server-key.pem "
+              "--reloadcmd 'mkdir -p /etc/nginx/ssl; cp /etc/ocserv/certs/server-cert.pem /etc/nginx/ssl/portal.crt; cp /etc/ocserv/certs/server-key.pem /etc/nginx/ssl/portal.key; systemctl reload nginx' "
+              "--reloadcmd 'systemctl restart ocserv; mkdir -p /etc/nginx/ssl; cp /etc/ocserv/certs/server-cert.pem /etc/nginx/ssl/portal.crt; cp /etc/ocserv/certs/server-key.pem /etc/nginx/ssl/portal.key; systemctl reload nginx' || exit 1\necho CERT_OK\n")
+    try:
+        r = subprocess.run(['/bin/bash', '-c', script], capture_output=True, text=True, timeout=180)
+        ok = 'CERT_OK' in (r.stdout or '') and r.returncode == 0
+    except Exception:
+        ok = False
+    if ok:
+        CFG['conn_domain_cert'] = d
+        _save_config()
+        info = _cert_info()
+        flash_bi('گواهی ' + d + ' صادر و نصب شد — تا ' + info.get('expires','?') + '. کاربران: ' + d + ':8443',
+                 'Certificate for ' + d + ' issued — valid until ' + info.get('expires','?') + '. Clients: ' + d + ':8443')
+    else:
+        tail = ''
+        try:
+            tail = ' | ' + ' '.join(open(LOG).read().splitlines()[-3:])[:300]
+        except Exception:
+            pass
+        flash_err('صدور گواهی ناموفق! رکورد A دامنه باید به این IP اشاره کند و پورت 80 باز باشد.' + tail,
+                  'Certificate failed! Domain A record must point here, port 80 open.' + tail)
+    return redirect(url_for('settings_page'))
+
+
 @app.route('/settings')
 @login_required
 def settings_page():
@@ -1618,11 +1800,25 @@ def settings_page():
                               'Some rules failed:' + _c.replace('fail:', ' '))
     except Exception:
         pass
+    try:
+        _st = '/tmp/domain-cert-status'
+        if os.path.exists(_st):
+            _c = open(_st).read().strip()
+            if _c in ('ok', 'fail'):
+                if _c == 'ok':
+                    flash_bi('گواهی دامنه صادر و نصب شد ✓', 'Domain certificate issued ✓')
+                else:
+                    flash_err('گواهی‌گیری ناموفق! رکورد A دامنه و پورت 80 را چک کنید. لاگ: /tmp/acme-domain.log',
+                              'Certificate failed! Check A record and port 80. Log: /tmp/acme-domain.log')
+                os.remove(_st)
+    except Exception:
+        pass
     return render_template('settings.html', fw_state=_firewall_state(), server_ip=SERVER_IP, psk=CFG['psk'],
                            admin_user=CFG['admin_user'], panel_port=_panel_port(),
                            default_dns1=def_dns[0], default_dns2=def_dns[1], svc=svc,
                            ocserv_tcp=ocp[0], ocserv_udp=ocp[1],
-                           ipsec_mtu=ip[0], ipsec_cipher=ip[1])
+                           ipsec_mtu=ip[0], ipsec_cipher=ip[1],
+                           CFG=CFG, cert_info=_cert_info())
 
 
 
@@ -1811,6 +2007,9 @@ def dz_delete_all():
 
 
 init_db()
+
+
+
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5000)
@@ -3701,7 +3900,7 @@ cat > "${PANEL_DIR}/templates/user.html" <<'ZQ_user_html'
             <div class="flex flex-col sm:flex-row gap-3">
                 <div class="relative flex-1 group">
                     <div class="absolute inset-y-0 start-0 flex items-center ps-4 pointer-events-none text-cyan-500"><i class="fa-solid fa-key"></i></div>
-                    <input type="text" id="subLink" value="{{ request.url_root }}u/{{ u.key }}" class="bg-white dark:bg-black/40 border border-gray-200 dark:border-white/10 text-sm sm:text-base rounded-xl block w-full ps-11 p-3.5 text-gray-900 dark:text-white outline-none font-mono tracking-wide" readonly>
+                    <input type="text" id="subLink" value="{{ sub_base }}/u/{{ u.key }}" class="bg-white dark:bg-black/40 border border-gray-200 dark:border-white/10 text-sm sm:text-base rounded-xl block w-full ps-11 p-3.5 text-gray-900 dark:text-white outline-none font-mono tracking-wide" readonly>
                 </div>
                 <div class="flex gap-2">
                     <button onclick="copyToClipboard('subLink', this)" class="flex-1 sm:flex-none px-6 py-3.5 rounded-xl bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white font-bold shadow-[0_5px_20px_rgba(168,85,247,0.4)] transition-all flex items-center justify-center gap-2">
@@ -3735,7 +3934,7 @@ cat > "${PANEL_DIR}/templates/user.html" <<'ZQ_user_html'
                             <div class="flex items-center justify-between bg-white dark:bg-white/5 p-2.5 rounded-lg border border-gray-200 dark:border-white/5">
                                 <div class="flex flex-col">
                                     <span class="text-[9px] text-gray-400 uppercase tracking-widest" data-fa="آدرس سرور" data-en="Server Address">آدرس سرور</span>
-                                    <span class="text-xs font-mono text-gray-900 dark:text-gray-100 font-bold mt-0.5" id="oc-server">{{ server_ip }}{% if oc_tcp %}:{{ oc_tcp }}{% endif %}</span>
+                                    <span class="text-xs font-mono text-gray-900 dark:text-gray-100 font-bold mt-0.5" id="oc-server">{{ conn_domain or server_ip }}{% if oc_tcp %}:{{ oc_tcp }}{% endif %}</span>
                                 </div>
                                 <button onclick="copyToClipboard('oc-server', this, true)" class="w-7 h-7 rounded bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-500 hover:text-blue-500 transition-colors">
                                     <i class="fa-regular fa-copy text-[10px]"></i>
@@ -3773,7 +3972,7 @@ cat > "${PANEL_DIR}/templates/user.html" <<'ZQ_user_html'
                             <div class="flex items-center justify-between bg-white dark:bg-white/5 p-2.5 rounded-lg border border-gray-200 dark:border-white/5">
                                 <div class="flex flex-col">
                                     <span class="text-[9px] text-gray-400 uppercase tracking-widest" data-fa="آدرس سرور" data-en="Server Address">آدرس سرور</span>
-                                    <span class="text-xs font-mono text-gray-900 dark:text-gray-100 font-bold mt-0.5" id="l2tp-server">{{ server_ip }}</span>
+                                    <span class="text-xs font-mono text-gray-900 dark:text-gray-100 font-bold mt-0.5" id="l2tp-server">{{ conn_domain or server_ip }}</span>
                                 </div>
                                 <button onclick="copyToClipboard('l2tp-server', this, true)" class="w-7 h-7 rounded bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-500 hover:text-orange-500 transition-colors">
                                     <i class="fa-regular fa-copy text-[10px]"></i>
@@ -3861,7 +4060,7 @@ cat > "${PANEL_DIR}/templates/user.html" <<'ZQ_user_html'
             <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-1" data-fa="بارکد اتصال (QR Code)" data-en="Connection QR Code">بارکد اتصال (QR Code)</h3>
             <p class="text-xs text-gray-500 mb-6" data-fa="با دوربین گوشی خود اسکن کنید" data-en="Scan with your phone camera">با دوربین گوشی خود اسکن کنید</p>
             <div class="bg-white p-4 rounded-2xl mx-auto w-fit shadow-lg mb-6">
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={{ (request.url_root ~ 'u/' ~ u.key)|urlencode }}&color=000000&bgcolor=ffffff" alt="QR Code" class="w-48 h-48 rounded-lg">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={{ (sub_base ~ '/u/' ~ u.key)|urlencode }}&color=000000&bgcolor=ffffff" alt="QR Code" class="w-48 h-48 rounded-lg">
             </div>
             <p class="text-[10px] text-orange-500 font-bold" data-fa="لطفاً این بارکد را به هیچ‌کس نشان ندهید." data-en="Please do not show this barcode to anyone.">لطفاً این بارکد را به هیچ‌کس نشان ندهید.</p>
         </div>
@@ -4370,3 +4569,169 @@ echo -e " User status     : http://${PUB_IP}:${PANEL_PORT}/u/<USER_KEY>"
 echo
 warn "Save these credentials!"
 warn "Open UDP 500/4500/1701, TCP+UDP ${OCSERV_PORT} + TCP ${PANEL_PORT} in provider firewall."
+
+# =====================================================================
+#  PART 4 — Domains, SSL certificates & nginx portal
+# =====================================================================
+if [ -n "$VPN_DOMAIN" ] || [ -n "$PANEL_DOMAIN" ]; then
+  info "[D] Domains -> VPN: ${VPN_DOMAIN:-none} | Panel: ${PANEL_DOMAIN:-none}"
+  WANIP="$(curl -4 -s --max-time 5 ifconfig.me || echo '')"
+  apt-get install -y nginx >/dev/null 2>&1 || true
+  rm -f /etc/nginx/sites-enabled/default
+  mkdir -p /var/www/html/.well-known/acme-challenge /etc/nginx/ssl
+
+  if [ ! -x /root/.acme.sh/acme.sh ]; then
+    curl -fsSL https://get.acme.sh | sh -s email="${ACME_EMAIL:-admin@${VPN_DOMAIN:-example.com}}" >/dev/null 2>&1 || true
+  fi
+  ACME="/root/.acme.sh/acme.sh"; [ -x "$ACME" ] || ACME=""
+
+  # وب‌سرور چالش روی 80 (برای صدور و تمدیدهای بعدی)
+  cat > /usr/local/bin/acme-web.py <<'PYW'
+#!/usr/bin/env python3
+import http.server, socketserver
+class H(http.server.SimpleHTTPRequestHandler):
+    def __init__(self,*a,**k): super().__init__(*a,directory="/var/www/html",**k)
+    def log_message(self,*a): pass
+socketserver.TCPServer.allow_reuse_address=True
+with socketserver.ThreadingTCPServer(("0.0.0.0",80),H) as h: h.serve_forever()
+PYW
+  cat > /etc/systemd/system/acme-web.service <<'UNITS'
+[Unit]
+Description=ACME HTTP-01 web server
+After=network.target
+[Service]
+ExecStart=/usr/bin/python3 /usr/local/bin/acme-web.py
+Restart=always
+RestartSec=3
+[Install]
+WantedBy=multi-user.target
+UNITS
+  systemctl daemon-reload
+  systemctl enable --now acme-web >/dev/null 2>&1 || true
+  ufw allow 80/tcp >/dev/null 2>&1 || true
+  sleep 1
+
+  issue_cert(){
+    local d="$1" i
+    [ -x "$ACME" ] || return 1
+    for i in 1 2 3; do
+      "$ACME" --issue -d "$d" -w /var/www/html --server letsencrypt --keylength ec-256 --force >"/tmp/acme-$d.log" 2>&1 && return 0
+      warn "[D] cert try $i for $d failed (A record -> $WANIP ?) retry 15s..."
+      sleep 15
+    done
+    return 1
+  }
+  selfsigned(){
+    local d="$1"
+    openssl req -x509 -newkey rsa:2048 -nodes -days 825 -subj "/CN=$d" \
+      -keyout "/etc/nginx/ssl/$d.key" -out "/etc/nginx/ssl/$d.crt" >/dev/null 2>&1
+  }
+
+  # --- ذخیره دامنه‌ها در config پنل ---
+  python3 - <<PYC
+import json
+p = "/opt/l2tp-panel/config.json"
+c = json.load(open(p))
+c["conn_domain"]  = "${VPN_DOMAIN}"
+c["panel_domain"] = "${PANEL_DOMAIN}"
+json.dump(c, open(p, "w"), indent=2)
+print("[D] config.json domains saved")
+PYC
+
+  # --- گواهی دامنه VPN → ocserv ---
+  VPN_CERT_OK=0
+  if [ -n "$VPN_DOMAIN" ]; then
+    if issue_cert "$VPN_DOMAIN"; then
+      "$ACME" --install-cert -d "$VPN_DOMAIN" --ecc \
+        --fullchain-file /etc/ocserv/certs/server-cert.pem \
+        --key-file /etc/ocserv/certs/server-key.pem \
+        --reloadcmd "systemctl restart ocserv" >/dev/null 2>&1 || true
+      VPN_CERT_OK=1
+      ok "[D] VPN domain certificate installed (ocserv restarted)"
+    else
+      warn "[D] VPN cert FAILED — check A record of $VPN_DOMAIN -> $WANIP (issue later from panel button)"
+    fi
+  fi
+
+  # --- دامنه پنل → گواهی + nginx + انتقال gunicorn به 9000 ---
+  if [ -n "$PANEL_DOMAIN" ]; then
+    if issue_cert "$PANEL_DOMAIN"; then
+      "$ACME" --install-cert -d "$PANEL_DOMAIN" --ecc \
+        --fullchain-file /etc/nginx/ssl/panel.crt \
+        --key-file /etc/nginx/ssl/panel.key \
+        --reloadcmd "systemctl reload nginx" >/dev/null 2>&1 || true
+      ok "[D] Panel domain certificate installed"
+    else
+      selfsigned "$PANEL_DOMAIN"
+      cp "/etc/nginx/ssl/$PANEL_DOMAIN.crt" /etc/nginx/ssl/panel.crt
+      cp "/etc/nginx/ssl/$PANEL_DOMAIN.key" /etc/nginx/ssl/panel.key
+      warn "[D] Panel cert failed -> temporary self-signed (issue later from panel)"
+    fi
+    sed -i "s/--bind 0.0.0.0:${PANEL_PORT}/--bind 127.0.0.1:9000/" /etc/systemd/system/l2tp-panel.service || true
+    cat > /etc/nginx/sites-available/vpn-panel <<PNLCNF
+server {
+    listen ${PANEL_PORT} ssl;
+    listen [::]:${PANEL_PORT} ssl;
+    server_name ${PANEL_DOMAIN};
+    ssl_certificate /etc/nginx/ssl/panel.crt;
+    ssl_certificate_key /etc/nginx/ssl/panel.key;
+    location / {
+        proxy_pass http://127.0.0.1:9000;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+}
+PNLCNF
+    ln -sf /etc/nginx/sites-available/vpn-panel /etc/nginx/sites-enabled/vpn-panel
+    systemctl daemon-reload
+    warn "[D] Panel by IP:${PANEL_PORT} disabled — use https://${PANEL_DOMAIN}:${PANEL_PORT}"
+  fi
+
+  BACKEND="127.0.0.1:${PANEL_PORT}"
+  [ -n "$PANEL_DOMAIN" ] && BACKEND="127.0.0.1:9000"
+
+  # --- پورتال ساب روی PORTAL_PORT ---
+  if [ -n "$VPN_DOMAIN" ]; then
+    if [ "$VPN_CERT_OK" = "1" ]; then
+      CERT_LINE="    ssl_certificate /etc/ocserv/certs/server-cert.pem;"
+      KEY_LINE="    ssl_certificate_key /etc/ocserv/certs/server-key.pem;"
+    else
+      selfsigned "$VPN_DOMAIN"
+      CERT_LINE="    ssl_certificate /etc/nginx/ssl/${VPN_DOMAIN}.crt;"
+      KEY_LINE="    ssl_certificate_key /etc/nginx/ssl/${VPN_DOMAIN}.key;"
+    fi
+    cat > /etc/nginx/sites-available/vpn-portal <<PNLCNF
+server {
+    listen ${PORTAL_PORT} ssl;
+    listen [::]:${PORTAL_PORT} ssl;
+    server_name ${VPN_DOMAIN};
+ ${CERT_LINE}
+ ${KEY_LINE}
+    location /u/ {
+        proxy_pass http://${BACKEND};
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+}
+PNLCNF
+    ln -sf /etc/nginx/sites-available/vpn-portal /etc/nginx/sites-enabled/vpn-portal
+    ufw allow "${PORTAL_PORT}/tcp" >/dev/null 2>&1 || true
+  fi
+
+  # پورت ساب در لینک‌های پنل:
+  sed -i "s/':8448') if d/':${PORTAL_PORT}') if d/" /opt/l2tp-panel/panel.py || true
+
+  nginx -t && systemctl restart nginx && systemctl enable nginx >/dev/null 2>&1 || warn "[D] nginx problem!"
+  systemctl restart l2tp-panel ocserv 2>/dev/null || true
+
+  echo ""
+  ok "[D] ============== DOMAIN SUMMARY =============="
+  [ -n "$VPN_DOMAIN" ]   && echo -e "  OpenConnect : ${CYAN}${VPN_DOMAIN}:${OCSERV_PORT}${NC}"
+  [ -n "$VPN_DOMAIN" ]   && echo -e "  L2TP/IKEv2  : ${CYAN}${VPN_DOMAIN}${NC} (same PSK)"
+  [ -n "$VPN_DOMAIN" ]   && echo -e "  Portal (sub): ${CYAN}https://${VPN_DOMAIN}:${PORTAL_PORT}/u/<USER_KEY>${NC}"
+  [ -n "$PANEL_DOMAIN" ] && echo -e "  Panel       : ${CYAN}https://${PANEL_DOMAIN}:${PANEL_PORT}/${NC}"
+  [ -n "$VPN_DOMAIN" ]   && warn "[D] Tell users: connect with DOMAIN, not IP!"
+fi
+

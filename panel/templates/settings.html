@@ -175,20 +175,92 @@
                                 <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none text-gray-400"><i class="fa-solid fa-door-open"></i></div>
                                 <input type="number" name="port" value="{{ panel_port }}" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-3 text-gray-900 dark:text-white transition-all outline-none font-mono">
                             </div>
-                            <p class="text-[10px] text-gray-500 mt-1" data-fa="پورت جدید خودکار در فایروال باز و ریدایرکت می‌شود" data-en="New port auto-opens in firewall; you'll be redirected">پورت جدید خودکار در فایروال باز و ریدایرکت می‌شود</p>
+                            <p class="text-[10px] text-gray-500 mt-1" data-fa="پورت جدید خودکار در فایروال باز و ریدایرکت می‌شود" data-en="New port auto-openin firewall; you'll be redirected">پورت جدید خودکار در فایروال باز و ریدایرکت می‌شود</p>
                         </div>
-                        <div class="opacity-60">
-                            <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider" data-fa="دامنه اتصال (SNI)" data-en="Connection Domain (SNI)">دامنه اتصال (SNI)</label>
-                            <div class="relative">
-                                <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none text-gray-400"><i class="fa-solid fa-link"></i></div>
-                                <input type="text" disabled value="{{ server_ip }}" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl block w-full ps-10 p-3 text-gray-500 transition-all outline-none font-mono">
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider" data-fa="دامنه اتصال (SNI)" data-en="Connection Domain (SNI)">دامنه اتصال (SNI)</label>
+                                {% if CFG.get('conn_domain') %}
+                                <span class="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200/60 dark:border-emerald-500/20 px-2 py-1 rounded-lg">✅ {{ CFG.get('conn_domain') }}{% if cert_info.expires %} · گواهی تا {{ cert_info.expires }}{% endif %}</span>
+                                {% endif %}
                             </div>
+                            <div class="flex gap-2 items-center">
+                                <div class="relative flex-1">
+                                    <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none text-gray-400"><i class="fa-solid fa-link"></i></div>
+                                    <input type="text" name="domain" value="{{ CFG.get('conn_domain','') }}" placeholder="vpn.example.com" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-3 text-gray-900 dark:text-white transition-all outline-none font-mono">
+                                </div>
+                                <button type="submit" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-blue-500 hover:from-indigo-400 hover:to-blue-400 text-white font-bold text-xs shadow-md shadow-indigo-500/20 hover:opacity-90 transition-all whitespace-nowrap cursor-pointer flex items-center gap-2"><i class="fa-solid fa-link"></i> <span data-fa="ذخیره دامنه" data-en="Save Domain">ذخیره دامنه</span></button>
+                            </div>
+                            {% if CFG.get('conn_domain') %}
+                            <form method="post" action="/settings/domain-cert" class="mt-3">
+                                <button type="submit" class="w-full px-3 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-bold text-[11px] shadow-md shadow-emerald-500/20 hover:opacity-90 transition-all cursor-pointer flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-certificate"></i> <span data-fa="گرفتن گواهی SSL برای این دامنه" data-en="Get SSL Certificate for this domain">گرفتن گواهی SSL برای این دامنه</span>
+                                </button>
+                            </form>
+                            {% endif %}
                         </div>
                         <div class="pt-5 mt-5 border-t border-gray-200/50 dark:border-white/5 flex justify-end">
                             <button type="submit" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-bold text-xs shadow-lg shadow-blue-500/30 hover:opacity-90 transition-all flex items-center gap-2 cursor-pointer"><i class="fa-solid fa-floppy-disk"></i> <span data-fa="ذخیره پنل" data-en="Save Panel">ذخیره پنل</span></button>
                         </div>
-                    </form>
+                    </form></div>
+<div class="glass-card p-6 lg:p-8 rounded-3xl relative overflow-hidden h-fit flex flex-col">
+                    <div class="absolute top-0 left-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                    <div class="flex items-center gap-3 mb-6 relative z-10 border-b border-gray-200/50 dark:border-white/5 pb-4">
+                        <div class="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400"><i class="fa-solid fa-user-secret"></i></div>
+                        <div>
+                            <h3 class="font-bold text-lg" data-fa="آدرس مخفی پنل" data-en="Secret Panel Address">آدرس مخفی پنل</h3>
+                            <p class="text-[10px] text-gray-500" data-fa="پنل فقط با لینک کامل — اسکنرها 404 می‌بینند" data-en="Panel only via full link — scanners see 404">پنل فقط با لینک کامل — اسکنرها 404 می‌بینند</p>
+                        </div>
+                    </div>
+                    <div class="space-y-4 relative z-10">
+                        <div class="flex gap-2 items-center">
+                            <div class="relative flex-1">
+                                <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none text-gray-400"><i class="fa-solid fa-globe"></i></div>
+                                <input type="text" id="panelDomainInput" value="{{ CFG.get('panel_domain','') }}" placeholder="panel.example.com" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm rounded-xl block w-full ps-10 p-3 text-gray-900 dark:text-white transition-all outline-none font-mono">
+                            </div>
+                            <button type="button" onclick="savePanelDomain()" class="px-4 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white font-bold text-xs transition-all whitespace-nowrap cursor-pointer" data-fa="ذخیره دامنه پنل" data-en="Save Panel Domain">ذخیره دامنه پنل</button>
+                        </div>
+                        <script>
+                        function savePanelDomain(){
+                            var d = document.getElementById('panelDomainInput').value.trim();
+                            var fd = new FormData(); fd.append('panel_domain', d);
+                            fetch('/settings/panel-domain', {method:'POST', body: fd, credentials:'same-origin'})
+                              .then(r => { if(!r.ok) throw r.status; location.reload(); })
+                              .catch(e => alert('خطا در ذخیره دامنه پنل: ' + e));
+                        }
+                        </script>
+                        {% if CFG.get('panel_domain') %}
+                        <p class="text-[10px] text-gray-500" data-fa="رکورد A دامنه پنل به IP سرور اشاره کند — گواهی پس‌زمینه گرفته می‌شود" data-en="Panel domain A record must point here — cert issued in background">رکورد A دامنه پنل به IP سرور اشاره کند — گواهی پس‌زمینه گرفته می‌شود</p>
+                        {% endif %}
+                        <div class="flex gap-2 items-center flex-wrap">
+                            {% if CFG.get('panel_secret') %}
+                            <div class="flex-1 min-w-[260px]">
+                                <p class="text-[10px] text-gray-500 mb-1" data-fa="آدرس فعلی (در جای امن نگه دارید):" data-en="Current address (keep it safe):">آدرس فعلی (در جای امن نگه دارید):</p>
+                                <div class="bg-gray-50 dark:bg-black/40 border border-emerald-200 dark:border-emerald-500/30 rounded-xl p-2.5 font-mono text-[11px] text-emerald-600 dark:text-emerald-400 break-all select-all">https://{{ CFG.get('panel_domain') or server_ip }}:8000/?key={{ CFG.get('panel_secret') }}</div>
+                            </div>
+                            {% endif %}
+                            <form method="post" action="/settings/panel-secret">
+                                <input type="hidden" name="action" value="generate">
+                                <button type="submit" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 text-white font-bold text-xs transition-all cursor-pointer flex items-center gap-2">
+                                    <i class="fa-solid fa-wand-magic-sparkles"></i> <span data-fa="Generate Secret" data-en="Generate Secret">Generate Secret</span>
+                                </button>
+                            </form>
+                            {% if CFG.get('panel_secret') %}
+                            <form method="post" action="/settings/panel-secret" onsubmit="return confirm('Secret حذف شود؟');">
+                                <input type="hidden" name="action" value="remove">
+                                <button type="submit" class="px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300 font-bold text-xs border border-gray-200 dark:border-white/10 cursor-pointer" data-fa="حذف Secret" data-en="Remove Secret">حذف Secret</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                        {% if CFG.get('panel_secret') %}
+                        <p class="text-[10px] text-orange-500" data-fa="⚠️ فقط با آدرس کامل وارد شوید — بدون Secret پنل 404 می‌دهد!" data-en="⚠️ Only the full URL works — without it the panel returns 404!">⚠️ فقط با آدرس کامل وارد شوید — بدون Secret پنل 404 می‌دهد!</p>
+                        {% endif %}
+                    </div>
                 </div>
+
+                <!-- ۳: پروتکل‌ها -->
+                
+
 
                 <!-- ۳: پروتکل‌ها -->
                 <div class="glass-card p-6 lg:p-8 rounded-3xl relative overflow-hidden h-fit xl:col-span-2 flex flex-col">

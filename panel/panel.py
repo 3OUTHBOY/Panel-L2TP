@@ -328,6 +328,8 @@ def user_row_to_dict(row):
             'max_devices': row['max_devices'] or 0,
             'note': row['note'] or ''}
 
+
+
 def login_required(view):
     @wraps(view)
     def w(*a, **k):
@@ -336,18 +338,6 @@ def login_required(view):
         return view(*a, **k)
     return w
 
-@app.before_request
-def csrf_protect():
-    if request.method != 'POST': return None
-    src = request.headers.get('Origin') or request.headers.get('Referer')
-    if not src: return None
-    if urlparse(src).netloc and urlparse(src).netloc != request.host:
-        flash_i18n("درخواست نامعتبر رد شد.", "Invalid request rejected.")
-        return redirect(url_for('index') if session.get('admin') else url_for('login'))
-    return None
-
-
-# دو زبانه: پیام با کلید — JS سمت کلاینت متن درست رو انتخاب می‌کنه
 def flash_i18n(fa_text, en_text):
     session['flash_msg'] = {'fa': fa_text, 'en': en_text}
     flash('FA:' + fa_text + '|EN:' + en_text)
@@ -557,8 +547,11 @@ def user_status(key):
         if _m: oc_tcp = _m.group(1)
     except Exception:
         pass
+    d = (CFG.get('conn_domain') or '').strip()
+    base = ('https://' + d + ':8448') if d else request.url_root.rstrip('/')
     return render_template('user.html', u=ud, server_ip=SERVER_IP, psk=CFG['psk'],
-                           used_gb=used_gb, left_gb=left_gb, oc_tcp=oc_tcp)
+                           used_gb=used_gb, left_gb=left_gb, oc_tcp=oc_tcp,
+                           sub_base=base, conn_domain=d)
 
 @app.route('/add', methods=['POST'])
 @login_required
@@ -917,12 +910,37 @@ def settings_dns():
 @app.route('/settings/port', methods=['POST'])
 @login_required
 def settings_port():
+    # ---- دامنه اتصال: از همان فرم ذخیره می‌شود ----
+    d = (request.form.get('domain') or '').strip().lower().rstrip('.')
+    domain_changed = False
+    if d and not DOMAIN_RE.match(d):
+        flash_err("فرمت دامنه نامعتبر است.", "Invalid domain format.")
+        return redirect(url_for('settings_page'))
+    if d != (CFG.get('conn_domain') or ''):
+        CFG['conn_domain'] = d
+        CFG.pop('conn_domain_cert', None)
+        domain_changed = True
+        _save_config()
+
     port = request.form.get('port', '').strip()
     if not port.isdigit() or not (1024 <= int(port) <= 65535):
-        flash_err("پورت نامعتبر است.", "Invalid port.")
+        if domain_changed:
+            _trigger_cert_bg(d)
+            flash_bi('دامنه ذخیره شد؛ گواهی در پس‌زمینه گرفته می‌شود.',
+                     'Domain saved; certificate is being issued in background.')
+        else:
+            flash_err("پورت نامعتبر است.", "Invalid port.")
         return redirect(url_for('settings_page'))
     if port == _panel_port():
-        flash_err("چیزی برای تغییر وارد نشده است.", "Nothing to change.")
+        if domain_changed or (d and CFG.get('conn_domain_cert') != d):
+            _trigger_cert_bg(d)
+            flash_bi('دامنه ذخیره شد؛ گواهی در پس‌زمینه گرفته می‌شود.',
+                     'Domain saved; certificate is being issued in background.')
+        elif d and CFG.get('conn_domain_cert') == d:
+            flash_bi('دامنه و گواهی از قبل فعال است. برای صدور مجدد دکمه «گرفتن گواهی» را بزنید.',
+                     'Domain and certificate already active. Use "Get Certificate" to re-issue.')
+        else:
+            flash_err("چیزی برای تغییر وارد نشده است.", "Nothing to change.")
         return redirect(url_for('settings_page'))
     try:
         svc_path = '/etc/systemd/system/l2tp-panel.service'
@@ -936,6 +954,8 @@ def settings_port():
     except Exception:
         flash_i18n("ریستارت ناموفق!", "Restart failed!")
         return redirect(url_for('settings_page'))
+    if CFG.get('conn_domain') and CFG.get('conn_domain_cert') != CFG.get('conn_domain'):
+        _trigger_cert_bg(CFG['conn_domain'])
     new_url = 'http://%s:%s/' % (request.host.split(':')[0], port)
     try:
         subprocess.run(['systemd-run', '--collect', '--unit=l2tp-portchg',
@@ -1021,7 +1041,6 @@ def restore_backup():
             for k in ('admin_user', 'admin_pass', 'psk'):
                 if cfg.get(k):
                     CFG[k] = cfg[k]
-            _save_config()
         except Exception:
             pass
     # restore PSK into ipsec.secrets
@@ -1072,7 +1091,7 @@ def clients_page():
            'xl2tpd': service_active('xl2tpd'), 'nat': service_active('l2tp-nat'),
            'ocserv': service_active('ocserv'),
            'ikev2': service_active('strongswan-starter') or service_active('ipsec')}
-    return render_template('clients.html', admin_user=CFG['admin_user'], users=users, server_ip=SERVER_IP, psk=CFG['psk'],
+    return render_template('clients.html', admin_user=CFG['admin_user'], users=users, server_ip=SERVER_IP, psk=CFG['psk'], CFG=CFG,
                            active_count=active_count, total_count=len(users),
                            online_count=len(online_users),
                            expiring_count=expiring, expired_count=expired_c, svc=svc)
@@ -1252,6 +1271,159 @@ def _ipsec_params():
     return mtu, cipher
 
 
+
+# ================= Connection Domain (SNI) + Auto-SSL =================
+DOMAIN_RE = re.compile(r'^(?=.{4,253}$)(?!-)[A-Za-z0-9-]{1,63}(\.[A-Za-z0-9-]{1,63})*\.[A-Za-z]{2,}$')
+
+def _trigger_cert_bg(d):
+    """صدور گواهی در پس‌زمینه + نصب در ocserv"""
+    try:
+        bg = ("#!/bin/bash\nS=/tmp/domain-cert-status; echo running > $S\nLOG=/tmp/acme-domain.log\n"
+              "/root/.acme.sh/acme.sh --issue -d " + d + " -w /var/www/html --server letsencrypt --keylength ec-256 --force >> $LOG 2>&1 && "
+              "/root/.acme.sh/acme.sh --install-cert -d " + d + " --ecc "
+              "--fullchain-file /etc/ocserv/certs/server-cert.pem --key-file /etc/ocserv/certs/server-key.pem "
+              "--reloadcmd 'mkdir -p /etc/nginx/ssl; cp /etc/ocserv/certs/server-cert.pem /etc/nginx/ssl/portal.crt; cp /etc/ocserv/certs/server-key.pem /etc/nginx/ssl/portal.key; systemctl reload nginx' "
+              "--reloadcmd 'systemctl restart ocserv; mkdir -p /etc/nginx/ssl; cp /etc/ocserv/certs/server-cert.pem /etc/nginx/ssl/portal.crt; cp /etc/ocserv/certs/server-key.pem /etc/nginx/ssl/portal.key; systemctl reload nginx' >> $LOG 2>&1 && echo ok > $S || echo fail > $S\n")
+        subprocess.Popen(['/bin/bash', '-c', bg], start_new_session=True,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
+
+
+# ================= Panel Domain + Secret Path =================
+import secrets as _secrets_mod
+
+def _panel_secret():
+    return (CFG.get('panel_secret') or '').strip('/')
+
+
+def _gen_secret():
+    return _secrets_mod.token_urlsafe(24)
+
+@app.route('/settings/panel-domain', methods=['POST'])
+@login_required
+def settings_panel_domain():
+    d = (request.form.get('panel_domain') or '').strip().lower().rstrip('.')
+    if d and not DOMAIN_RE.match(d):
+        flash_err('فرمت دامنه پنل نامعتبر است.', 'Invalid panel domain format.')
+        return redirect(url_for('settings_page'))
+    CFG['panel_domain'] = d
+    _save_config()
+    if d:
+        flash_bi('دامنه پنل ذخیره شد؛ گواهی پس‌زمینه.', 'Panel domain saved; cert in background.')
+        _trigger_panel_cert_bg(d)
+    else:
+        flash_bi('دامنه پنل حذف شد.', 'Panel domain cleared.')
+    return redirect(url_for('settings_page'))
+
+@app.route('/settings/panel-secret', methods=['POST'])
+@login_required
+def settings_panel_secret():
+    act = request.form.get('action', '')
+    if act == 'generate':
+        CFG['panel_secret'] = _gen_secret()
+        _save_config()
+        _nd = CFG.get('panel_domain') or request.host.split(':')[0]
+        flash_bi('Secret ساخته شد! آدرس ورود: https://' + _nd + ':8000/?key=' + CFG['panel_secret'],
+                 'Secret generated! Panel URL: https://' + _nd + ':8000/' + CFG['panel_secret'] + '/')
+    elif act == 'remove':
+        CFG['panel_secret'] = ''
+        _save_config()
+        flash_bi('Secret حذف شد.', 'Secret removed.')
+    return redirect(url_for('settings_page'))
+
+def _trigger_panel_cert_bg(d):
+    """گواهی دامنه پنل + ساخت nginx block اختصاصی با SNI"""
+    try:
+        # nginx block برای دامنه پنل (placeholder = گواهی فعلی تا واقعی بیاید)
+        nginx_conf = (
+            'server {\n'
+            '    listen 8000 ssl;\n    listen [::]:8000 ssl;\n'
+            '    server_name ' + d + ';\n'
+            '    ssl_certificate /etc/nginx/ssl/panel.crt;\n'
+            '    ssl_certificate_key /etc/nginx/ssl/panel.key;\n'
+            '    location / { proxy_pass http://127.0.0.1:9000; proxy_set_header Host $host; proxy_set_header X-Real-IP $remote_addr; proxy_set_header X-Forwarded-Proto https; proxy_redirect off; }\n'
+            '}\n')
+        bg = ("#!/bin/bash\nS=/tmp/panel-cert-status; echo running > $S\nLOG=/tmp/acme-panel.log\n"
+              "mkdir -p /etc/nginx/ssl\n"
+              "[ -f /etc/nginx/ssl/panel.crt ] || { cp /etc/ocserv/certs/server-cert.pem /etc/nginx/ssl/panel.crt; cp /etc/ocserv/certs/server-key.pem /etc/nginx/ssl/panel.key; }\n"
+              "printf '%s' " + repr(nginx_conf).replace("'", "'\\''") + " > /etc/nginx/sites-available/vpn-panel-domain\n"
+              "ln -sf /etc/nginx/sites-available/vpn-panel-domain /etc/nginx/sites-enabled/\n"
+              "nginx -t && systemctl reload nginx || systemctl restart nginx\n"
+              "/root/.acme.sh/acme.sh --issue -d " + d + " -w /var/www/html --server letsencrypt --keylength ec-256 --force >> $LOG 2>&1 && "
+              "/root/.acme.sh/acme.sh --install-cert -d " + d + " --ecc "
+              "--fullchain-file /etc/nginx/ssl/panel.crt --key-file /etc/nginx/ssl/panel.key "
+              "--reloadcmd 'systemctl reload nginx' >> $LOG 2>&1 && echo ok > $S || echo fail > $S\n")
+        subprocess.Popen(['/bin/bash', '-c', bg], start_new_session=True,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
+
+def _cert_info():
+    try:
+        out = subprocess.run(['openssl', 'x509', '-in', '/etc/ocserv/certs/server-cert.pem',
+                              '-noout', '-subject', '-enddate'],
+                             capture_output=True, text=True, timeout=8).stdout
+        exp = ''
+        for ln in out.splitlines():
+            if ln.startswith('notAfter='):
+                exp = ln.split('=', 1)[1].strip()
+        return {'expires': exp}
+    except Exception:
+        return {'expires': ''}
+
+@app.route('/settings/domain', methods=['POST'])
+@login_required
+def settings_domain():
+    d = (request.form.get('domain') or '').strip().lower().rstrip('.')
+    if d and not DOMAIN_RE.match(d):
+        flash_err('فرمت دامنه نامعتبر است. مثال: vpn.example.com',
+                  'Invalid domain format. Example: vpn.example.com')
+        return redirect(url_for('settings_page'))
+    CFG['conn_domain'] = d
+    _save_config()
+    if d:
+        flash_bi('دامنه ذخیره شد. حالا گواهی SSL بگیرید.', 'Domain saved. Now issue SSL certificate.')
+    else:
+        flash_bi('دامنه حذف شد — اتصال با IP.', 'Domain cleared — clients connect by IP.')
+    return redirect(url_for('settings_page'))
+
+@app.route('/settings/domain-cert', methods=['POST'])
+@login_required
+def settings_domain_cert():
+    d = (CFG.get('conn_domain') or '').strip()
+    if not d:
+        flash_err('اول دامنه را ذخیره کنید.', 'Save the domain first.')
+        return redirect(url_for('settings_page'))
+    LOG = '/tmp/acme-domain.log'
+    script = ("#!/bin/bash\nset -x\nexec > " + LOG + " 2>&1\n"
+              "/root/.acme.sh/acme.sh --issue -d " + d + " -w /var/www/html --server letsencrypt --keylength ec-256 --force || exit 1\n"
+              "/root/.acme.sh/acme.sh --install-cert -d " + d + " --ecc "
+              "--fullchain-file /etc/ocserv/certs/server-cert.pem --key-file /etc/ocserv/certs/server-key.pem "
+              "--reloadcmd 'mkdir -p /etc/nginx/ssl; cp /etc/ocserv/certs/server-cert.pem /etc/nginx/ssl/portal.crt; cp /etc/ocserv/certs/server-key.pem /etc/nginx/ssl/portal.key; systemctl reload nginx' "
+              "--reloadcmd 'systemctl restart ocserv; mkdir -p /etc/nginx/ssl; cp /etc/ocserv/certs/server-cert.pem /etc/nginx/ssl/portal.crt; cp /etc/ocserv/certs/server-key.pem /etc/nginx/ssl/portal.key; systemctl reload nginx' || exit 1\necho CERT_OK\n")
+    try:
+        r = subprocess.run(['/bin/bash', '-c', script], capture_output=True, text=True, timeout=180)
+        ok = 'CERT_OK' in (r.stdout or '') and r.returncode == 0
+    except Exception:
+        ok = False
+    if ok:
+        CFG['conn_domain_cert'] = d
+        _save_config()
+        info = _cert_info()
+        flash_bi('گواهی ' + d + ' صادر و نصب شد — تا ' + info.get('expires','?') + '. کاربران: ' + d + ':8443',
+                 'Certificate for ' + d + ' issued — valid until ' + info.get('expires','?') + '. Clients: ' + d + ':8443')
+    else:
+        tail = ''
+        try:
+            tail = ' | ' + ' '.join(open(LOG).read().splitlines()[-3:])[:300]
+        except Exception:
+            pass
+        flash_err('صدور گواهی ناموفق! رکورد A دامنه باید به این IP اشاره کند و پورت 80 باز باشد.' + tail,
+                  'Certificate failed! Domain A record must point here, port 80 open.' + tail)
+    return redirect(url_for('settings_page'))
+
+
 @app.route('/settings')
 @login_required
 def settings_page():
@@ -1277,11 +1449,25 @@ def settings_page():
                               'Some rules failed:' + _c.replace('fail:', ' '))
     except Exception:
         pass
+    try:
+        _st = '/tmp/domain-cert-status'
+        if os.path.exists(_st):
+            _c = open(_st).read().strip()
+            if _c in ('ok', 'fail'):
+                if _c == 'ok':
+                    flash_bi('گواهی دامنه صادر و نصب شد ✓', 'Domain certificate issued ✓')
+                else:
+                    flash_err('گواهی‌گیری ناموفق! رکورد A دامنه و پورت 80 را چک کنید. لاگ: /tmp/acme-domain.log',
+                              'Certificate failed! Check A record and port 80. Log: /tmp/acme-domain.log')
+                os.remove(_st)
+    except Exception:
+        pass
     return render_template('settings.html', fw_state=_firewall_state(), server_ip=SERVER_IP, psk=CFG['psk'],
                            admin_user=CFG['admin_user'], panel_port=_panel_port(),
                            default_dns1=def_dns[0], default_dns2=def_dns[1], svc=svc,
                            ocserv_tcp=ocp[0], ocserv_udp=ocp[1],
-                           ipsec_mtu=ip[0], ipsec_cipher=ip[1])
+                           ipsec_mtu=ip[0], ipsec_cipher=ip[1],
+                           CFG=CFG, cert_info=_cert_info())
 
 
 
@@ -1470,6 +1656,9 @@ def dz_delete_all():
 
 
 init_db()
+
+
+
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5000)
